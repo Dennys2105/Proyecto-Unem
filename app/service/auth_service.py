@@ -6,8 +6,8 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
 
-from app.models.db_models import Usuario, Rol
-from app.schemas.esq_usuarios import UserCreate, UserLogin
+from app.models.unem_db_models import Usuario, Rol, Credencial
+from app.schemas.esq_auth import UserRegister, UserLogin, UsuarioResposive
 # Configuración de Cifrado y JWT
 
 load_dotenv()
@@ -53,25 +53,20 @@ def verificar_token(token: str) -> dict:
 
 # --- Operaciones de Servicio con Base de Datos ---
 
-def registrar_usuario(session: Session, datos: UserCreate) -> Usuario:
+def registrar_usuario(session: Session, datos: UserRegister) -> UsuarioResposive:
     # 1. Verificar si el correo ya existe en la BD
-    statement = select(Usuario).where(Usuario.correo == datos.correo)
+    statement = select(Usuario).where(Usuario.username == datos.username)
     usuario_existente = session.exec(statement).first()
     if usuario_existente:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El correo electrónico ya está registrado"
+            detail="El Username ya está existe"
         )
-    
-    # 2. Convertir la contraseña a hash
-    hash_clave = get_password_hash(datos.password)
     
     # 3. Crear la instancia del modelo alineada exactamente a db_models.py
     nuevo_usuario = Usuario(
         username=datos.username,
-        correo=datos.correo,
-        password=hash_clave,
-        rol_id=datos.rol_id  # Usamos rol_id para recibir el entero (int)
+        id_rol=datos.id_rol  # Usamos id_rol para recibir el entero (int)
     )
     
     # 4. Guardar en la base de datos
@@ -79,25 +74,72 @@ def registrar_usuario(session: Session, datos: UserCreate) -> Usuario:
     session.commit()
     session.refresh(nuevo_usuario)
     
+    # 2. Convertir la contraseña a hash
+    hash_clave = get_password_hash(datos.password)
+    
+    # 4. Crear la credencial asociada usando el id_usu recién creado
+    nueva_credencial = Credencial(
+        id_usu=nuevo_usuario.id_usu,
+        password_hash=hash_clave
+    )
+    
+    session.add(nueva_credencial)
+    session.commit()
+    
     return nuevo_usuario
 
 def iniciar_sesion(session: Session, datos: UserLogin) -> dict:
     # 1. Buscar el usuario por email en la BD
-    statement = select(Usuario).where(Usuario.correo == datos.correo)
-    usuario = session.exec(statement).first()
-    
-    # 2. Validar existencia de usuario y contraseña hasheada
-    if not usuario or not verify_password(datos.password, usuario.password):
+    statement = select(Usuario, Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu).where(Usuario.username == datos.username)
+    resultado = session.exec(statement).first()
+
+    if not resultado:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales inválidas"
         )
-    
+
+    hora_actual = datetime.now(timezone.utc)
+    usuario, credencial = resultado
+
+    if credencial.bloqueado_hasta and credencial.bloqueado_hasta > hora_actual:
+        # Calcular cuántos minutos le quedan
+        tiempo_restante = int((credencial.bloqueado_hasta - hora_actual).total_seconds() / 60)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Cuenta temporalmente bloqueada. Inténtalo de nuevo en {tiempo_restante} minutos."
+        )
+
+    elif not verify_password(datos.password, credencial.password_hash):
+        credencial.intentos_fallidos += 1
+        if credencial.intentos_fallidos >= 5:
+            credencial.bloqueado_hasta = hora_actual + timedelta(minutes=15)
+            credencial.intentos_fallidos = 0  # Reiniciar intentos fallidos después de bloquear
+            session.add(credencial)
+            session.commit()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Has superado los 5 intentos. Tu cuenta ha sido bloqueada por 15 minutos."
+            )
+        
+        session.add(credencial)
+        session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Contraseña inválida"
+        )
+
+    credencial.intentos_fallidos = 0
+    credencial.bloqueado_hasta = None
+    credencial.ultimo_acceso = hora_actual
+    session.add(credencial)
+    session.commit()
+
     # 3. Generar el Token JWT
     token = crear_token({
-        "sub": usuario.correo,
-        "rol": usuario.rol_id,
-        "id": usuario.id
+        "sub": usuario.username,
+        "rol": usuario.id_rol,
+        "id": usuario.id_usu
     })
     
     return {

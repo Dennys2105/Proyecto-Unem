@@ -1,6 +1,6 @@
 from typing import Optional, Any, Dict
 from datetime import datetime, date, time
-from sqlmodel import SQLModel, Field, Column
+from sqlmodel import SQLModel, Field, Column, Relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
 # ==========================================
@@ -14,6 +14,11 @@ class Municipio(SQLModel, table=True):
     id_mun: Optional[int] = Field(default=None, primary_key=True)
     nombre: str = Field(max_length=255)
     estatus: str = Field(default="A", max_length=1)
+    
+    #relaciones
+    docentes: list["Docente"] = Relationship(back_populates="municipio")
+    estudiantes: list["Estudiante"] = Relationship(back_populates="municipio")
+    espacios_fisicos: list["EspacioFisico"] = Relationship(back_populates="municipio")
 
 class Rol(SQLModel, table=True):
     __tablename__ = "roles"
@@ -23,6 +28,9 @@ class Rol(SQLModel, table=True):
     rol: str = Field(max_length=255)
     descripcion: Optional[str] = Field(default=None, max_length=500)
     estatus: str = Field(default="A", max_length=1)
+    
+    #relaciones
+    usuarios: list["Usuario"] = Relationship(back_populates="rol")
 
 class DiaLaboral(SQLModel, table=True):
     __tablename__ = "dias_laborales"
@@ -32,7 +40,12 @@ class DiaLaboral(SQLModel, table=True):
     dia: str = Field(max_length=50)
     orden: int
     estatus: str = Field(default="A", max_length=1)
-
+    
+    #relaciones
+    disponibilidad: list["DisponibilidadDocente"] = Relationship(back_populates="dia")
+    asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="dia_laboral")
+    
+    
 class Usuario(SQLModel, table=True):
     __tablename__ = "usuarios"
     __table_args__ = {"schema": "general"}
@@ -44,6 +57,14 @@ class Usuario(SQLModel, table=True):
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
+    #relaciones
+    estudiante: Optional["Estudiante"] = Relationship(back_populates="usuario")
+    docente: Optional["Docente"] = Relationship(back_populates="usuario")
+    credencial: Optional["Credencial"] = Relationship(back_populates="usuario")
+    auditoria_movimientos: list["AuditoriaMovimiento"] = Relationship(back_populates="usuario")
+
+    rol: Optional[Rol] = Relationship(back_populates="usuarios")
+
 class Credencial(SQLModel, table=True):
     __tablename__ = "credenciales"
     __table_args__ = {"schema": "general"}
@@ -54,6 +75,9 @@ class Credencial(SQLModel, table=True):
     ultimo_acceso: Optional[datetime] = Field(default=None)
     intentos_fallidos: int = Field(default=0)
     bloqueado_hasta: Optional[datetime] = Field(default=None)
+    
+    #relaciones
+    usuario: Optional["Usuario"] = Relationship(back_populates="credencial")
 
 class AuditoriaMovimiento(SQLModel, table=True):
     __tablename__ = "aud_mov"
@@ -68,7 +92,10 @@ class AuditoriaMovimiento(SQLModel, table=True):
     fecha_hora: datetime = Field(default_factory=datetime.utcnow)
     dir_ip: Optional[str] = Field(default=None, max_length=45)
     estatus: str = Field(default="A", max_length=1)
-
+    
+    #relaciones
+    usuario: Optional[Usuario] = Relationship(back_populates="auditoria_movimientos")
+    
 # ==========================================
 # ESQUEMA: personas
 # ==========================================
@@ -92,6 +119,14 @@ class Docente(SQLModel, table=True):
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
+    #relaciones
+    disponibilidad: list["DisponibilidadDocente"] = Relationship(back_populates="docente")
+    asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="docente")
+    
+    usuario: Usuario = Relationship(back_populates="docente")
+    municipio: Municipio = Relationship(back_populates="docentes")
+
+
 class Estudiante(SQLModel, table=True):
     __tablename__ = "estudiantes"
     __table_args__ = {"schema": "personas"}
@@ -108,6 +143,11 @@ class Estudiante(SQLModel, table=True):
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
+    #relaciones
+    usuario: Usuario = Relationship(back_populates="estudiante")
+    municipio: Municipio = Relationship(back_populates="estudiantes")
+    programa: Programa = Relationship(back_populates="estudiantes")
+
 class DisponibilidadDocente(SQLModel, table=True):
     __tablename__ = "disponibilidad_docente"
     __table_args__ = {"schema": "personas"}
@@ -118,6 +158,10 @@ class DisponibilidadDocente(SQLModel, table=True):
     hora_inicio: time
     hora_fin: time
     estatus: str = Field(default="A", max_length=1)
+
+    #relaciones
+    docente: Optional[Docente] = Relationship(back_populates="disponibilidad")
+    dia: Optional[DiaLaboral] = Relationship(back_populates="disponibilidad")
 
 # ==========================================
 # ESQUEMA: academico
@@ -136,6 +180,11 @@ class Programa(SQLModel, table=True):
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
+    
+    #relaciones
+    estudiantes: list["Estudiante"] = Relationship(back_populates="programa")
+    malla_curricular: list["MallaCurricular"] = Relationship(back_populates="programa")
+    secciones: list["Seccion"] = Relationship(back_populates="programa")
 
 class EjeFormativo(SQLModel, table=True):
     __tablename__ = "ejes_formativos"
@@ -146,6 +195,9 @@ class EjeFormativo(SQLModel, table=True):
     nombre: str = Field(max_length=100)
     descripcion: Optional[str] = Field(default=None, max_length=255)
     estatus: str = Field(default="A", max_length=1)
+
+    #relaciones
+    materias: list[Materia] = Relationship(back_populates="eje_formativo")
 
 class Materia(SQLModel, table=True):
     __tablename__ = "materias"
@@ -161,6 +213,9 @@ class Materia(SQLModel, table=True):
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
+    #relaciones
+    eje_formativo: EjeFormativo = Relationship(back_populates="materias")
+
 class MallaCurricular(SQLModel, table=True):
     __tablename__ = "malla_curricular"
     __table_args__ = {"schema": "academico"}
@@ -174,6 +229,12 @@ class MallaCurricular(SQLModel, table=True):
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
+
+    #ojo, aqui hay dos relaciones con la misma tabla Materia, una es la materia y otra es el prerequisito, y no logre hacer que se relacionara normalmente
+    #relaciones
+    asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="malla_curricular")
+    
+    programa: Programa = Relationship(back_populates="malla_curricular")
 
 class PeriodoAcademico(SQLModel, table=True):
     __tablename__ = "periodos_academicos"
@@ -190,6 +251,9 @@ class PeriodoAcademico(SQLModel, table=True):
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
+    
+    #relaciones
+    asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="periodo_academico")
 
 class Seccion(SQLModel, table=True):
     __tablename__ = "secciones"
@@ -204,6 +268,10 @@ class Seccion(SQLModel, table=True):
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
+
+    #relaciones
+    programa: Optional[Programa] = Relationship(back_populates="secciones") 
+
 
 # ==========================================
 # ESQUEMA: infraestructura
@@ -225,6 +293,10 @@ class EspacioFisico(SQLModel, table=True):
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
+    #relaciones
+    asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="espacio_fisico")
+    municipio: Municipio = Relationship(back_populates="espacios_fisicos")
+
 # ==========================================
 # ESQUEMA: horarios
 # ==========================================
@@ -239,6 +311,9 @@ class BloqueHorario(SQLModel, table=True):
     hora_fin: time
     tipo: str = Field(max_length=20)
     estatus: str = Field(default="A", max_length=1)
+    
+    #relaciones
+    asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="bloque_horario")
 
 class AsigCargaHoraria(SQLModel, table=True):
     __tablename__ = "asig_carga_horarias"
@@ -256,3 +331,11 @@ class AsigCargaHoraria(SQLModel, table=True):
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
+
+    #relaciones
+    docente: Docente = Relationship(back_populates="asig_carga_horaria")
+    espacio_fisico: EspacioFisico = Relationship(back_populates="asig_carga_horaria")
+    malla_curricular: MallaCurricular = Relationship(back_populates="asig_carga_horaria")
+    periodo_academico: PeriodoAcademico = Relationship(back_populates="asig_carga_horaria")
+    dia_laboral: DiaLaboral = Relationship(back_populates="asig_carga_horaria")
+    bloque_horario: BloqueHorario = Relationship(back_populates="asig_carga_horaria")
