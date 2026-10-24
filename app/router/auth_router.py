@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
 from app.config.db_conection import get_session
-from app.schemas.esq_auth import UserRegister, UsuarioResposive,UserLogin
+from app.schemas.esq_auth import UserRegister, UsuarioResposive,UserLogin, UsuarioWithCredencialesResposive
 import app.service.auth_service as service
-from app.dependencies.auth_deps import verificar_token
+from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
 
 router= APIRouter(
     prefix="/Auth",
@@ -17,10 +17,10 @@ def registrar(auth_in: UserRegister, session: Session = Depends(get_session)):
     return service.registrar_usuario(session, datos=auth_in)
 
 @router.post("/login")
-def login(datos: UserLogin, session: Session =Depends(get_session)):
-    return service.iniciar_sesion(session, datos)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    return service.iniciar_sesion(form_data, session)
 
 # --- read all ---
-@router.get("/listar_usuarios", response_model=List[UsuarioResposive])
+@router.get("/listar_usuarios", response_model=List[UsuarioWithCredencialesResposive])
 def listar_usuarios(session: Session = Depends(get_session)):
     return service.listar_usuarios(session)

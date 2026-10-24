@@ -115,6 +115,7 @@ class Docente(SQLModel, table=True):
     horas_max_sem: int
     horas_asignadas: int = Field(default=0)
     horas_disponibles: int
+    telefono: str | None = Field(default=None, max_length=20)
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)

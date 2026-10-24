@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
 from app.config.db_conection import get_session
-from app.dependencies.programas_deps import validar_codigo_unico
+from app.models.unem_db_models import Programa
+from app.dependencies.pruebas_optimizacion import validar_unicidad
 from app.schemas.esq_programas import ProgramasCreate, ProgramasRemplace, ProgramasResposive, ProgramasUpdate
 import app.service.programas_service as service
 
@@ -14,7 +15,7 @@ router = APIRouter(
 # --- CREATE ---
 @router.post("/", response_model=ProgramasResposive, status_code=status.HTTP_201_CREATED)
 def crear_programa(programa_in: ProgramasCreate, session: Session = Depends(get_session)):
-    validar_codigo_unico(programa_in, session, id=None)
+    validar_unicidad(Programa,"codigo")(programa_in,session)
     return service.crear_programa(session, programa_in)
 
 # --- READ ALL ---
@@ -33,7 +34,7 @@ def leer_ptograma_id(programa_id: int, session: Session = Depends(get_session)):
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{programa_id}", response_model=ProgramasResposive)
 def actualizar_parcial_programa(programa_id: int, programa_in: ProgramasUpdate, session: Session = Depends(get_session)):
-    validar_codigo_unico(programa_in, session, id=programa_id)
+    validar_unicidad(Programa,"codigo","id_pro")(programa_in,session,programa_id)
     
     db_programa = service.obtener_programa_por_id(programa_id, session)
     if not db_programa:

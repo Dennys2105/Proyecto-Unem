@@ -8,6 +8,8 @@ from app.router.dias_router import router as dias_router
 from app.router.ejes_formativos_router import router as ejes_router
 from app.router.period_aca_router import router as period_aca_router
 from app.router.auth_router import router as auth_router
+from app.router.docente_router import router as docente_router
+from app.router.bloq_hor_router import router as bloqur_hor_router
 
 
 app = FastAPI(
@@ -23,3 +25,5 @@ app.include_router(dias_router)
 app.include_router(ejes_router)
 app.include_router(period_aca_router)
 app.include_router(auth_router)
+app.include_router(docente_router)
+app.include_router(bloqur_hor_router)

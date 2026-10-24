@@ -5,11 +5,11 @@ from datetime import datetime, timezone, timedelta
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from sqlmodel import Session, select
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.models.unem_db_models import Usuario, Rol, Credencial
 from app.schemas.esq_auth import UserRegister, UserLogin, UsuarioResposive
 # Configuración de Cifrado y JWT
-
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -88,9 +88,12 @@ def registrar_usuario(session: Session, datos: UserRegister) -> UsuarioResposive
     
     return nuevo_usuario
 
-def iniciar_sesion(session: Session, datos: UserLogin) -> dict:
-    # 1. Buscar el usuario por email en la BD
-    statement = select(Usuario, Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu).where(Usuario.username == datos.username)
+def iniciar_sesion(form_data: OAuth2PasswordRequestForm, session: Session) -> dict:
+    # 1. Buscar el usuario por username(en el futuro se pienza hacer por email) en la BD
+    username = form_data.username
+    password = form_data.password
+
+    statement = select(Usuario, Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu).where(Usuario.username == username)
     resultado = session.exec(statement).first()
 
     if not resultado:
@@ -110,7 +113,7 @@ def iniciar_sesion(session: Session, datos: UserLogin) -> dict:
             detail=f"Cuenta temporalmente bloqueada. Inténtalo de nuevo en {tiempo_restante} minutos."
         )
 
-    elif not verify_password(datos.password, credencial.password_hash):
+    elif not verify_password(password, credencial.password_hash):
         credencial.intentos_fallidos += 1
         if credencial.intentos_fallidos >= 5:
             credencial.bloqueado_hasta = hora_actual + timedelta(minutes=15)
@@ -136,6 +139,7 @@ def iniciar_sesion(session: Session, datos: UserLogin) -> dict:
     session.commit()
 
     # 3. Generar el Token JWT
+    # hay que decir si nesesitas permisos extrar para ver si se crea scope
     token = crear_token({
         "sub": usuario.username,
         "rol": usuario.id_rol,
@@ -148,5 +152,15 @@ def iniciar_sesion(session: Session, datos: UserLogin) -> dict:
     }
 
 def listar_usuarios(session: Session):
-    statement = select(Usuario)
-    return session.exec(statement).all()
+    statement = select(Usuario,Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu)
+    usuarios = session.exec(statement).all()
+    
+    #hay una forma mas optima de hecer esto con selectinload, pero por cansacio lo hacemos asi
+    # Transformamos la tupla (usuario, credencial) al formato de diccionario que exige el esquema
+    return [
+        {
+            "usuario": usuario,
+            "credenciales": credencial
+        }
+        for usuario, credencial in usuarios
+    ]

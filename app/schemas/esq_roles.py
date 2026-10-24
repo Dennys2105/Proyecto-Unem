@@ -14,7 +14,6 @@ class RolesResposive(BaseModel):
     id_rol: int
     rol: str
     descripcion: str
-    estatus: str
 
 class RolesRemplace(BaseRoles):
     pass

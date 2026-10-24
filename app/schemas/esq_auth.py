@@ -11,23 +11,9 @@ class RolAsignados(int,Enum):
 
 class BaseCredenciales(BaseModel):
     id_usu: int
-    password_hash: str
-    ultimo_acceso: datetime
-    intentos_fallidos: int
-    bloqueado_hasta: datetime
-
-class CredencialesCreate(BaseCredenciales):
-    pass 
-
-class CrendecialesUpdate(BaseModel):
-    id_usu: int | None = None
-    password_hash: str | None = None
     ultimo_acceso: datetime | None = None
     intentos_fallidos: int | None = None
     bloqueado_hasta: datetime | None = None
-
-class CredencialesRemplace(BaseCredenciales):
-    pass
 
 class CredencialesResponcibe(BaseCredenciales):
     id_cre: int
@@ -37,9 +23,6 @@ class CredencialesResponcibe(BaseCredenciales):
 class BaseUsuario(BaseModel): 
     username: str
     id_rol: int
-
-class UsuarioCreate(BaseUsuario):
-    pass
 
 class UsuarioUpdate(BaseUsuario):
     username: str | None = None
@@ -61,10 +44,15 @@ class UsuarioRemplace(BaseUsuario):
 class UsuarioWithCredencialesResposive(BaseModel):
     usuario: UsuarioResposive
     credenciales: CredencialesResponcibe
+    
+    class Config:
+        from_attributes = True
 
 class UserLogin(BaseModel):
     username: str
     password: str
+    
+    
 
 class UserRegister(BaseModel):
     username: str
