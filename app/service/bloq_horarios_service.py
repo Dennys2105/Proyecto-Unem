@@ -11,25 +11,6 @@ from app.service.base_services import (
     eliminar_logico
 )
 
-def cond_inicio_fin(session: Session, datos_in: BloqueHorario, id= int):
-    inicio = datos_in.hora_inicio
-    fin = datos_in.hora_fin
-    
-    if not inicio and not fin:
-        return True
-    
-    if not inicio:
-        statement = select(BloqueHorario.hora_inicio).where(BloqueHorario.id_bloq == id)
-        inicio = session.exec(statement).first()
-    elif not fin:
-        statement = select(BloqueHorario.hora_fin).where(BloqueHorario.id_bloq == id)
-        fin = session.exec(statement).first()
-    
-    if inicio > fin:
-        return True
-    else:
-        return False
-
 def crear(session: Session, datos_in: BloqueHorarioCreate) -> BloqueHorario:
     validar_horas(datos_in.hora_inicio, datos_in.hora_fin)
     return crear_registro(db=session,modelo=BloqueHorario,datos_in=datos_in)

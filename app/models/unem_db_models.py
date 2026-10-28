@@ -226,7 +226,7 @@ class MallaCurricular(SQLModel, table=True):
     id_mat: int = Field(foreign_key="academico.materias.id_mat")
     trayecto: int
     periodo: int
-    prerequisito_id_mat: Optional[int] = Field(default=None, foreign_key="academico.materias.id_mat")
+    perequisito_id_mat: Optional[int] = Field(default=None, foreign_key="academico.materias.id_mat")
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
@@ -236,6 +236,16 @@ class MallaCurricular(SQLModel, table=True):
     asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="malla_curricular")
     
     programa: Programa = Relationship(back_populates="malla_curricular")
+    
+    # Relación con la materia principal (usando sa_column_kwargs o remote_side si es necesario para apuntar a la misma tabla)
+    materia: Optional["Materia"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[MallaCurricular.id_mat]"}
+    )
+
+    # Relación opcional con la materia que funge como prerrequisito
+    prerequisito_materia: Optional["Materia"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[MallaCurricular.perequisito_id_mat]"}
+    )
 
 class PeriodoAcademico(SQLModel, table=True):
     __tablename__ = "periodos_academicos"
@@ -323,10 +333,12 @@ class AsigCargaHoraria(SQLModel, table=True):
     id_asig: Optional[int] = Field(default=None, primary_key=True)
     id_doc: int = Field(foreign_key="personas.docentes.id_doc")
     id_esp: int = Field(foreign_key="infraestructura.espacios_fis.id_esp")
-    id_malla: int = Field(foreign_key="academico.malla_curricular.id_malla")
-    id_per: int = Field(foreign_key="academico.periodos_academicos.id_per")
     id_dia: int = Field(foreign_key="general.dias_laborales.id_dia")
     id_bloq: int = Field(foreign_key="horarios.bloques_horarios.id_bloq")
+    id_per: int = Field(foreign_key="academico.periodos_academicos.id_per")
+    id_malla: int = Field(foreign_key="academico.malla_curricular.id_malla")
+    hora_inicio : time
+    hora_fin : time
     tipo_actividad: str = Field(max_length=20)
     observaciones: Optional[str] = Field(default=None)
     estatus: str = Field(default="A", max_length=1)

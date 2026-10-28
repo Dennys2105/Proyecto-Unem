@@ -27,7 +27,7 @@ def crear_docente(docente_in: DocenteCreate, session: Session = Depends(get_sess
 
 # --- READ ALL ---
 @router.get("/", response_model=List[DocenteResponse])
-def leer_municipios(session: Session = Depends(get_session)):
+def leer_docentes(session: Session = Depends(get_session)):
     return service.leer_todos(session)
 
 # --- READ ONE ---

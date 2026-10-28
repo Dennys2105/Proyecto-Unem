@@ -14,7 +14,6 @@ def crear_registro(db: Session, modelo: Type[ModelType], datos_in: CreateSchemaT
     db.refresh(db_obj)
     return db_obj
 
-
 # --- 2. LEER TODOS LOS ACTIVOS ---
 def obtener_todos_activos(db: Session, modelo: Type[ModelType]) -> List[ModelType]:
     statement = select(modelo).where(modelo.estatus == "A")
