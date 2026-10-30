@@ -7,8 +7,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Dia, DiaCreate, DiaUpdate } from '../types/models';
 
+// Usamos z.string() para el orden para evitar conflictos de tipos con react-hook-form
 const diaSchema = z.object({
-  nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres').max(50, 'Máximo 50 caracteres'),
+  dia: z.string().min(3, 'El nombre del día debe tener al menos 3 caracteres').max(50, 'Máximo 50 caracteres'),
+  orden: z.string().min(1, 'El orden es obligatorio').max(1, 'Máximo 1 dígito'),
 });
 
 type DiaFormData = z.infer<typeof diaSchema>;
@@ -30,13 +32,13 @@ export const Dias = () => {
 
   const openCreateModal = () => {
     setEditingDia(null);
-    reset({ nombre: '' });
+    reset({ dia: '', orden: '1' });
     setIsModalOpen(true);
   };
 
   const openEditModal = (dia: Dia) => {
     setEditingDia(dia);
-    reset({ nombre: dia.nombre });
+    reset({ dia: dia.dia, orden: dia.orden.toString() });
     setIsModalOpen(true);
   };
 
@@ -47,10 +49,16 @@ export const Dias = () => {
   };
 
   const onSubmit = (data: DiaFormData) => {
+    // Convertimos el string a number solo aquí, para el payload del backend
+    const payload = {
+      dia: data.dia,
+      orden: parseInt(data.orden, 10),
+    };
+
     if (editingDia) {
-      updateDia({ id: editingDia.id_dia, data: data as DiaUpdate });
+      updateDia({ id: editingDia.id_dia, data: payload as DiaUpdate });
     } else {
-      createDia(data as DiaCreate);
+      createDia(payload as DiaCreate);
     }
     closeModal();
   };
@@ -68,7 +76,8 @@ export const Dias = () => {
 
   const columns = [
     { key: 'id_dia', label: 'ID' },
-    { key: 'nombre', label: 'Nombre' },
+    { key: 'dia', label: 'Día' },
+    { key: 'orden', label: 'Orden' },
     {
       key: 'estatus',
       label: 'Estado',
@@ -110,11 +119,19 @@ export const Dias = () => {
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <FormField
-                label="Nombre"
-                name="nombre"
+                label="Nombre del Día"
+                name="dia"
                 register={register}
                 errors={errors}
                 placeholder="Ej: Lunes"
+              />
+              <FormField
+                label="Orden (1-7)"
+                name="orden"
+                type="text"
+                register={register}
+                errors={errors}
+                placeholder="Ej: 1"
               />
               <div className="flex justify-end space-x-2">
                 <button
@@ -143,7 +160,7 @@ export const Dias = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-sm">
             <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
             <p className="text-gray-700 mb-6">
-              ¿Está seguro de eliminar el día <strong>{deleteConfirm.nombre}</strong>?
+              ¿Está seguro de eliminar el día <strong>{deleteConfirm.dia}</strong>?
             </p>
             <div className="flex justify-end space-x-2">
               <button

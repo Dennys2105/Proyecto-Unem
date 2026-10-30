@@ -1,15 +1,18 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, Calendar, LogOut, Menu, X, BookOpen, CalendarDays, Shield } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, UserCheck, Calendar, LogOut, Layers, Menu, X, BookOpen, CalendarDays, Shield, MapPin } from 'lucide-react';
 import { useState } from 'react';
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/municipios', label: 'Municipios', icon: Building2 },
-  { path: '/programas', label: 'Programas', icon: BookOpen },
-  { path: '/dias', label: 'Días Laborales', icon: CalendarDays },
-  { path: '/roles', label: 'Roles', icon: Shield },
-  { path: '/docentes', label: 'Docentes', icon: Users },
-  { path: '/horarios', label: 'Horarios', icon: Calendar },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/municipios', label: 'Municipios', icon: Building2 },
+    { path: '/programas', label: 'Programas', icon: BookOpen },
+    { path: '/docentes', label: 'Docentes', icon: Users },
+    { path: '/estudiantes', label: 'Estudiantes', icon: UserCheck }, // Nuevo
+    { path: '/dias', label: 'Días Laborales', icon: CalendarDays },
+    { path: '/roles', label: 'Roles', icon: Shield },
+    { path: '/secciones', label: 'Secciones', icon: Layers },
+    { path: '/espacios', label: 'Espacios Físicos', icon: MapPin },
+    { path: '/horarios', label: 'Horarios', icon: Calendar },
 ];
 
 export const Layout = () => {

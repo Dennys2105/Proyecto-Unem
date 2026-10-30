@@ -8,7 +8,8 @@ import { z } from 'zod';
 import type { Rol, RolCreate, RolUpdate } from '../types/models';
 
 const rolSchema = z.object({
-  nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres').max(50, 'Máximo 50 caracteres'),
+  rol: z.string().min(3, 'El nombre del rol debe tener al menos 3 caracteres').max(50, 'Máximo 50 caracteres'),
+  descripcion: z.string().max(150, 'Máximo 150 caracteres').optional(),
 });
 
 type RolFormData = z.infer<typeof rolSchema>;
@@ -30,13 +31,13 @@ export const Roles = () => {
 
   const openCreateModal = () => {
     setEditingRol(null);
-    reset({ nombre: '' });
+    reset({ rol: '', descripcion: '' });
     setIsModalOpen(true);
   };
 
   const openEditModal = (rol: Rol) => {
     setEditingRol(rol);
-    reset({ nombre: rol.nombre });
+    reset({ rol: rol.rol, descripcion: rol.descripcion || '' });
     setIsModalOpen(true);
   };
 
@@ -68,7 +69,7 @@ export const Roles = () => {
 
   const columns = [
     { key: 'id_rol', label: 'ID' },
-    { key: 'nombre', label: 'Nombre' },
+    { key: 'rol', label: 'Rol' },
     {
       key: 'estatus',
       label: 'Estado',
@@ -110,8 +111,15 @@ export const Roles = () => {
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <FormField
-                label="Nombre"
-                name="nombre"
+                label="Nombre del Rol"
+                name="rol"
+                register={register}
+                errors={errors}
+                placeholder="Ej: Administrador"
+              />
+              <FormField
+                label="Nombre del Rol"
+                name="rol"
                 register={register}
                 errors={errors}
                 placeholder="Ej: Administrador"
@@ -143,7 +151,7 @@ export const Roles = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-sm">
             <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
             <p className="text-gray-700 mb-6">
-              ¿Está seguro de eliminar el rol <strong>{deleteConfirm.nombre}</strong>?
+              ¿Está seguro de eliminar el rol <strong>{deleteConfirm.rol}</strong>?
             </p>
             <div className="flex justify-end space-x-2">
               <button

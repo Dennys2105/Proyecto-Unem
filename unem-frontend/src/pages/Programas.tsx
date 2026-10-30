@@ -65,7 +65,7 @@ export const Programas = () => {
   };
 
   const onSubmit = (data: ProgramaFormData) => {
-    const payload = {
+    const payload: any = {
       codigo: data.codigo,
       nombre: data.nombre,
       tipo_sistema: data.tipo_sistema,
@@ -73,6 +73,11 @@ export const Programas = () => {
       total_uc: data.total_uc ? parseInt(data.total_uc) : undefined,
     };
 
+    // Workaround para el bug del backend: enviar fecha actual si es creación
+    if (!editingPrograma) {
+      payload.actualizar = new Date().toISOString();
+    }
+    
     if (editingPrograma) {
       updatePrograma({ id: editingPrograma.id_pro, data: payload as ProgramaUpdate });
     } else {

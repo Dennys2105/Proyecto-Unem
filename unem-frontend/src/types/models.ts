@@ -139,29 +139,83 @@ export interface EstudianteUpdate {
 // Días Laborales
 export interface Dia {
   id_dia: number;
-  nombre: string;
+  dia: string; // Cambiado de 'nombre' a 'dia'
+  orden: number;
   estatus: string;
 }
 
 export interface DiaCreate {
-  nombre: string;
+  dia: string;
+  orden: number;
 }
 
 export interface DiaUpdate {
-  nombre?: string;
+  dia?: string;
+  orden?: number;
 }
 
 // Roles
 export interface Rol {
   id_rol: number;
-  nombre: string;
+  rol: string; // Cambiado de 'nombre' a 'rol'
+  descripcion?: string;
   estatus: string;
 }
 
 export interface RolCreate {
-  nombre: string;
+  rol: string;
+  descripcion?: string;
 }
 
 export interface RolUpdate {
-  nombre?: string;
+  rol?: string;
+  descripcion?: string;
+}
+
+// Secciones
+export interface Seccion {
+  id_sec: number;
+  codigo: string;
+  id_pro: number;
+  trayecto: number;
+  periodo: number;
+  capacidad_maxima: number;
+  programa: any | null;
+  creado: string;
+  actualizar: string;
+}
+
+// Espacios Físicos
+export interface EspacioFisico {
+  id_esp: number;
+  id_mun: number;
+  nombre_centro: string;
+  ubicacion: string;
+  tipo_espacio: string;
+  capacidad: number;
+  equipamiento: string | null;
+  disponibilidad: boolean | null;
+  municipio: any | null;
+  creado: string;
+  actualizar: string;
+}
+
+export interface EspacioFisicoCreate {
+  id_mun: number;
+  nombre_centro: string;
+  ubicacion: string;
+  tipo_espacio: string;
+  capacidad: number;
+  equipamiento?: string;
+  disponibilidad?: boolean;
+}
+
+export interface EspacioFisicoUpdate {
+  id_mun?: number;
+  nombre_centro?: string;
+  ubicacion?: string;
+  tipo_espacio?: string;
+  capacidad?: number;
+  equipamiento?: string;
+  disponibilidad?: boolean;
 }

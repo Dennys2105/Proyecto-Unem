@@ -8,6 +8,10 @@ import { Municipios } from './pages/Municipios';
 import { Programas } from './pages/Programas';
 import { Dias } from './pages/Dias';
 import { Roles } from './pages/Roles';
+import { Docentes } from './pages/Docentes';
+import { Estudiantes } from './pages/Estudiantes';
+import { Secciones } from './pages/Secciones';
+import { EspaciosFisicos } from './pages/EspaciosFisicos';
 
 const Dashboard = () => (
   <div>
@@ -30,7 +34,10 @@ function App() {
               <Route path="/programas" element={<Programas />} />
               <Route path="/dias" element={<Dias />} />
               <Route path="/roles" element={<Roles />} />
-              <Route path="/docentes" element={<div className="text-gray-600">Módulo Docentes (Día 4)</div>} />
+              <Route path="/docentes" element={<Docentes />} />
+              <Route path="/estudiantes" element={<Estudiantes />} />
+              <Route path="/secciones" element={<Secciones />} />
+              <Route path="/espacios" element={<EspaciosFisicos />} />
               <Route path="/horarios" element={<div className="text-gray-600">Módulo Horarios (Día 5)</div>} />
             </Route>
           </Route>
