@@ -1,81 +1,76 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, UserCheck, Calendar, LogOut, Layers, Menu, X, BookOpen, CalendarDays, Shield, MapPin } from 'lucide-react';
 import { useState } from 'react';
+import { 
+  LayoutDashboard, Building2, BookOpen, Users, UserCheck, 
+  Layers, MapPin, LogOut, Menu, X, Book, 
+  CalendarDays, Shield, Clock, Network, ClipboardList 
+} from 'lucide-react';
 
 const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/municipios', label: 'Municipios', icon: Building2 },
-    { path: '/programas', label: 'Programas', icon: BookOpen },
-    { path: '/docentes', label: 'Docentes', icon: Users },
-    { path: '/estudiantes', label: 'Estudiantes', icon: UserCheck }, // Nuevo
-    { path: '/dias', label: 'Días Laborales', icon: CalendarDays },
-    { path: '/roles', label: 'Roles', icon: Shield },
-    { path: '/secciones', label: 'Secciones', icon: Layers },
-    { path: '/espacios', label: 'Espacios Físicos', icon: MapPin },
-    { path: '/horarios', label: 'Horarios', icon: Calendar },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/municipios', label: 'Municipios', icon: Building2 },
+  { path: '/programas', label: 'Programas', icon: BookOpen },
+  { path: '/ejes', label: 'Ejes Formativos', icon: Book },
+  { path: '/periodos', label: 'Periodos Académicos', icon: CalendarDays },
+  { path: '/docentes', label: 'Docentes', icon: Users },
+  { path: '/estudiantes', label: 'Estudiantes', icon: UserCheck },
+  { path: '/secciones', label: 'Secciones', icon: Layers },
+  { path: '/espacios', label: 'Espacios Físicos', icon: MapPin },
+  { path: '/materias', label: 'Materias', icon: BookOpen },
+  { path: '/bloques-horarios', label: 'Bloques Horarios', icon: Clock },
+  { path: '/dias', label: 'Días Laborales', icon: CalendarDays },
+  { path: '/roles', label: 'Roles', icon: Shield },
+  { path: '/malla', label: 'Malla Curricular', icon: Network },
+  { path: '/asignacion-carga', label: 'Asignación de Carga', icon: ClipboardList },
 ];
 
 export const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleLogout = () => {
     sessionStorage.removeItem('unem_token');
-    sessionStorage.removeItem('unem_auth_block');
     navigate('/login', { replace: true });
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar Mobile Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
+    <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-64 bg-slate-900 text-white transform transition-transform duration-200 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="flex items-center justify-between h-16 px-6 bg-slate-950">
-          <span className="text-xl font-bold tracking-wider">UNEM</span>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
-            <X size={24} />
+      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-white transition-all duration-300 flex flex-col`}>
+        <div className="p-4 flex items-center justify-between">
+          {sidebarOpen && <h1 className="text-xl font-bold">UNEM</h1>}
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-800 rounded">
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
-        
-        <nav className="mt-6 px-4 space-y-2">
+
+        <nav className="flex-1 px-2 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
               <button
                 key={item.path}
-                onClick={() => {
-                  navigate(item.path);
-                  setIsSidebarOpen(false);
-                }}
-                className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                  isActive 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                onClick={() => navigate(item.path)}
+                className={`w-full flex items-center ${sidebarOpen ? 'px-4' : 'justify-center'} py-3 rounded-lg transition-colors ${
+                  isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-slate-800'
                 }`}
               >
-                <Icon size={20} className="mr-3" />
-                {item.label}
+                <Icon size={20} />
+                {sidebarOpen && <span className="ml-3">{item.label}</span>}
               </button>
             );
           })}
         </nav>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800">
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-4 py-3 text-sm font-medium text-red-400 rounded-lg hover:bg-slate-800 hover:text-red-300 transition-colors"
+            className="w-full flex items-center justify-center px-4 py-2 text-red-400 hover:bg-slate-800 rounded-lg"
           >
-            <LogOut size={20} className="mr-3" />
-            Cerrar Sesión
+            <LogOut size={20} />
+            {sidebarOpen && <span className="ml-3">Cerrar Sesión</span>}
           </button>
         </div>
       </aside>
@@ -83,19 +78,19 @@ export const Layout = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Navbar */}
-        <header className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-200">
-          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden text-gray-600 hover:text-gray-900">
-            <Menu size={24} />
-          </button>
-          <div className="flex items-center space-x-4 ml-auto">
-            <span className="text-sm font-medium text-gray-700">Administrador</span>
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-800">
+            {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
+          </h2>
+          <div className="flex items-center space-x-3">
+            <span className="text-sm text-gray-600">Administrador</span>
+            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
               A
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
+        {/* Content Area - AQUÍ ESTÁ LA CLAVE */}
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>

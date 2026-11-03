@@ -219,3 +219,187 @@ export interface EspacioFisicoUpdate {
   equipamiento?: string;
   disponibilidad?: boolean;
 }
+
+// Materias
+export interface Materia {
+  id_mat: number;
+  codigo: string;
+  nombre: string;
+  uc: number;
+  horas_teoricas: number;
+  horas_practicas: number;
+  id_eje?: number;
+  estatus: string;
+  creado: string;
+  actualizar: string;
+}
+
+export interface MateriaCreate {
+  codigo: string;
+  nombre: string;
+  uc: number;
+  horas_teoricas: number;
+  horas_practicas: number;
+  id_eje?: number;
+}
+
+export interface MateriaUpdate {
+  codigo?: string;
+  nombre?: string;
+  uc?: number;
+  horas_teoricas?: number;
+  horas_practicas?: number;
+  id_eje?: number;
+}
+
+// Bloques Horarios
+export interface BloqueHorario {
+  id_bloq: number;
+  nombre: string;
+  hora_inicio: string;
+  hora_fin: string;
+  tipo: string;
+  estatus: string;
+}
+
+export interface BloqueHorarioCreate {
+  nombre: string;
+  hora_inicio: string;
+  hora_fin: string;
+  tipo: string;
+}
+
+export interface BloqueHorarioUpdate {
+  nombre?: string;
+  hora_inicio?: string;
+  hora_fin?: string;
+  tipo?: string;
+}
+
+// Ejes Formativos
+export interface EjeFormativo {
+  id_eje: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  estatus: string;
+}
+
+export interface EjeCreate {
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+}
+
+export interface EjeUpdate {
+  codigo?: string;
+  nombre?: string;
+  descripcion?: string;
+}
+
+// Periodo Académico
+export interface PeriodoAcademico {
+  id_per: number;
+  nombre: string;
+  anio: number;
+  numero_periodo: number;
+  tipo: 'Trimestre' | 'Semestre';
+  fecha_inicio: string;
+  fecha_fin: string;
+  activo: boolean;
+  creado: string;
+  estatus: string;
+}
+
+export interface PeriodoCreate {
+  nombre: string;
+  anio: number;
+  numero_periodo: number;
+  tipo: 'Trimestre' | 'Semestre';
+  fecha_inicio: string;
+  fecha_fin: string;
+  activo: boolean;
+  actualizar: string;
+}
+
+export interface PeriodoUpdate {
+  nombre?: string;
+  anio?: number;
+  numero_periodo?: number;
+  tipo?: 'Trimestre' | 'Semestre';
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  activo?: boolean;
+  actualizar?: string;
+}
+
+// Malla Curricular
+export interface MallaCurricular {
+  id_malla: number;
+  id_pro: number;
+  id_mat: number;
+  perequisito_id_mat?: number;
+  programa?: Programa;
+  materia?: Materia;
+  prerequisito?: Materia;
+}
+
+export interface MallaCreate {
+  id_pro: number;
+  id_mat: number;
+  perequisito_id_mat?: number;
+}
+
+export interface MallaUpdate {
+  id_pro?: number;
+  id_mat?: number;
+  perequisito_id_mat?: number;
+}
+
+// Asignación de Carga Horaria
+export interface AsignacionCarga {
+  id_asig: number;
+  id_doc?: number;
+  id_malla?: number;
+  id_esp?: number;
+  id_bloq?: number;
+  id_dia: number;
+  id_per?: number;
+  hora_inicio: string;
+  hora_fin: string;
+  tipo_actividad?: string;
+  observaciones?: string;
+  // Relaciones para mostrar en tabla (el backend puede no enviarlas, las buscamos por ID)
+  docente?: any;
+  malla?: any;
+  espacio?: any;
+  bloque?: any;
+  dia?: any;
+  periodo?: any;
+}
+
+export interface AsignacionCreate {
+  id_doc?: number;
+  id_malla?: number;
+  id_esp?: number;
+  id_bloq?: number;
+  id_dia: number;
+  id_per?: number;
+  hora_inicio: string;
+  hora_fin: string;
+  tipo_actividad?: string;
+  observaciones?: string;
+}
+
+export interface AsignacionUpdate {
+  id_doc?: number;
+  id_malla?: number;
+  id_esp?: number;
+  id_bloq?: number;
+  id_dia?: number;
+  id_per?: number;
+  hora_inicio?: string;
+  hora_fin?: string;
+  tipo_actividad?: string;
+  observaciones?: string;
+}
