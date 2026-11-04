@@ -8,7 +8,6 @@ class RolAsignados(int,Enum):
 
 
 #Credenciales
-
 class BaseCredenciales(BaseModel):
     id_usu: int
     ultimo_acceso: datetime | None = None
@@ -19,7 +18,6 @@ class CredencialesResponcibe(BaseCredenciales):
     id_cre: int
 
 #Usuarios
-
 class BaseUsuario(BaseModel): 
     username: str
     id_rol: int
@@ -48,11 +46,10 @@ class UsuarioWithCredencialesResposive(BaseModel):
     class Config:
         from_attributes = True
 
-class UserLogin(BaseModel):
+class UserLogin(BaseModel):#No usado y remplazado por OAuth2PasswordRequestForm
     username: str
     password: str
-    
-    
+
 
 class UserRegister(BaseModel):
     username: str

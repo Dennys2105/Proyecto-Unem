@@ -6,6 +6,7 @@ from app.models.unem_db_models import Programa
 from app.dependencies.pruebas_optimizacion import validar_unicidad
 from app.schemas.esq_programas import ProgramasCreate, ProgramasRemplace, ProgramasResposive, ProgramasUpdate
 import app.service.programas_service as service
+from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual
 
 router = APIRouter(
     prefix="/Programa",
@@ -14,18 +15,18 @@ router = APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=ProgramasResposive, status_code=status.HTTP_201_CREATED)
-def crear_programa(programa_in: ProgramasCreate, session: Session = Depends(get_session)):
+def crear_programa(programa_in: ProgramasCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     validar_unicidad(Programa,"codigo")(programa_in,session)
     return service.crear_programa(session, programa_in)
 
 # --- READ ALL ---
 @router.get("/", response_model=List[ProgramasResposive])
-def leer_programa(session: Session = Depends(get_session)):
+def leer_programa(session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     return service.leer_programas(session)
 
 # --- READ ONE ---
 @router.get("/{programa_id}", response_model=ProgramasResposive)
-def leer_ptograma_id(programa_id: int, session: Session = Depends(get_session)):
+def leer_ptograma_id(programa_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     programa = service.obtener_programa_por_id(programa_id, session)
     if not programa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
@@ -33,7 +34,7 @@ def leer_ptograma_id(programa_id: int, session: Session = Depends(get_session)):
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{programa_id}", response_model=ProgramasResposive)
-def actualizar_parcial_programa(programa_id: int, programa_in: ProgramasUpdate, session: Session = Depends(get_session)):
+def actualizar_parcial_programa(programa_id: int, programa_in: ProgramasUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     validar_unicidad(Programa,"codigo","id_pro")(programa_in,session,programa_id)
     
     db_programa = service.obtener_programa_por_id(programa_id, session)
@@ -43,7 +44,7 @@ def actualizar_parcial_programa(programa_id: int, programa_in: ProgramasUpdate, 
 
 # --- DELETE LOGICO ---
 @router.delete("/{programa_id}", status_code=status.HTTP_200_OK)
-def eliminar_programa(programa_id: int, session: Session = Depends(get_session)):
+def eliminar_programa(programa_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     db_programa = service.obtener_programa_por_id(programa_id, session)
     if not db_programa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")

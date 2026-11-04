@@ -6,6 +6,7 @@ from app.models.unem_db_models import DiaLaboral
 from app.schemas.esq_dias_laborales import DiasCreate,DiasUpdate, DiasResposive,DiasRemplace
 import app.service.dias_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
+from app.dependencies.auth_deps import obtener_usuario_actual,requerir_rol,recurso_propietario
 
 router= APIRouter(
     prefix="/DiasLaborales",
@@ -14,18 +15,18 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=DiasResposive, status_code=status.HTTP_201_CREATED)
-def crear_dia_laboral(dia_in: DiasCreate, session: Session = Depends(get_session)):
+def crear_dia_laboral(dia_in: DiasCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     validar_unicidad(modelo_db=DiaLaboral, campos="dia")(datos_in=dia_in, session=session)
     return service.crear(session, dia_in)
 
 # --- READ ALL ---
 @router.get("/", response_model=List[DiasResposive])
-def leer_dias_laborales(session: Session = Depends(get_session)):
+def leer_dias_laborales(session: Session = Depends(get_session),usuario_actual: dict = Depends(obtener_usuario_actual)):
     return service.leer_todos(session)
 
 # --- READ ONE ---
 @router.get("/{dia_id}", response_model=DiasResposive)
-def leer_dia_laboral_id(dia_id: int, session: Session = Depends(get_session)):
+def leer_dia_laboral_id(dia_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(obtener_usuario_actual)):
     dato = service.obtener_dato_por_id(dia_id, session)
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Día Laboral no encontrado")
@@ -34,7 +35,7 @@ def leer_dia_laboral_id(dia_id: int, session: Session = Depends(get_session)):
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{dia_id}", response_model=DiasResposive)
 def actualizar_parcial_dia_laboral(dia_id: int, dato_in: DiasUpdate, session: Session = Depends(get_session)):
-    validar_unicidad(modelo_db=DiaLaboral, campo="dia",nombre_id="id_dia")(datos_in=dato_in, session=session, id=dia_id)
+    validar_unicidad(modelo_db=DiaLaboral, campos="dia",nombre_id="id_dia")(datos_in=dato_in, session=session, id=dia_id)
     db_dato = service.obtener_dato_por_id(dia_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Día Laboral no encontrado")
@@ -43,7 +44,7 @@ def actualizar_parcial_dia_laboral(dia_id: int, dato_in: DiasUpdate, session: Se
 
 # --- DELETE LOGICO ---
 @router.delete("/{dia_id}", status_code=status.HTTP_200_OK)
-def eliminar_dia_laboral(dia_id: int, session: Session = Depends(get_session)):
+def eliminar_dia_laboral(dia_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(requerir_rol([1]))):
     db_dato = service.obtener_dato_por_id(dia_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Día Laboral no encontrado")

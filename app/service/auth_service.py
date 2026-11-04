@@ -1,5 +1,6 @@
 import jwt
 import os
+from typing import Optional
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from passlib.context import CryptContext
@@ -9,6 +10,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.models.unem_db_models import Usuario, Rol, Credencial
 from app.schemas.esq_auth import UserRegister, UserLogin, UsuarioResposive
+from app.service.base_services import eliminar_logico, obtener_por_id
 # Configuración de Cifrado y JWT
 load_dotenv()
 
@@ -93,7 +95,7 @@ def iniciar_sesion(form_data: OAuth2PasswordRequestForm, session: Session) -> di
     username = form_data.username
     password = form_data.password
 
-    statement = select(Usuario, Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu).where(Usuario.username == username)
+    statement = select(Usuario, Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu).where(Usuario.username == username and Usuario.estatus == "A")
     resultado = session.exec(statement).first()
 
     if not resultado:
@@ -164,3 +166,9 @@ def listar_usuarios(session: Session):
         }
         for usuario, credencial in usuarios
     ]
+
+def eliminar(session: Session, db_dato: Usuario) -> None:
+    eliminar_logico(db=session, db_obj=db_dato)
+
+def obtener_dato_por_id(dato_id: int, session:Session) -> Optional[Usuario]:
+    return obtener_por_id(db=session,modelo=Usuario,id=dato_id)

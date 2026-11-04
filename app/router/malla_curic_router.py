@@ -4,6 +4,7 @@ from sqlmodel import Session
 from app.config.db_conection import get_session
 from app.schemas.esq_malla_curricular import MallaCurricularCreate,MallaCurricularUpdate, MallaCurricularResponse,MallaCurricularReplace
 import app.service.malla_curicular_service as service
+from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual,recurso_propietario
 
 router= APIRouter(
     prefix="/malla_curicular",
@@ -12,7 +13,7 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=MallaCurricularResponse, status_code=status.HTTP_201_CREATED)
-def crear_mallal(dia_in: MallaCurricularCreate, session: Session = Depends(get_session)):
+def crear_mallal(dia_in: MallaCurricularCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     id_pro = service.existe_llave_foranea_pro(session,dia_in.id_pro)
     id_mat = service.existe_llave_foranea_mat(session,dia_in.id_mat)
     id_pre_mat = service.existe_llave_foranea_mat(session,dia_in.perequisito_id_mat)
@@ -28,12 +29,12 @@ def crear_mallal(dia_in: MallaCurricularCreate, session: Session = Depends(get_s
 
 # --- READ ALL ---
 @router.get("/", response_model=List[MallaCurricularResponse])
-def leer_malla(session: Session = Depends(get_session)):
+def leer_malla(session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     return service.leer_todos(session)
 
 # --- READ ONE ---
 @router.get("/{malla_id}", response_model=MallaCurricularResponse)
-def leer_malla_id(malla_id: int, session: Session = Depends(get_session)):
+def leer_malla_id(malla_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     dato = service.obtener_dato_por_id(malla_id, session)
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Malla no encontrado")
@@ -41,7 +42,7 @@ def leer_malla_id(malla_id: int, session: Session = Depends(get_session)):
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{malla_id}", response_model=MallaCurricularResponse)
-def actualizar_parcial_malla(malla_id: int, dato_in: MallaCurricularUpdate, session: Session = Depends(get_session)):
+def actualizar_parcial_malla(malla_id: int, dato_in: MallaCurricularUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     db_dato = service.obtener_dato_por_id(malla_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Malla no encontrado")
@@ -61,7 +62,7 @@ def actualizar_parcial_malla(malla_id: int, dato_in: MallaCurricularUpdate, sess
 
 # --- DELETE LOGICO ---
 @router.delete("/{malla_id}", status_code=status.HTTP_200_OK)
-def eliminar_malla(malla_id: int, session: Session = Depends(get_session)):
+def eliminar_malla(malla_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     db_dato = service.obtener_dato_por_id(malla_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Malla no encontrada")

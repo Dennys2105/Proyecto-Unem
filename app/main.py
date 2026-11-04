@@ -24,23 +24,13 @@ app = FastAPI(
     version="1.4.0"
 )
 
-from fastapi.middleware.cors import CORSMiddleware
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+app.include_router(auth_router)
 app.include_router(roles_router)
 app.include_router(programas_router)
 app.include_router(municipios_router)
 app.include_router(dias_router)
 app.include_router(ejes_router)
 app.include_router(period_aca_router)
-app.include_router(auth_router)
 app.include_router(docente_router)
 app.include_router(bloqur_hor_router)
 app.include_router(disp_doc_router)

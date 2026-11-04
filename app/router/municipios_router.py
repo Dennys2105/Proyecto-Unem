@@ -6,6 +6,7 @@ from app.models.unem_db_models import Municipio
 from app.schemas.esq_municipios import MunicipiosCreate,MunicipiosUpdate, MunicipiosResposive,MunicipiosRemplace
 import app.service.municipios_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
+from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual,recurso_propietario
 
 router= APIRouter(
     prefix="/Municipio",
@@ -14,18 +15,18 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=MunicipiosResposive, status_code=status.HTTP_201_CREATED)
-def crear_municipio(municipio_in: MunicipiosCreate, session: Session = Depends(get_session)):
+def crear_municipio(municipio_in: MunicipiosCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     validar_unicidad(Municipio, "nombre")(municipio_in,session)
     return service.crear(session, municipio_in)
 
 # --- READ ALL ---
 @router.get("/", response_model=List[MunicipiosResposive])
-def leer_municipios(session: Session = Depends(get_session)):
+def leer_municipios(session: Session = Depends(get_session),usuario_actual: dict = Depends(obtener_usuario_actual)):
     return service.leer_todos(session)
 
 # --- READ ONE ---
 @router.get("/{municipio_id}", response_model=MunicipiosResposive)
-def leer_municipio_id(municipio_id: int, session: Session = Depends(get_session)):
+def leer_municipio_id(municipio_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(obtener_usuario_actual)):
     dato = service.obtener_dato_por_id(municipio_id, session)
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Municipio no encontrado")
@@ -33,7 +34,7 @@ def leer_municipio_id(municipio_id: int, session: Session = Depends(get_session)
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{municipio_id}", response_model=MunicipiosResposive)
-def actualizar_parcial_municipio(municipio_id: int, dato_in: MunicipiosUpdate, session: Session = Depends(get_session)):
+def actualizar_parcial_municipio(municipio_id: int, dato_in: MunicipiosUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     validar_unicidad(Municipio,"nombre","id_mun")(dato_in,session,municipio_id)
     db_dato = service.obtener_dato_por_id(municipio_id, session)
     if not db_dato:
@@ -43,7 +44,7 @@ def actualizar_parcial_municipio(municipio_id: int, dato_in: MunicipiosUpdate, s
 
 # --- DELETE LOGICO ---
 @router.delete("/{municipio_id}", status_code=status.HTTP_200_OK)
-def eliminar_municipio(municipio_id: int, session: Session = Depends(get_session)):
+def eliminar_municipio(municipio_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
     db_dato = service.obtener_dato_por_id(municipio_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Municipio no encontrado")

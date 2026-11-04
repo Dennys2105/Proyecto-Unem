@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from app.service.auth_service import verificar_token
 from fastapi.security import OAuth2PasswordBearer
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/Auth/login")
 
 def obtener_usuario_actual(token: str = Depends(oauth2_scheme)) -> dict:
 
@@ -21,7 +21,7 @@ def requerir_rol(roles_permitidos: list[int]):
         return usuario
     return rol_checker
 
-def recurso_propietario(usuario: dict = Depends(obtener_usuario_actual), recurso_id: int = None, roles_restringidos: list[int] = None) -> bool:
+def recurso_propietario(usuario: dict , recurso_id: int = None, roles_restringidos: list[int] = None) -> bool:
     """Dependencia para verificar si el usuario es propietario del recurso."""
     rol = usuario.get("rol")
     id_usuaro = usuario.get("id")
