@@ -1,128 +1,84 @@
-import { useMunicipios } from '../hooks/useMunicipios';
-import { useProgramas } from '../hooks/useProgramas';
 import { useDocentes } from '../hooks/useDocentes';
 import { useEstudiantes } from '../hooks/useEstudiantes';
 import { useAsignaciones } from '../hooks/useAsignaciones';
-import { Building2, BookOpen, Users, UserCheck, Calendar, TrendingUp } from 'lucide-react';
+import { useDias } from '../hooks/useDias';
+import { Users, UserCheck, Calendar, FileBarChart } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export const Dashboard = () => {
-  const { municipios } = useMunicipios();
-  const { programas } = useProgramas();
   const { docentes } = useDocentes();
   const { estudiantes } = useEstudiantes();
   const { asignaciones } = useAsignaciones();
+  const { dias } = useDias();
+
+  // Análisis de datos: Agrupar asignaciones por día
+  const cargaPorDia = dias?.map(dia => {
+    const cantidad = asignaciones?.filter(a => a.id_dia === dia.id_dia).length || 0;
+    return {
+      nombre: dia.dia,
+      carga: cantidad,
+    };
+  }) || [];
 
   const stats = [
-    {
-      title: 'Municipios',
-      value: municipios?.length || 0,
-      icon: Building2,
-      color: 'bg-blue-500',
-    },
-    {
-      title: 'Programas',
-      value: programas?.length || 0,
-      icon: BookOpen,
-      color: 'bg-green-500',
-    },
-    {
-      title: 'Docentes',
-      value: docentes?.length || 0,
-      icon: Users,
-      color: 'bg-purple-500',
-    },
-    {
-      title: 'Estudiantes',
-      value: estudiantes?.length || 0,
-      icon: UserCheck,
-      color: 'bg-orange-500',
-    },
-    {
-      title: 'Asignaciones',
-      value: asignaciones?.length || 0,
-      icon: Calendar,
-      color: 'bg-red-500',
-    },
+    { title: 'Docentes', value: docentes?.length || 0, icon: Users, color: 'bg-blue-600' },
+    { title: 'Estudiantes', value: estudiantes?.length || 0, icon: UserCheck, color: 'bg-green-600' },
+    { title: 'Asignaciones Activas', value: asignaciones?.length || 0, icon: Calendar, color: 'bg-purple-600' },
   ];
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Panel Principal</h1>
-        <p className="text-gray-600">Bienvenido al Sistema de Horarios UNEM</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Panel de Control UNEM</h1>
+        <p className="text-gray-600 mt-1">Resumen operativo y análisis de carga académica</p>
       </div>
 
-      {/* Tarjetas de estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+      {/* Tarjetas de Estadísticas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.title} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-800">{stat.value}</p>
-                </div>
-                <div className={`${stat.color} p-3 rounded-lg`}>
-                  <Icon className="text-white" size={24} />
-                </div>
+            <div key={stat.title} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{stat.value}</p>
+              </div>
+              <div className={`${stat.color} p-3 rounded-lg`}>
+                <Icon className="text-white" size={24} />
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Sección de información */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-            <TrendingUp className="mr-2 text-blue-600" size={24} />
-            Resumen del Sistema
-          </h2>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-gray-600">Total de Municipios:</span>
-              <span className="font-bold text-gray-800">{municipios?.length || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-gray-600">Programas Académicos:</span>
-              <span className="font-bold text-gray-800">{programas?.length || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-gray-600">Docentes Activos:</span>
-              <span className="font-bold text-gray-800">{docentes?.length || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b">
-              <span className="text-gray-600">Estudiantes Registrados:</span>
-              <span className="font-bold text-gray-800">{estudiantes?.length || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-gray-600">Asignaciones de Carga:</span>
-              <span className="font-bold text-gray-800">{asignaciones?.length || 0}</span>
-            </div>
-          </div>
+      {/* Sección de Análisis de Datos (Gráfica) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <FileBarChart className="text-blue-600" size={24} />
+          <h2 className="text-xl font-bold text-gray-900">Análisis: Carga Horaria por Día Laboral</h2>
         </div>
-
-        <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg shadow-md p-6 text-white">
-          <h2 className="text-xl font-bold mb-4">Información del Sistema</h2>
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm opacity-90">Versión</p>
-              <p className="text-lg font-semibold">1.0.0</p>
-            </div>
-            <div>
-              <p className="text-sm opacity-90">Última actualización</p>
-              <p className="text-lg font-semibold">{new Date().toLocaleDateString()}</p>
-            </div>
-            <div>
-              <p className="text-sm opacity-90">Estado del sistema</p>
-              <div className="flex items-center mt-1">
-                <div className="w-3 h-3 bg-green-400 rounded-full mr-2"></div>
-                <span className="font-semibold">Operativo</span>
-              </div>
-            </div>
-          </div>
+        
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={cargaPorDia} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+              <XAxis dataKey="nombre" axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280' }} allowDecimals={false} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                cursor={{ fill: '#f3f4f6' }}
+              />
+              <Bar dataKey="carga" radius={[4, 4, 0, 0]}>
+                {cargaPorDia.map((_entry, index) => (
+                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#2563eb' : '#3b82f6'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
+        <p className="text-sm text-gray-500 mt-4 text-center">
+          * Datos calculados en tiempo real a partir de las asignaciones de carga horaria registradas en el sistema.
+        </p>
       </div>
     </div>
   );

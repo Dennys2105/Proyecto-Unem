@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.db_conection import engine, get_session
 from app.router.roles_route import router as roles_router
@@ -19,10 +20,27 @@ from app.router.malla_curic_router import router as malla_router
 from app.router.asig_carga_horaria_router import router as asig_router
 
 app = FastAPI(
-    title= "App Unem",
+    title="App Unem",
     description="Sistema para administrar y generar nuevos horarios con fastAPI",
     version="1.4.0"
 )
+
+# ==========================================
+# CONFIGURACIÓN DE CORS (CRÍTICO PARA EL FRONTEND)
+# ==========================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",      # Puerto por defecto de Vite (Frontend)
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",      # Por si Vite cambia de puerto automáticamente
+        "http://127.0.0.1:5174"
+    ],
+    allow_credentials=True,            # Permite el envío de cookies y headers de autenticación
+    allow_methods=["*"],               # Permite todos los métodos HTTP (GET, POST, PUT, DELETE, OPTIONS, PATCH)
+    allow_headers=["*"],               # Permite todos los headers (incluido 'Authorization' para el JWT)
+)
+# ==========================================
 
 app.include_router(auth_router)
 app.include_router(roles_router)

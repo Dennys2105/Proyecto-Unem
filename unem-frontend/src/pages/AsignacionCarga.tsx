@@ -3,20 +3,21 @@ import { useAsignaciones } from '../hooks/useAsignaciones';
 import { useDocentes } from '../hooks/useDocentes';
 import { useMallas } from '../hooks/useMallas';
 import { useEspaciosFisicos } from '../hooks/useEspaciosFisicos';
-import { useBloquesHorarios } from '../hooks/useBloquesHorarios';
 import { useDias } from '../hooks/useDias';
 import { usePeriodos } from '../hooks/usePeriodos';
 import { DataTable } from '../components/DataTable';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
+import { FileSpreadsheet, FileText } from 'lucide-react';
 import type { AsignacionCarga, AsignacionCreate, AsignacionUpdate } from '../types/models';
 
+// Eliminamos id_bloq del esquema, ahora solo validamos las horas directas
 const asignacionSchema = z.object({
   id_doc: z.string().min(1, 'Selecciona un docente'),
   id_malla: z.string().min(1, 'Selecciona una malla'),
   id_esp: z.string().min(1, 'Selecciona un espacio'),
-  id_bloq: z.string().min(1, 'Selecciona un bloque'),
   id_dia: z.string().min(1, 'Selecciona un día'),
   id_per: z.string().min(1, 'Selecciona un periodo'),
   hora_inicio: z.string().min(1, 'Obligatorio'),
@@ -30,7 +31,6 @@ export const AsignacionCargaPage = () => {
   const { docentes } = useDocentes();
   const { mallas } = useMallas();
   const { espacios } = useEspaciosFisicos();
-  const { bloques } = useBloquesHorarios();
   const { dias } = useDias();
   const { periodos } = usePeriodos();
   
@@ -44,7 +44,7 @@ export const AsignacionCargaPage = () => {
 
   const openCreateModal = () => {
     setEditingAsignacion(null);
-    reset({ id_doc: '', id_malla: '', id_esp: '', id_bloq: '', id_dia: '', id_per: '', hora_inicio: '07:00', hora_fin: '08:00' });
+    reset({ id_doc: '', id_malla: '', id_esp: '', id_dia: '', id_per: '', hora_inicio: '07:00', hora_fin: '08:00' });
     setIsModalOpen(true);
   };
 
@@ -54,7 +54,6 @@ export const AsignacionCargaPage = () => {
       id_doc: asig.id_doc?.toString() || '',
       id_malla: asig.id_malla?.toString() || '',
       id_esp: asig.id_esp?.toString() || '',
-      id_bloq: asig.id_bloq?.toString() || '',
       id_dia: asig.id_dia?.toString() || '',
       id_per: asig.id_per?.toString() || '',
       hora_inicio: asig.hora_inicio || '07:00',
@@ -66,33 +65,71 @@ export const AsignacionCargaPage = () => {
   const closeModal = () => { setIsModalOpen(false); setEditingAsignacion(null); reset(); };
 
   const onSubmit = (data: AsignacionFormData) => {
-    // Aseguramos que la hora tenga formato HH:MM:SS si el backend lo exige estrictamente
     const formatTime = (time: string) => time.length === 5 ? `${time}:00` : time;
 
+    // Payload limpio: sin id_bloq, solo las horas directas
     const payload: any = {
       id_doc: parseInt(data.id_doc, 10),
       id_malla: parseInt(data.id_malla, 10),
       id_esp: parseInt(data.id_esp, 10),
-      id_bloq: parseInt(data.id_bloq, 10),
       id_dia: parseInt(data.id_dia, 10),
       id_per: parseInt(data.id_per, 10),
       hora_inicio: formatTime(data.hora_inicio),
       hora_fin: formatTime(data.hora_fin),
-      tipo_actividad: "Carga Académica", // ← Valor exacto que acepta el backend
-      observaciones: "Asignación desde frontend",
+      tipo_actividad: "Carga Académica",
+      observaciones: "Asignación directa por horario",
     };
 
-    if (editingAsignacion) {
-      updateAsignacion({ id: editingAsignacion.id_asig, data: payload as AsignacionUpdate });
-    } else {
-      createAsignacion(payload as AsignacionCreate);
-    }
+    if (editingAsignacion) updateAsignacion({ id: editingAsignacion.id_asig, data: payload as AsignacionUpdate });
+    else createAsignacion(payload as AsignacionCreate);
     closeModal();
   };
 
   const handleDelete = (asig: AsignacionCarga) => setDeleteConfirm(asig);
   const confirmDelete = () => {
     if (deleteConfirm) { deleteAsignacion(deleteConfirm.id_asig); setDeleteConfirm(null); }
+  };
+
+  // === FUNCIONES DE EXPORTACIÓN (Actualizadas sin bloques) ===
+  const handleExportExcel = () => {
+    const dataToExport = asignaciones?.map(a => ({
+      'ID Asignación': a.id_asig,
+      'Día': dias?.find(d => d.id_dia === a.id_dia)?.dia || 'N/A',
+      'Hora Inicio': a.hora_inicio,
+      'Hora Fin': a.hora_fin,
+      'Espacio Físico': espacios?.find(e => e.id_esp === a.id_esp)?.nombre_centro || 'N/A',
+      'Malla ID': a.id_malla || 'N/A',
+      'Periodo': periodos?.find(p => p.id_per === a.id_per)?.nombre || 'N/A'
+    })) || [];
+    
+    exportToExcel(dataToExport, 'Reporte_Carga_Horaria_UNEM');
+  };
+
+  const handleExportPDF = () => {
+    const dataToExport = asignaciones || [];
+    
+    const columns = [
+      { key: 'id_asig', header: 'ID' },
+      { 
+        key: 'id_dia', 
+        header: 'Día',
+        render: (_value: any, row: any) => dias?.find(d => d.id_dia === row.id_dia)?.dia || 'N/A'
+      },
+      { key: 'hora_inicio', header: 'Inicio' },
+      { key: 'hora_fin', header: 'Fin' },
+      { 
+        key: 'id_esp', 
+        header: 'Espacio',
+        render: (_value: any, row: any) => espacios?.find(e => e.id_esp === row.id_esp)?.nombre_centro || 'N/A'
+      },
+      { 
+        key: 'id_per', 
+        header: 'Periodo',
+        render: (_value: any, row: any) => periodos?.find(p => p.id_per === row.id_per)?.nombre || 'N/A'
+      }
+    ];
+    
+    exportToPDF(dataToExport, columns, 'Reporte_Carga_Horaria_UNEM', 'REPORTE DE ASIGNACIÓN DE CARGA HORARIA');
   };
 
   const columns = [
@@ -119,11 +156,34 @@ export const AsignacionCargaPage = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Asignación de Carga Horaria</h1>
-        <button onClick={openCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          Nueva Asignación
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Asignación de Carga Horaria</h1>
+          <p className="text-sm text-gray-500 mt-1">Gestione y exporte las asignaciones académicas del periodo</p>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          <button 
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm"
+          >
+            Nueva Asignación
+          </button>
+          <button 
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium shadow-sm"
+          >
+            <FileSpreadsheet size={18} />
+            Exportar Excel
+          </button>
+          <button 
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium shadow-sm"
+          >
+            <FileText size={18} />
+            Exportar PDF
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -173,15 +233,6 @@ export const AsignacionCargaPage = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Bloque Horario *</label>
-                  <select {...register('id_bloq')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option value="">Selecciona un bloque</option>
-                    {bloques?.map((b) => <option key={b.id_bloq} value={b.id_bloq}>{b.nombre} ({b.hora_inicio} - {b.hora_fin})</option>)}
-                  </select>
-                  {errors.id_bloq && <p className="text-sm text-red-600">{errors.id_bloq.message}</p>}
-                </div>
-
-                <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-700">Día *</label>
                   <select {...register('id_dia')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     <option value="">Selecciona un día</option>
@@ -199,6 +250,7 @@ export const AsignacionCargaPage = () => {
                   {errors.id_per && <p className="text-sm text-red-600">{errors.id_per.message}</p>}
                 </div>
 
+                {/* Campos de hora directa, reemplazando el dropdown de bloques */}
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-700">Hora Inicio *</label>
                   <input type="time" {...register('hora_inicio')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
