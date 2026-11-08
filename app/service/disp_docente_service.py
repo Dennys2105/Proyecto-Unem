@@ -1,7 +1,7 @@
 from sqlmodel import Session,select
 from typing import Optional
 from app.models.unem_db_models import DisponibilidadDocente, DiaLaboral, Docente
-from app.dependencies.bloq_horaio_deps import validar_horas
+from app.dependencies.pruebas_optimizacion import validar_horas
 from app.schemas.esq_disp_docente import DisponibilidadDocenteCreate,DisponibilidadDocenteReplace,DisponibilidadDocenteResponse,DisponibilidadDocenteUpdate
 from app.service.base_services import (
     crear_registro,
