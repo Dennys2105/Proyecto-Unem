@@ -1,7 +1,7 @@
 from sqlmodel import Session,select
 from sqlalchemy.orm import selectinload
 from typing import Optional
-from app.models.unem_db_models import AsigCargaHoraria,DiaLaboral, Docente,EspacioFisico,BloqueHorario,MallaCurricular,PeriodoAcademico
+from app.models.unem_db_models import AsigCargaHoraria,DiaLaboral, Docente,EspacioFisico,MallaCurricular,PeriodoAcademico
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaUpdate
 from app.service.base_services import (
     crear_registro,
@@ -10,7 +10,7 @@ from app.service.base_services import (
     actualizar_registro,
     eliminar_logico
 )
-from app.dependencies.bloq_horaio_deps import validar_horas
+from app.dependencies.pruebas_optimizacion import validar_horas
 
 def crear(session: Session, datos_in: AsigCargaHorariaCreate) -> AsigCargaHoraria:
     return crear_registro(db=session,modelo=AsigCargaHoraria,datos_in=datos_in)
@@ -41,9 +41,6 @@ def existe_llave_foranea_doc(session: Session, id: int) -> Docente:
 
 def existe_llave_foranea_esp(session: Session, id: int) -> EspacioFisico:
     return obtener_por_id(session,EspacioFisico,id)
-
-def existe_llave_foranea_bloq(session: Session, id: int) -> BloqueHorario:
-    return obtener_por_id(session,BloqueHorario,id)
 
 def existe_llave_foranea_malla(session: Session, id: int) -> MallaCurricular:
     return obtener_por_id(session,MallaCurricular,id)

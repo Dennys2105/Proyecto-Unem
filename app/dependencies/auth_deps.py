@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from app.service.auth_service import verificar_token
 from fastapi.security import OAuth2PasswordBearer
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/Auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/usuario/login")
 
 def obtener_usuario_actual(token: str = Depends(oauth2_scheme)) -> dict:
 

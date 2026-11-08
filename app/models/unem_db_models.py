@@ -56,6 +56,7 @@ class Usuario(SQLModel, table=True):
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)
+    email: Optional[str] = Field(default=None, max_length=255)
 
     #relaciones
     estudiante: Optional["Estudiante"] = Relationship(back_populates="usuario")
@@ -312,20 +313,6 @@ class EspacioFisico(SQLModel, table=True):
 # ESQUEMA: horarios
 # ==========================================
 
-class BloqueHorario(SQLModel, table=True):
-    __tablename__ = "bloques_horarios"
-    __table_args__ = {"schema": "horarios"}
-    
-    id_bloq: Optional[int] = Field(default=None, primary_key=True)
-    nombre: str = Field(max_length=50)
-    hora_inicio: time
-    hora_fin: time
-    tipo: str = Field(max_length=20)
-    estatus: str = Field(default="A", max_length=1)
-    
-    #relaciones
-    asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="bloque_horario")
-
 class AsigCargaHoraria(SQLModel, table=True):
     __tablename__ = "asig_carga_horarias"
     __table_args__ = {"schema": "horarios"}
@@ -334,7 +321,6 @@ class AsigCargaHoraria(SQLModel, table=True):
     id_doc: int = Field(foreign_key="personas.docentes.id_doc")
     id_esp: int = Field(foreign_key="infraestructura.espacios_fis.id_esp")
     id_dia: int = Field(foreign_key="general.dias_laborales.id_dia")
-    id_bloq: int = Field(foreign_key="horarios.bloques_horarios.id_bloq")
     id_per: int = Field(foreign_key="academico.periodos_academicos.id_per")
     id_malla: int = Field(foreign_key="academico.malla_curricular.id_malla")
     hora_inicio : time
@@ -351,4 +337,3 @@ class AsigCargaHoraria(SQLModel, table=True):
     malla_curricular: MallaCurricular = Relationship(back_populates="asig_carga_horaria")
     periodo_academico: PeriodoAcademico = Relationship(back_populates="asig_carga_horaria")
     dia_laboral: DiaLaboral = Relationship(back_populates="asig_carga_horaria")
-    bloque_horario: BloqueHorario = Relationship(back_populates="asig_carga_horaria")

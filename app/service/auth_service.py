@@ -8,9 +8,9 @@ from fastapi import HTTPException, status
 from sqlmodel import Session, select
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.models.unem_db_models import Usuario, Rol, Credencial
-from app.schemas.esq_auth import UserRegister, UserLogin, UsuarioResposive
-from app.service.base_services import eliminar_logico, obtener_por_id
+from app.models.unem_db_models import Usuario, Rol, Credencial,Docente,Estudiante
+from app.schemas.esq_auth import UserRegister, UserLogin, UsuarioResposive,UsuarioUpdate
+from app.service.base_services import eliminar_logico, obtener_por_id,actualizar_registro
 # Configuración de Cifrado y JWT
 load_dotenv()
 
@@ -166,6 +166,24 @@ def listar_usuarios(session: Session):
         }
         for usuario, credencial in usuarios
     ]
+
+def actualizar_usuario(session: Session, db_dato: Usuario, dato_in: UsuarioUpdate, parcial: bool = True) -> Usuario:
+    return actualizar_registro(db=session, db_obj=db_dato, datos_in=dato_in, parcial=parcial)
+
+def obtener_user_informacion(session: Session, user_id: int, user_inf: int ):
+    if user_inf == 1:
+        select_statement = select(Docente).where(Docente.id_usu == user_id)
+    
+    elif user_inf == 2:
+        select_statement = select(Estudiante).where(Estudiante.id_usu == user_id)
+    
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tipo de usuario no válido. Debe ser 1 (Docente) o 2 (Estudiante)."
+        )
+
+    return session.exec(select_statement).first()
 
 def eliminar(session: Session, db_dato: Usuario) -> None:
     eliminar_logico(db=session, db_obj=db_dato)

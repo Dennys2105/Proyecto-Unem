@@ -19,7 +19,6 @@ def crear_carga_horaria(disp_in: AsigCargaHorariaCreate, session: Session = Depe
     doc_id = service.existe_llave_foranea_doc(session,disp_in.id_doc)
     malla_id = service.existe_llave_foranea_malla(session,disp_in.id_malla)
     per_id = service.existe_llave_foranea_per(session,disp_in.id_per)
-    bloq_id = service.existe_llave_foranea_bloq(session,disp_in.id_bloq)
     esp_id = service.existe_llave_foranea_esp(session,disp_in.id_esp)
     if not dia_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dia no existe")
@@ -28,9 +27,7 @@ def crear_carga_horaria(disp_in: AsigCargaHorariaCreate, session: Session = Depe
     elif not malla_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Malla no existe")
     elif not per_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="periodo no existe")
-    elif not bloq_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bloque no existe")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Periodo no existe")
     elif not esp_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Espacio no existe")
     
@@ -65,9 +62,6 @@ def actualizar_parcial_carga(disp_id: int, dato_in: AsigCargaHorariaUpdate, sess
     
     elif not service.existe_llave_foranea_per(session,dato_in.id_per):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El Periodo Academico no existe")
-    
-    elif not service.existe_llave_foranea_bloq(session,dato_in.id_bloq):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bloque no existe")
     
     elif not service.existe_llave_foranea_esp(session,dato_in.id_esp):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El espacio no existe")
