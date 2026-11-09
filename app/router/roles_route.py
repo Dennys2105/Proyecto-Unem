@@ -4,7 +4,7 @@ from sqlmodel import Session
 from app.config.db_conection import get_session
 from app.schemas.esq_roles import RolesCreate, RolesResposive, RolesUpdate
 import app.service.roles_service as service
-from app.dependencies.auth_deps import requerir_rol
+from app.dependencies.auth_deps import requerir_rol, verificar_permiso
 
 router = APIRouter(
     prefix="/roles",
@@ -13,17 +13,17 @@ router = APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=RolesResposive, status_code=status.HTTP_201_CREATED)
-def crear_roles(rol_in: RolesCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def crear_roles(rol_in: RolesCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('roles','CRE','TODO'))):
     return service.crear_rol(session, rol_in)
 
 # --- READ ALL ---
 @router.get("/", response_model=List[RolesResposive])
-def leer_roles(session: Session = Depends(get_session)):
+def leer_roles(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('roles','LEC','TODO'))):
     return service.leer_roles(session)
 
 # --- READ ONE ---
 @router.get("/{rol_id}", response_model=RolesResposive)
-def leer_rol_id(rol_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def leer_rol_id(rol_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('roles','LEC','TODO'))):
     rol = service.obtener_rol_por_id(rol_id, session)
     if not rol:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rol no encontrado")
@@ -31,7 +31,7 @@ def leer_rol_id(rol_id: int, session: Session = Depends(get_session),usuario_act
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{rol_id}", response_model=RolesResposive)
-def actualizar_parcial_rol(rol_id: int, rol_in: RolesUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def actualizar_parcial_rol(rol_id: int, rol_in: RolesUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('roles','ACT','TODO'))):
     db_rol = service.obtener_rol_por_id(rol_id, session)
     if not db_rol:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rol no encontrado")
@@ -39,7 +39,7 @@ def actualizar_parcial_rol(rol_id: int, rol_in: RolesUpdate, session: Session = 
 
 # --- DELETE LOGICO ---
 @router.delete("/{rol_id}", status_code=status.HTTP_200_OK)
-def eliminar_rol(rol_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def eliminar_rol(rol_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('roles','BOR','TODO'))):
     db_rol = service.obtener_rol_por_id(rol_id, session)
     if not db_rol:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rol no encontrado")

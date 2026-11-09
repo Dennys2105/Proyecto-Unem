@@ -20,6 +20,8 @@ INSERT INTO general.modulos (id_mod, codigo, nombre, descripcion, estatus) VALUE
 (7, 'analiticas','Analisis de Datos' , 'Mostrar los analisis del los datos del sistema','A')
 (8, 'horarios','Gestion de Horarios', 'Asignar la carga horaria de los profesores y crear los horarios', 'A')
 (9, 'dias','Gestion de Dias Laborables', 'Manejo de los dias laborales de la semana', 'A')
+(10, 'municipios','Gestion de los Municipios','Modulo de gestion de los municipios avtivos','A')
+(11, 'roles', 'Gestion de Roles y Permisos', 'Modulo paara gestionar los permisos que tiene cada usuario','A')
 
 -- ==========================================
 -- 3. PERMISOS / ACCIONES ATÓMICAS (Esquema general)

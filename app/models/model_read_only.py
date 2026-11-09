@@ -30,15 +30,14 @@ class VwDocentesPorContratoRead(SQLModel, table=False):
     promedio_horas_asignadas: Decimal
 
 class VwPermisosEfectivosRead(SQLModel, table=False):
-    id_usu: int
+    id_usu: int 
     username: str
     rol: str
     modulo: str
     modulo_nombre: str
     permiso: str
     permiso_nombre: str
-    accion: str
-    alcance_efectivo: str
+    alcance_efectivo: str | None
     origen: str
 
 class VwDocentesPorProgramaMunicipioRead(SQLModel, table=False):

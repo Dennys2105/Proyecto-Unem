@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, text
-from app.config.db_conection import get_session  # Ajusta según tu importación de sesión
-from app.models.model_read_only import VwResumenEstadisticoRead
+from app.config.db_conection import get_session 
+from app.models.model_read_only import VwResumenEstadisticoRead,VwPermisosEfectivosRead
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["Analítica y Reportes"])
 
@@ -19,3 +19,20 @@ def obtener_resumen_dashboard(session: Session = Depends(get_session)):
     # 3. Deserializamos el diccionario directamente en tu modelo Pydantic/SQLModel
     return VwResumenEstadisticoRead(**resultado)
 
+@router.get("/permisos", response_model=list[VwPermisosEfectivosRead])
+def obtener_permiso_usuarios(usuario_id: int, session: Session = Depends(get_session)):
+    # 1. Consulta SQL segura utilizando bind parameters (:usuario_id) y operador `=`
+    statement = text("""
+        SELECT *
+        FROM general.vw_permisos_efectivos_usuario 
+        WHERE id_usu = :usuario_id
+    """).params(usuario_id=usuario_id)
+    
+    # 2. Obtenemos TODAS las filas como un arreglo de diccionarios
+    resultados = session.exec(statement).mappings().all()
+    
+    if not resultados:
+        raise HTTPException(status_code=404, detail="No se encontraron permisos para este usuario.")
+        
+    # 3. Deserializamos cada fila en el modelo y devolvemos la lista
+    return [VwPermisosEfectivosRead(**row) for row in resultados]

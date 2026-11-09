@@ -280,8 +280,6 @@ class Materia(SQLModel, table=True):
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
     #relaciones
-    notas: list["Nota"] = Relationship(back_populates="materia")
-    
     eje_formativo: EjeFormativo = Relationship(back_populates="materias")
 
 class Nota(SQLModel, table=True):
@@ -290,11 +288,11 @@ class Nota(SQLModel, table=True):
     
     id_nota: Optional[int] = Field(default=None, primary_key=True)
     id_est: int = Field(foreign_key="personas.estudiantes.id_est", unique=True)
-    id_mat: int = Field(foreign_key="academico.materias.id_mat", unique=True)
     id_malla: int = Field(foreign_key="academico.malla_curricular.id_malla", unique=True)
     id_per: int = Field(foreign_key="academico.periodos_academicos.id_per", unique=True)
     nota: float = Field(ge=0, le=20) #La nota tiene que ser entre el 0 y el 20, y puede tener decimales, por ejemplo 15.5
     tipo_evaluacion: str = Field(max_length=40) #solo permite Parcial 1, Parcial 2, Parcial 3, Final, Recuperación, Trabajo.
+    observaciones: str = Field(max_length=400)
     fecha_registro: datetime = Field(default_factory=datetime.utcnow)
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
@@ -302,7 +300,6 @@ class Nota(SQLModel, table=True):
     
     #relaciones
     estudiante: Estudiante = Relationship(back_populates="notas")
-    materia: Materia = Relationship(back_populates="notas")
     malla_curricular: MallaCurricular = Relationship(back_populates="notas")
     periodo_academico: PeriodoAcademico = Relationship(back_populates="notas")
 
