@@ -5,7 +5,7 @@ from app.config.db_conection import get_session
 from app.dependencies.auth_deps import requerir_rol
 from app.schemas.esq_disp_docente import DisponibilidadDocenteCreate,DisponibilidadDocenteReplace,DisponibilidadDocenteResponse,DisponibilidadDocenteUpdate
 import app.service.disp_docente_service as service
-from app.dependencies.auth_deps import obtener_usuario_actual,requerir_rol,recurso_propietario
+from app.dependencies.auth_deps import obtener_usuario_actual,requerir_rol,recurso_propietario,verificar_permiso
 
 
 router= APIRouter(
@@ -15,7 +15,7 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=DisponibilidadDocenteResponse, status_code=status.HTTP_201_CREATED)
-def crear_disp(disp_in: DisponibilidadDocenteCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def crear_disp(disp_in: DisponibilidadDocenteCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('docentes','CRE','TODO'))):
     dia_id = service.existe_llave_foranea_dia(session,disp_in.id_dia)
     doc_id = service.existe_llave_foranea_doc(session,disp_in.id_doc)
     if not dia_id:
@@ -27,12 +27,12 @@ def crear_disp(disp_in: DisponibilidadDocenteCreate, session: Session = Depends(
 
 # --- READ ALL ---
 @router.get("/", response_model=List[DisponibilidadDocenteResponse])
-def leer_disp(session: Session = Depends(get_session), usuario_actual: dict = Depends(requerir_rol([1]))):
+def leer_disp(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('docentes','LEC','TODO'))):
     return service.leer_todos(session)
 
 # --- READ ONE ---
 @router.get("/{disp_id}", response_model=DisponibilidadDocenteResponse)
-def leer_disp_id(disp_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(requerir_rol([1,2]))):
+def leer_disp_id(disp_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('docentes','LEC','SP'))):
     recurso_propietario(usuario_actual,disp_id,roles_restringidos=2)
     dato = service.obtener_dato_por_id(disp_id, session)
     if not dato:
@@ -41,7 +41,7 @@ def leer_disp_id(disp_id: int, session: Session = Depends(get_session), usuario_
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{disp_id}", response_model=DisponibilidadDocenteResponse)
-def actualizar_parcial_disp(disp_id: int, dato_in: DisponibilidadDocenteUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def actualizar_parcial_disp(disp_id: int, dato_in: DisponibilidadDocenteUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('docentes','ACT','TODO'))):
     if not service.existe_llave_foranea_doc(session,dato_in.id_doc):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Docente no encontrado")
     
@@ -56,7 +56,7 @@ def actualizar_parcial_disp(disp_id: int, dato_in: DisponibilidadDocenteUpdate, 
 
 # --- DELETE LOGICO ---
 @router.delete("/{disp_id}", status_code=status.HTTP_200_OK)
-def eliminar_disp(disp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def eliminar_disp(disp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('docentes','BOR','TODO'))):
     db_dato = service.obtener_dato_por_id(disp_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campo no encontrado")

@@ -5,11 +5,12 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, text
 from fastapi.security import OAuth2PasswordRequestForm
 
+
 from app.models.unem_db_models import Usuario, Rol, Credencial,Docente,Estudiante
-from app.schemas.esq_auth import UserRegister, UserLogin, UsuarioResposive,UsuarioUpdate
+from app.schemas.esq_auth import UserRegister, UsuarioResposive,UsuarioUpdate
 from app.service.base_services import eliminar_logico, obtener_por_id,actualizar_registro
 # Configuración de Cifrado y JWT
 load_dotenv()
@@ -27,6 +28,23 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+
+##CODIGO NUEVO EN TRABAJO PARA OBTENER LOS PERMISOS DE USUARIO ESTA EN FASES DE PRUEBAS
+def obtener_permisos(usuario_id: int, session: Session) -> dict:
+    # 1. Consultamos la vista pasando los parámetros con .params() en el text()
+    query = text("""
+        SELECT modulo, permiso, alcance_efectivo 
+        FROM general.vw_permisos_efectivos_usuario 
+        WHERE id_usu = :id_usu
+    """).params(id_usu=usuario_id)
+    
+    resultados = session.exec(query).all()
+    
+    # 2. Transformamos los permisos en un diccionario compacto tipo: {"notas:LEC": "SP", "docentes:CRE": "TODO"}
+    permisos_dict = {f"{row.modulo}:{row.permiso}": row.alcance_efectivo for row in resultados}
+
+    return permisos_dict
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -52,7 +70,6 @@ def verificar_token(token: str) -> dict:
             detail="Token inválido"
         )
 
-
 # --- Operaciones de Servicio con Base de Datos ---
 
 def registrar_usuario(session: Session, datos: UserRegister) -> UsuarioResposive:
@@ -68,7 +85,8 @@ def registrar_usuario(session: Session, datos: UserRegister) -> UsuarioResposive
     # 3. Crear la instancia del modelo alineada exactamente a db_models.py
     nuevo_usuario = Usuario(
         username=datos.username,
-        id_rol=datos.id_rol  # Usamos id_rol para recibir el entero (int)
+        id_rol=datos.id_rol,
+        email= datos.email
     )
     
     # 4. Guardar en la base de datos
@@ -140,11 +158,16 @@ def iniciar_sesion(form_data: OAuth2PasswordRequestForm, session: Session) -> di
     session.add(credencial)
     session.commit()
 
+    # 2. Obtener los permisos del usuario
+    permisos = obtener_permisos(usuario.id_usu, session)
+
     # 3. Generar el Token JWT
     # hay que decir si nesesitas permisos extrar para ver si se crea scope
     token = crear_token({
         "sub": usuario.username,
+        "email": usuario.email,
         "rol": usuario.id_rol,
+        "scopes": permisos,
         "id": usuario.id_usu
     })
     

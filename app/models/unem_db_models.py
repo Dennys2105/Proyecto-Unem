@@ -31,6 +31,66 @@ class Rol(SQLModel, table=True):
     
     #relaciones
     usuarios: list["Usuario"] = Relationship(back_populates="rol")
+    permisos_rol: list["PermisoRol"] = Relationship(back_populates="rol")
+
+class Modulo(SQLModel, table=True):
+    __tablename__ = "modulos"
+    __table_args__ = {"schema": "general"}
+    
+    id_mod: Optional[int] = Field(default=None, primary_key=True)
+    codigo: str = Field(max_length=50, unique=True)
+    modulo: str = Field(max_length=255)
+    descripcion: Optional[str] = Field(default=None, max_length=500)
+    estatus: str = Field(default="A", max_length=1)
+    
+    #relaciones
+    permisos_rol: list["PermisoRol"] = Relationship(back_populates="modulo")
+    permisos_usuario: list["PermisoUsario"] = Relationship(back_populates="modulo")
+
+class Permiso(SQLModel, table=True):
+    __tablename__ = "permisos"
+    __table_args__ = {"schema": "general"}
+    
+    id_perm: Optional[int] = Field(default=None, primary_key=True)
+    codigo: str = Field(max_length=10, unique=True) # Codigo corto de permiso(CRE,ACT,LEC,BOR)
+    nombre: str = Field(max_length=50, unique=True)
+    descripcion: Optional[str] = Field(default=None, max_length=500)
+    
+    #relaciones
+    permisos_rol: list["PermisoRol"] = Relationship(back_populates="permiso")
+    permisos_usuario: list["PermisoUsario"] = Relationship(back_populates="permiso")
+
+class PermisoRol(SQLModel, table=True):
+    __tablename__ = "permisos_rol"
+    __table_args__ = {"schema": "general"}
+    
+    id_pr: Optional[int] = Field(default=None, primary_key=True)
+    id_rol: int = Field(foreign_key="general.roles.id_rol", unique=True)
+    id_mod: int = Field(foreign_key="general.modulos.id_mod", unique=True)
+    id_perm: int = Field(foreign_key="general.permisos.id_perm", unique=True)
+    alcance: str = Field(max_length=10, unique= True) #limitado a TODO(acceso total), SP(Solo Propio), LIM(LIMITADO), NAD(Sin Acceso) 
+    estatus: str = Field(default="A", max_length=1)
+    
+    #relaciones
+    rol: Optional[Rol] = Relationship(back_populates="permisos_rol")
+    modulo: Optional[Modulo] = Relationship(back_populates="permisos_rol")
+    permiso: Optional[Permiso] = Relationship(back_populates="permisos_rol")
+
+class PermisoUsario(SQLModel, table=True):
+    __tablename__ = "permisos_usuario"
+    __table_args__ = {"schema": "general"}
+    
+    id_pu: Optional[int] = Field(default=None, primary_key=True)
+    id_usu: int = Field(foreign_key="general.usuarios.id_usu", unique=True)
+    id_mod: int = Field(foreign_key="general.modulos.id_mod", unique=True)
+    id_perm: int = Field(foreign_key="general.permisos.id_perm", unique=True)
+    alcance: str = Field(max_length=10, unique= True) #limitado a TODO(acceso total), SP(Solo Propio), LIM(LIMITADO), NAD(Sin Acceso) 
+    estatus: str = Field(default="A", max_length=1)
+    
+    #relaciones
+    usuario: Optional["Usuario"] = Relationship(back_populates="permisos_usuario")
+    modulo: Optional[Modulo] = Relationship(back_populates="permisos_usuario")
+    permiso: Optional[Permiso] = Relationship(back_populates="permisos_usuario")
 
 class DiaLaboral(SQLModel, table=True):
     __tablename__ = "dias_laborales"
@@ -63,6 +123,7 @@ class Usuario(SQLModel, table=True):
     docente: Optional["Docente"] = Relationship(back_populates="usuario")
     credencial: Optional["Credencial"] = Relationship(back_populates="usuario")
     auditoria_movimientos: list["AuditoriaMovimiento"] = Relationship(back_populates="usuario")
+    permisos_usuario: list["PermisoUsario"] = Relationship(back_populates="usuario")
 
     rol: Optional[Rol] = Relationship(back_populates="usuarios")
 
@@ -146,9 +207,12 @@ class Estudiante(SQLModel, table=True):
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
     #relaciones
+    notas: list["Nota"] = Relationship(back_populates="estudiante")
+    
     usuario: Usuario = Relationship(back_populates="estudiante")
     municipio: Municipio = Relationship(back_populates="estudiantes")
     programa: Programa = Relationship(back_populates="estudiantes")
+
 
 class DisponibilidadDocente(SQLModel, table=True):
     __tablename__ = "disponibilidad_docente"
@@ -216,7 +280,31 @@ class Materia(SQLModel, table=True):
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
     #relaciones
+    notas: list["Nota"] = Relationship(back_populates="materia")
+    
     eje_formativo: EjeFormativo = Relationship(back_populates="materias")
+
+class Nota(SQLModel, table=True):
+    __tablename__ = "notas"
+    __table_args__ = {"schema": "academico"}
+    
+    id_nota: Optional[int] = Field(default=None, primary_key=True)
+    id_est: int = Field(foreign_key="personas.estudiantes.id_est", unique=True)
+    id_mat: int = Field(foreign_key="academico.materias.id_mat", unique=True)
+    id_malla: int = Field(foreign_key="academico.malla_curricular.id_malla", unique=True)
+    id_per: int = Field(foreign_key="academico.periodos_academicos.id_per", unique=True)
+    nota: float = Field(ge=0, le=20) #La nota tiene que ser entre el 0 y el 20, y puede tener decimales, por ejemplo 15.5
+    tipo_evaluacion: str = Field(max_length=40) #solo permite Parcial 1, Parcial 2, Parcial 3, Final, Recuperación, Trabajo.
+    fecha_registro: datetime = Field(default_factory=datetime.utcnow)
+    estatus: str = Field(default="A", max_length=1)
+    creado: datetime = Field(default_factory=datetime.utcnow)
+    actualizar: datetime = Field(default_factory=datetime.utcnow)
+    
+    #relaciones
+    estudiante: Estudiante = Relationship(back_populates="notas")
+    materia: Materia = Relationship(back_populates="notas")
+    malla_curricular: MallaCurricular = Relationship(back_populates="notas")
+    periodo_academico: PeriodoAcademico = Relationship(back_populates="notas")
 
 class MallaCurricular(SQLModel, table=True):
     __tablename__ = "malla_curricular"
@@ -235,6 +323,7 @@ class MallaCurricular(SQLModel, table=True):
     #ojo, aqui hay dos relaciones con la misma tabla Materia, una es la materia y otra es el prerequisito, y no logre hacer que se relacionara normalmente
     #relaciones
     asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="malla_curricular")
+    notas: list["Nota"] = Relationship(back_populates="malla_curricular")
     
     programa: Programa = Relationship(back_populates="malla_curricular")
     
@@ -266,6 +355,7 @@ class PeriodoAcademico(SQLModel, table=True):
     
     #relaciones
     asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="periodo_academico")
+    notas: list["Nota"] = Relationship(back_populates="periodo_academico")
 
 class Seccion(SQLModel, table=True):
     __tablename__ = "secciones"
