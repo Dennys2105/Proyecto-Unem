@@ -46,4 +46,5 @@ lerna-debug.log*
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
+*.pyd__pycache__/
+*.pyc
