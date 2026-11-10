@@ -19,6 +19,8 @@ from app.router.malla_curic_router import router as malla_router
 from app.router.asig_carga_horaria_router import router as asig_router
 from app.router.analytics import router as analytics_router
 from app.router.notas_router import router as notas_router
+from app.router.permisos_router import router as permisos_router
+
 app = FastAPI(
     title="App Unem",
     description="Sistema para administrar y generar nuevos horarios con fastAPI",
@@ -61,3 +63,4 @@ app.include_router(malla_router)
 app.include_router(asig_router)
 app.include_router(analytics_router)
 app.include_router(notas_router)
+app.include_router(permisos_router)
