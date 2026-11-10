@@ -41,3 +41,10 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd__pycache__/
+*.pyc

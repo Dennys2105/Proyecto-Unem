@@ -9,7 +9,7 @@ import app.service.auth_service as service
 from app.service.docentes_service import actualizar as actualizar_docente
 from app.service.estudiante_service import actualizar as actualizar_estudiante
 from fastapi.security import OAuth2PasswordRequestForm
-from app.dependencies.auth_deps import requerir_rol
+from app.dependencies.auth_deps import requerir_rol, verificar_permiso
 from app.dependencies.pruebas_optimizacion import validar_unicidad
 
 router= APIRouter(
@@ -29,18 +29,18 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = D
 
 # --- read all ---
 @router.get("/listar_usuarios", response_model=List[UsuarioWithCredencialesResposive])
-def listar_usuarios(session: Session = Depends(get_session), usuario_actual: dict = Depends(requerir_rol([1]))):
+def listar_usuarios(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios', 'LEC','TODO'))):
     return service.listar_usuarios(session)
 
 # --- read by id ---
 @router.get("/{usuario_id}", response_model=UsuarioWithCredencialesResposive)
-def obtener_usuario(usuario_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(requerir_rol([1]))):
+def obtener_usuario(usuario_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios','LEC','SP'))):
     return service.obtener_dato_por_id(usuario_id, session)
 
 # --- updates ---
 @router.put("/docente/{user_id}", response_model=UpdateUserDocenteResponse)
 def actualizar_docente(
-    user_id: int,data: UpdateUserDocente, session: Session = Depends(get_session)
+    user_id: int,data: UpdateUserDocente, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios','ACT','TODO'))
 ):
     try:
         db_user = service.obtener_dato_por_id(user_id,session)
@@ -63,7 +63,7 @@ def actualizar_docente(
 
 @router.put("/estudiante/{user_id}", response_model=UpdateUserEstudianteResponse)
 def actualizar_Estudiante(
-    user_id: int,data: UpdateUserEstudiante, session: Session = Depends(get_session)
+    user_id: int,data: UpdateUserEstudiante, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios', 'ACT', 'TODO'))
 ):
     try:
         db_user = service.obtener_dato_por_id(user_id,session)
@@ -86,7 +86,7 @@ def actualizar_Estudiante(
 
 #-- eliminar Usuario -- 
 @router.delete("/{usuario_id}", status_code=status.HTTP_200_OK)
-def eliminar_usuario(usuario_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def eliminar_usuario(usuario_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('usuarios','BOR','TODO'))):
     db_dato = service.obtener_dato_por_id(usuario_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")

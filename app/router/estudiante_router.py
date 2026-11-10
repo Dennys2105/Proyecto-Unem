@@ -6,7 +6,7 @@ from app.config.db_conection import get_session
 from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,EstudianteResponse,EstudianteUpdate
 import app.service.estudiante_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual
+from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual,verificar_permiso
 
 router= APIRouter(
     prefix="/estudiantes",
@@ -15,7 +15,7 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=EstudianteResponse, status_code=status.HTTP_201_CREATED)
-def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','CRE','LIM'))):
     usuario = service.existe_llave_foranea_usu(session,estudiante_in.id_usu)
     municipio = service.existe_llave_foranea_mun(session,estudiante_in.id_mun)
     prog = service.existe_llave_foranea_pro(session,estudiante_in.id_pro)
@@ -35,13 +35,13 @@ def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends
 
 # --- READ ALL ---
 @router.get("/", response_model=List[EstudianteResponse])
-def leer_estudiante(session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def leer_estudiante(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','LEC','LIM'))):
     return service.leer_todos(session)
 
 # --- READ ONE ---
 @router.get("/{estudiante_id}", response_model=EstudianteResponse)
-def leer_estudiante_id(estudiante_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1,2,3]))):
-    recurso_propietario(usuario_actual,estudiante_id,[3])
+def leer_estudiante_id(estudiante_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','LEC','SP'))):
+    recurso_propietario(usuario_actual,estudiante_id,[4])
     dato = service.obtener_dato_por_id(estudiante_id, session)
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estudiante no encontrado")
@@ -49,7 +49,7 @@ def leer_estudiante_id(estudiante_id: int, session: Session = Depends(get_sessio
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{estudiante_id}", response_model=EstudianteResponse)
-def actualizar_parcial_estudiante(estudiante_id: int, dato_in: EstudianteUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def actualizar_parcial_estudiante(estudiante_id: int, dato_in: EstudianteUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','ACT','LIM'))):
 
     municipio = service.existe_llave_foranea_mun(session,dato_in.id_mun)
     prog = service.existe_llave_foranea_pro(session,dato_in.id_pro)
@@ -71,7 +71,7 @@ def actualizar_parcial_estudiante(estudiante_id: int, dato_in: EstudianteUpdate,
 
 # --- DELETE LOGICO ---
 @router.delete("/{estudiante_id}", status_code=status.HTTP_200_OK)
-def eliminar_estudiante(estudiante_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(requerir_rol([1]))):
+def eliminar_estudiante(estudiante_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','BOR','LIM'))):
     db_dato = service.obtener_dato_por_id(estudiante_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estudiante no encontrado")
