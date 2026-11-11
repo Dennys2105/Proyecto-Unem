@@ -252,30 +252,6 @@ export interface MateriaUpdate {
   id_eje?: number;
 }
 
-// Bloques Horarios
-export interface BloqueHorario {
-  id_bloq: number;
-  nombre: string;
-  hora_inicio: string;
-  hora_fin: string;
-  tipo: string;
-  estatus: string;
-}
-
-export interface BloqueHorarioCreate {
-  nombre: string;
-  hora_inicio: string;
-  hora_fin: string;
-  tipo: string;
-}
-
-export interface BloqueHorarioUpdate {
-  nombre?: string;
-  hora_inicio?: string;
-  hora_fin?: string;
-  tipo?: string;
-}
-
 // Ejes Formativos
 export interface EjeFormativo {
   id_eje: number;

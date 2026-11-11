@@ -8,7 +8,7 @@ export const authService = {
     formData.append('username', data.username);
     formData.append('password', data.password);
     
-    const response = await api.post('/Auth/login', formData, {
+    const response = await api.post('/usuario/login', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },

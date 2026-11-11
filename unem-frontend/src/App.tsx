@@ -14,7 +14,6 @@ import { Estudiantes } from './pages/Estudiantes';
 import { Secciones } from './pages/Secciones';
 import { EspaciosFisicos } from './pages/EspaciosFisicos';
 import { Materias } from './pages/Materias';
-import { BloquesHorarios } from './pages/BloquesHorarios';
 import { Dias } from './pages/Dias';
 import { Roles } from './pages/Roles';
 import { MallaCurricularPage } from './pages/MallaCurricular';
@@ -38,8 +37,7 @@ function App() {
               <Route path="/estudiantes" element={<Estudiantes />} />
               <Route path="/secciones" element={<Secciones />} />
               <Route path="/espacios" element={<EspaciosFisicos />} />
-              <Route path="/materias" element={<Materias />} />
-              <Route path="/bloques-horarios" element={<BloquesHorarios />} />
+              <Route path="/materias" element={<Materias />} />          
               <Route path="/dias" element={<Dias />} />
               <Route path="/roles" element={<Roles />} />
               <Route path="/malla" element={<MallaCurricularPage />} />

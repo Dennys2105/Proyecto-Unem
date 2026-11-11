@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { 
   LayoutDashboard, Building2, BookOpen, Users, UserCheck, 
   Layers, MapPin, LogOut, Menu, X, Book, 
-  CalendarDays, Shield, Clock, Network, ClipboardList 
+  CalendarDays, Shield, Network, ClipboardList 
 } from 'lucide-react';
 
 const navItems = [
@@ -17,7 +17,6 @@ const navItems = [
   { path: '/secciones', label: 'Secciones', icon: Layers },
   { path: '/espacios', label: 'Espacios Físicos', icon: MapPin },
   { path: '/materias', label: 'Materias', icon: BookOpen },
-  { path: '/bloques-horarios', label: 'Bloques Horarios', icon: Clock },
   { path: '/dias', label: 'Días Laborales', icon: CalendarDays },
   { path: '/roles', label: 'Roles', icon: Shield },
   { path: '/malla', label: 'Malla Curricular', icon: Network },
