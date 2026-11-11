@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel
 from decimal import Decimal
 from datetime import datetime, date, time
+from typing import Optional
 
 class VwResumenEstadisticoRead(SQLModel, table=False):
     total_docentes_activos: int
@@ -19,7 +20,7 @@ class VwMovimientosRead(SQLModel, table=False):
     accion: str
     registro_identificador: str
     resumen_cambios: str
-    ip_origen: str
+    ip_origen: Optional[str] = None
 
 class VwDocentesPorContratoRead(SQLModel, table=False):
     tipo_contrato: str
