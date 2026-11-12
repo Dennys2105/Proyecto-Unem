@@ -1,13 +1,22 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import { 
-  LayoutDashboard, Building2, BookOpen, Users, UserCheck, 
-  Layers, MapPin, LogOut, Menu, X, Book, 
-  CalendarDays, Shield, ShieldAlert, Network, ClipboardList 
+import {
+  LayoutDashboard, Building2, BookOpen, Users, UserCheck,
+  Layers, MapPin, LogOut, Menu, X, Book,
+  CalendarDays, Shield, ShieldAlert, Network, ClipboardList,
+  Award
 } from 'lucide-react';
-import { Award } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
-const navItems = [
+// Tipo explícito para evitar conflictos de inferencia
+interface NavItem {
+  path: string;
+  label: string;
+  icon: any;
+  adminOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/municipios', label: 'Municipios', icon: Building2 },
   { path: '/programas', label: 'Programas', icon: BookOpen },
@@ -19,10 +28,10 @@ const navItems = [
   { path: '/espacios', label: 'Espacios Físicos', icon: MapPin },
   { path: '/materias', label: 'Materias', icon: BookOpen },
   { path: '/dias', label: 'Días Laborales', icon: CalendarDays },
-  { path: '/roles', label: 'Roles', icon: Shield },
+  { path: '/roles', label: 'Roles', icon: Shield, adminOnly: true },
   { path: '/malla', label: 'Malla Curricular', icon: Network },
   { path: '/asignacion-carga', label: 'Asignación de Carga', icon: ClipboardList },
-  { path: '/auditoria', label: 'Auditoría', icon: ShieldAlert },
+  { path: '/auditoria', label: 'Auditoría', icon: ShieldAlert, adminOnly: true },
   { path: '/notas', label: 'Notas', icon: Award },
 ];
 
@@ -30,6 +39,12 @@ export const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { esAdmin } = useAuth();
+
+  // Filtrar ítems según permisos
+  const navItemsFiltrados = navItems.filter(item => 
+    !item.adminOnly || esAdmin
+  );
 
   const handleLogout = () => {
     sessionStorage.removeItem('unem_token');
@@ -46,9 +61,8 @@ export const Layout = () => {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
-
         <nav className="flex-1 px-2 space-y-1">
-          {navItems.map((item) => {
+          {navItemsFiltrados.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
@@ -65,7 +79,6 @@ export const Layout = () => {
             );
           })}
         </nav>
-
         <div className="p-4 border-t border-slate-800">
           <button
             onClick={handleLogout}
@@ -82,7 +95,7 @@ export const Layout = () => {
         {/* Navbar */}
         <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">
-            {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
+            {navItemsFiltrados.find(item => item.path === location.pathname)?.label || 'Dashboard'}
           </h2>
           <div className="flex items-center space-x-3">
             <span className="text-sm text-gray-600">Administrador</span>
@@ -92,7 +105,7 @@ export const Layout = () => {
           </div>
         </header>
 
-        {/* Content Area - AQUÍ ESTÁ LA CLAVE */}
+        {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>

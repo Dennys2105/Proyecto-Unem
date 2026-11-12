@@ -54,21 +54,23 @@ export interface ProgramaUpdate {
 // Docentes
 export interface Docente {
   id_doc: number;
-  id_usu: number | null;
+  id_usu?: number | null;
   cedula: string;
   nombre: string;
   apellido: string;
   id_mun: number;
-  especialidad: string;
-  tipo_contrato: 'Estipendio' | 'Contratado';
+  especialidad: string; // <-- NUEVO
+  tipo_contrato: string;
   horas_max_sem: number;
   horas_asignadas: number;
   horas_disponibles: number;
-  telefono: string | null;
-  municipio: Municipio | null;
-  usuario: Usuario | null;
+  telefono: string;
+  observaciones?: string; // <-- NUEVO
+  foto_url?: string;      // <-- NUEVO
+  estatus: string;
   creado: string;
   actualizar: string;
+  municipio?: { nombre: string };
 }
 
 export interface DocenteCreate {
@@ -414,3 +416,29 @@ export interface NotaUpdate {
   observaciones?: string;
   fecha_registro?: string;
 }
+
+// Auditoría (coincide con la respuesta del endpoint /api/v1/analytics/auditoria/movimientos)
+export interface AuditoriaMovimiento {
+  id_aud: number;
+  fecha: string;
+  usuario: string;
+  tabla_afectada: string;
+  accion: string;
+  registro_identificador: string;
+  resumen_cambios: string;
+  ip_origen: string | null;
+}
+
+// Normaliza los datos del backend al formato que usa el frontend
+export const normalizarAuditoria = (a: AuditoriaMovimiento) => ({
+  id: a.id_aud,
+  fecha: a.fecha,
+  usuario: a.usuario || 'Sistema',
+  tabla: a.tabla_afectada,
+  accion: a.accion,
+  identificador: a.registro_identificador || 'N/A',
+  resumen: a.resumen_cambios || 'N/A',
+  ip: a.ip_origen || 'N/A',
+  antes: null, // El endpoint ya no devuelve val_antes/val_despues
+  despues: null,
+});

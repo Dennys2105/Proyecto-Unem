@@ -10,6 +10,7 @@ import { DataTable } from '../components/DataTable';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import toast from 'react-hot-toast';
 import { exportToExcel, generateFichaAcademicaPDF, generateGeneralPNFPDF } from '../utils/exportUtils';
 import { FileSpreadsheet, FileText, X, User, Building } from 'lucide-react';
 import type { AsignacionCarga, AsignacionCreate, AsignacionUpdate } from '../types/models';
@@ -146,7 +147,7 @@ export const AsignacionCargaPage = () => {
         trayecto: 'III',
         semestre: 'VII',
         unidadCurricular: ucSet.size > 0 ? Array.from(ucSet) : ['Sin asignaciones'],
-        docenteInvestigador: `${docente.nombre} ${docente.apellido}`.toUpperCase(),
+        docenteInvestigador: `${docente.nombre} ${docente.apellido} (${docente.especialidad || 'Docente'})`.toUpperCase(),
         cedulaIdentidad: docente.cedula || 'V-00.000.000',
         correo: 'correo@ejemplo.com',
         telefono: docente.telefono || '0000-0000000',
@@ -157,14 +158,25 @@ export const AsignacionCargaPage = () => {
       closeReportModal();
 
     } else if (reportType === 'general') {
-      if (!selectedPnf) return alert('Selecciona un PNF.');
+      if (!selectedPnf) return toast.error('Por favor, selecciona un PNF (Primaria o Especial).');
 
+      // FILTRO ROBUSTO: Intenta usar el nombre del programa, pero si no existe, usa una lógica de respaldo
       const asignacionesFiltradas = asignaciones?.filter((asig) => {
         const malla = mallas?.find((m) => m.id_malla === asig.id_malla);
-        if (!malla || !malla.programa) return false;
-        const nombrePrograma = malla.programa.nombre.toLowerCase();
-        if (selectedPnf === 'primaria') return nombrePrograma.includes('primaria');
-        if (selectedPnf === 'especial') return nombrePrograma.includes('especial');
+        if (!malla) return false;
+
+        // Opción A: Si el backend devuelve el objeto programa anidado (lo ideal)
+        if (malla.programa && malla.programa.nombre) {
+          const nombrePrograma = malla.programa.nombre.toLowerCase();
+          if (selectedPnf === 'primaria') return nombrePrograma.includes('primaria');
+          if (selectedPnf === 'especial') return nombrePrograma.includes('especial');
+        }
+        
+        // Opción B (Respaldo): Si el backend solo devuelve id_pro, podemos mapear IDs conocidos
+        // (Ajusta estos IDs según los que tengas en tu BD real. En el SQL 4.1, id_pro 1 es Primaria, 2 es Especial)
+        if (selectedPnf === 'primaria' && malla.id_pro === 1) return true;
+        if (selectedPnf === 'especial' && malla.id_pro === 2) return true;
+
         return false;
       }) || [];
 
@@ -173,9 +185,10 @@ export const AsignacionCargaPage = () => {
         const dia = dias?.find((d) => d.id_dia === asig.id_dia)?.dia || 'N/A';
         const espacio = espacios?.find((e) => e.id_esp === asig.id_esp)?.nombre_centro || 'N/A';
         const malla = mallas?.find((m) => m.id_malla === asig.id_malla);
-
-        const materiaNombre = typeof malla?.materia === 'string'
-          ? malla.materia
+        
+        // Intenta obtener el nombre de la materia si el backend la incluye, sino usa el ID de malla
+        const materiaNombre = typeof malla?.materia === 'string' 
+          ? malla.materia 
           : (malla?.materia as any)?.nombre || `Malla ID: ${malla?.id_malla}`;
 
         return {
@@ -188,7 +201,8 @@ export const AsignacionCargaPage = () => {
       }).sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora));
 
       const pnfLabel = selectedPnf === 'especial' ? 'EDUCACIÓN ESPECIAL' : 'EDUCACIÓN PRIMARIA';
-      generateGeneralPNFPDF(datosParaTabla, pnfLabel, `Horario_General_${selectedPnf}`);
+      generateGeneralPNFPDF(datosParaTabla, pnfLabel);
+      toast.success('Reporte generado exitosamente. Revisa la nueva pestaña.');
       closeReportModal();
     }
   };
