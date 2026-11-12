@@ -379,3 +379,38 @@ export interface AsignacionUpdate {
   tipo_actividad?: string;
   observaciones?: string;
 }
+
+// Notas
+export interface Nota {
+  id_nota?: number;
+  id_est: number;
+  id_malla: number;
+  id_per: number;
+  nota: number;
+  tipo_evaluacion: string;
+  observaciones: string;
+  fecha_registro: string;
+  estudiante?: any;
+  malla?: any;
+  periodo?: any;
+}
+
+export interface NotaCreate {
+  id_est: number;
+  id_malla: number;
+  id_per: number;
+  nota: number;
+  tipo_evaluacion: string;
+  observaciones: string;
+  fecha_registro?: string;
+}
+
+export interface NotaUpdate {
+  id_est?: number;
+  id_malla?: number;
+  id_per?: number;
+  nota?: number;
+  tipo_evaluacion?: string;
+  observaciones?: string;
+  fecha_registro?: string;
+}

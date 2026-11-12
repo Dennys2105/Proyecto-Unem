@@ -18,6 +18,8 @@ import { Dias } from './pages/Dias';
 import { Roles } from './pages/Roles';
 import { MallaCurricularPage } from './pages/MallaCurricular';
 import { AsignacionCargaPage } from './pages/AsignacionCarga';
+import { Auditoria } from './pages/Auditoria';
+   import { NotasPage } from './pages/Notas';
 
 function App() {
   return (
@@ -42,6 +44,8 @@ function App() {
               <Route path="/roles" element={<Roles />} />
               <Route path="/malla" element={<MallaCurricularPage />} />
               <Route path="/asignacion-carga" element={<AsignacionCargaPage />} />
+              <Route path="/auditoria" element={<Auditoria />} />
+              <Route path="/notas" element={<NotasPage />} />
             </Route>
           </Route>
 

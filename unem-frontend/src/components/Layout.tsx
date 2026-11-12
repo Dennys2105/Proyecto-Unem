@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { 
   LayoutDashboard, Building2, BookOpen, Users, UserCheck, 
   Layers, MapPin, LogOut, Menu, X, Book, 
-  CalendarDays, Shield, Network, ClipboardList 
+  CalendarDays, Shield, ShieldAlert, Network, ClipboardList 
 } from 'lucide-react';
+import { Award } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,6 +22,8 @@ const navItems = [
   { path: '/roles', label: 'Roles', icon: Shield },
   { path: '/malla', label: 'Malla Curricular', icon: Network },
   { path: '/asignacion-carga', label: 'Asignación de Carga', icon: ClipboardList },
+  { path: '/auditoria', label: 'Auditoría', icon: ShieldAlert },
+  { path: '/notas', label: 'Notas', icon: Award },
 ];
 
 export const Layout = () => {
