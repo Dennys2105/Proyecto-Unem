@@ -8,7 +8,7 @@ from app.schemas.esq_notas import NotasCreate,NotasResponcive,NotasUpdate
 from app.dependencies.pruebas_optimizacion import validar_unicidad
 import app.service.notas_service as service
 
-router = APIRouter(prefix="/api/notas", tags=["Notas"])
+router = APIRouter(prefix="/notas", tags=["Notas"])
 
 # --- CREATE ---
 @router.post("/", response_model= NotasResponcive, status_code=status.HTTP_201_CREATED)

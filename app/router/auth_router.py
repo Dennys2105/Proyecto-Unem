@@ -35,52 +35,67 @@ def listar_usuarios(session: Session = Depends(get_session), usuario_actual: dic
 # --- read by id ---
 @router.get("/{usuario_id}", response_model=UsuarioWithCredencialesResposive)
 def obtener_usuario(usuario_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios','LEC','SP'))):
-    return service.obtener_dato_por_id(usuario_id, session)
+    resultado = service.obtener_usuario_con_credenciales_por_id(session, usuario_id)
+    if not resultado:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Usuario no encontrado"
+        )
+    return resultado
 
 # --- updates ---
 @router.put("/docente/{user_id}", response_model=UpdateUserDocenteResponse)
-def actualizar_docente(
-    user_id: int,data: UpdateUserDocente, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios','ACT','TODO'))
+def actualizar_docente_endpoint(
+    user_id: int, data: UpdateUserDocente, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios','ACT','TODO'))
 ):
     try:
-        db_user = service.obtener_dato_por_id(user_id,session)
+        db_user = service.obtener_dato_por_id(user_id, session)
         if not db_user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
 
-        db_docente = service.obtener_user_informacion(session, user_id, 1)
+        db_docente = service.obtener_user_informacion(session, user_id, 1) # 1 = Docente
         if not db_docente:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Docente no encontrado")
         
-        service.actualizar_usuario(session, db_user,data.docente, parcial=True)
-        actualizar_docente(session, db_docente, data.usuario, parcial=True)
+        # Actualizamos la tabla general de usuarios con su respectivo payload
+        service.actualizar_usuario(session, db_user, data.usuario, parcial=True)
+        # Actualizamos el perfil específico del docente
+        actualizar_docente(session, db_docente, data.docente, parcial=True)
 
         return {
             "usuario": db_user,
             "docente": db_docente
         }
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al actualizar: {str(e)}")
 
+
 @router.put("/estudiante/{user_id}", response_model=UpdateUserEstudianteResponse)
-def actualizar_Estudiante(
-    user_id: int,data: UpdateUserEstudiante, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios', 'ACT', 'TODO'))
+def actualizar_estudiante_endpoint(
+    user_id: int, data: UpdateUserEstudiante, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('usuarios', 'ACT', 'TODO'))
 ):
     try:
-        db_user = service.obtener_dato_por_id(user_id,session)
+        db_user = service.obtener_dato_por_id(user_id, session)
         if not db_user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
 
-        db_docente = service.obtener_user_informacion(session, user_id, 1)
-        if not db_docente:
+        db_estudiante = service.obtener_user_informacion(session, user_id, 2)
+        if not db_estudiante:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estudiante no encontrado")
 
-        service.actualizar_usuario(session, db_user,data.estudiante, parcial=True)
-        actualizar_estudiante(session, db_docente, data.usuario, parcial=True)
+        # Actualizamos la tabla general de usuarios
+        service.actualizar_usuario(session, db_user, data.usuario, parcial=True)
+        # Actualizamos el perfil específico del estudiante
+        actualizar_estudiante(session, db_estudiante, data.estudiante, parcial=True)
 
         return {
             "usuario": db_user,
-            "estudiante": db_docente
+            "estudiante": db_estudiante
         }
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error al actualizar: {str(e)}")
 

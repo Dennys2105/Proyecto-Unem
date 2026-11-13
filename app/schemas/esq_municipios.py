@@ -12,7 +12,6 @@ class MunicipiosUpdate(BaseMunicipios):
 class MunicipiosResposive(BaseMunicipios):
     id_mun: int
     nombre: str
-    estatus: str
 
 class MunicipiosRemplace(BaseMunicipios):
     pass

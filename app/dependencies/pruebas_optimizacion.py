@@ -1,8 +1,9 @@
 from fastapi import Depends, HTTPException, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
-from typing import Type,Union
+from typing import Type,Union,Annotated,Optional
 from app.config.db_conection import get_session
+import re
 
 def validar_unicidad(modelo_db: Type, campos: Union[str, list[str]], nombre_id: str = "id"):
     """
@@ -53,3 +54,29 @@ def validar_horas(hora_inicio, hora_fin):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="La hora de inicio no puede ser mayor o igual a la hora de fin."
             )
+
+
+CEDULA_REGEX = re.compile(r"^V-[0-9]{7,8}$")
+
+def validar_cedula_venezolana(cedula: str) -> str:
+    """
+    Dependencia reutilizable para validar el formato de cédula venezolana.
+    """
+    if not CEDULA_REGEX.match(cedula):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El formato de la cédula es inválido. Debe cumplir con el estándar V-XXXXXXXX (7 u 8 dígitos)."
+        )
+    return cedula
+
+def validar_telefono_venezolano(v: Optional[str]) -> Optional[str]:
+    if v is None or v == "":
+        return None
+    # Expresión regular de la BD: 04 seguido de 9 dígitos (ej. 04141234567)
+    patron = r"^04[0-9]{9}$"
+    if not re.match(patron, v):
+        raise HTTPException(
+            status_code=422,
+            detail="El teléfono debe tener un formato venezolano válido (ej: 04141234567)."
+        )
+    return v

@@ -195,12 +195,13 @@ class Estudiante(SQLModel, table=True):
     __table_args__ = {"schema": "personas"}
     
     id_est: Optional[int] = Field(default=None, primary_key=True)
+    id_usu: int = Field(foreign_key="general.usuarios.id_usu")
     cedula: str = Field(max_length=20, unique=True)
+    id_mun: int = Field(foreign_key="general.municipios.id_mun")
     nombre: str = Field(max_length=150)
     apellido: str = Field(max_length=150)
-    id_usu: int = Field(foreign_key="general.usuarios.id_usu")
-    id_mun: int = Field(foreign_key="general.municipios.id_mun")
     id_pro: int = Field(foreign_key="academico.programas.id_pro")
+    id_sec: int = Field(foreign_key="academico.secciones.id_sec")
     trayecto: int
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
@@ -212,6 +213,7 @@ class Estudiante(SQLModel, table=True):
     usuario: Usuario = Relationship(back_populates="estudiante")
     municipio: Municipio = Relationship(back_populates="estudiantes")
     programa: Programa = Relationship(back_populates="estudiantes")
+    seccion: Seccion = Relationship(back_populates="estudiantes")
 
 
 class DisponibilidadDocente(SQLModel, table=True):
@@ -369,7 +371,9 @@ class Seccion(SQLModel, table=True):
     actualizar: datetime = Field(default_factory=datetime.utcnow)
 
     #relaciones
-    programa: Optional[Programa] = Relationship(back_populates="secciones") 
+    estudiantes: list["Estudiante"] = Relationship(back_populates="seccion")
+    
+    programa: Optional[Programa] = Relationship(back_populates="secciones")
 
 
 # ==========================================

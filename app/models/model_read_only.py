@@ -18,8 +18,8 @@ class VwMovimientosRead(SQLModel, table=False):
     usuario: str
     tabla_afectada: str
     accion: str
-    registro_identificador: str
-    resumen_cambios: str
+    registro_identificador: Optional[str] = None
+    resumen_cambios: Optional[str] = None
     ip_origen: Optional[str] = None
 
 class VwDocentesPorContratoRead(SQLModel, table=False):
@@ -50,20 +50,20 @@ class VwDocentesPorProgramaMunicipioRead(SQLModel, table=False):
     total_horas_disponibles: int
 
 class VwHorarioCompletoDocenteRead(SQLModel, table=False):
-    cedula: str
-    nombre_completo_docente: str
-    tipo_contrato: str
-    cod_programa: str
-    programa: str
-    cod_materia:str
-    materia: str
-    uc: int
-    cod_eje:str
-    eje_formatvo: str
-    periodo_academico: str
-    dia: str
-    hora_inicio: time
-    hora_fin: time
-    espacio_fisico: str
-    nombre_centro: str
-    tipo_actividad: str
+    cedula: str | None = None
+    nombre_completo_docente: str | None = None
+    tipo_contrato: str | None = None
+    cod_programa: str | None = None
+    programa: str | None = None
+    cod_materia:str | None = None
+    materia: str | None = None
+    uc: int | None = None 
+    cod_eje:str | None = None
+    eje_formativo: str | None = None
+    periodo_academico: str | None = None
+    dia: str | None = None
+    hora_inicio: time | None = None
+    hora_fin: time | None = None
+    espacio_fisico: str | None = None
+    nombre_centro: str | None = None
+    tipo_actividad: str | None = None
