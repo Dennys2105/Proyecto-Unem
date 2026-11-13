@@ -3,8 +3,7 @@ import { useAuditoria } from '../hooks/useAuditoria';
 import { normalizarAuditoria } from '../types/models';
 import {
   Shield, Search, ChevronDown, ChevronUp, Plus, Edit, Trash2,
-  AlertTriangle, Clock, User, Globe, Database, FileJson, X,
-  Info, ArrowRightLeft
+  AlertTriangle, Clock, User, Globe, Database, FileJson, X, Info
 } from 'lucide-react';
 
 const ACCION_CONFIG: Record<string, { color: string; icon: any; label: string; descripcion: string }> = {
@@ -24,8 +23,17 @@ const ACCION_CONFIG: Record<string, { color: string; icon: any; label: string; d
     color: 'bg-red-100 text-red-700 border-red-300',
     icon: Trash2,
     label: 'Eliminación',
-    descripcion: 'Se eliminó un registro del sistema'
+    descripcion: 'Se eliminó (lógicamente) un registro del sistema'
   },
+};
+
+// Detecta si un UPDATE es en realidad una eliminación lógica
+// (cambio de estatus de 'A' a 'I' sin otros campos modificados)
+const esEliminacionLogica = (resumen: string): boolean => {
+  if (!resumen) return false;
+  const resumenLower = resumen.toLowerCase();
+  // Si el único campo modificado es "estatus"
+  return resumenLower === 'estatus' || resumenLower.includes('solo estatus');
 };
 
 const TABLA_NOMBRES: Record<string, string> = {
@@ -71,6 +79,19 @@ export const AuditoriaPage = () => {
 
   const datosFiltrados = useMemo(() => {
     return datosNormalizados.filter(d => {
+      // Detectar si es una eliminación lógica (UPDATE que cambia estatus)
+      const esEliminacionLogica = 
+        d.accion === 'UPDATE' && 
+        (d.resumen.toLowerCase().includes('estatus') || 
+        d.resumen.toLowerCase().includes('eliminado') ||
+        d.resumen.toLowerCase().includes('inactivo'));
+      
+      // Si el filtro es DELETE, incluir tanto eliminaciones físicas como lógicas
+      if (filtroAccion === 'DELETE') {
+        return d.accion === 'DELETE' || esEliminacionLogica;
+      }
+      
+      // Para otros filtros, comportamiento normal
       if (filtroTabla && d.tabla !== filtroTabla) return false;
       if (filtroAccion && d.accion !== filtroAccion) return false;
       if (busqueda) {
@@ -81,12 +102,20 @@ export const AuditoriaPage = () => {
     });
   }, [datosNormalizados, filtroTabla, filtroAccion, busqueda]);
 
-  const stats = useMemo(() => ({
-    total: datosNormalizados.length,
-    insert: datosNormalizados.filter(d => d.accion === 'INSERT').length,
-    update: datosNormalizados.filter(d => d.accion === 'UPDATE').length,
-    delete: datosNormalizados.filter(d => d.accion === 'DELETE').length,
-  }), [datosNormalizados]);
+  const stats = useMemo(() => {
+    const esEliminacionLogica = (d: any) => 
+      d.accion === 'UPDATE' && 
+      (d.resumen.toLowerCase().includes('estatus') || 
+      d.resumen.toLowerCase().includes('eliminado') ||
+      d.resumen.toLowerCase().includes('inactivo'));
+    
+    return {
+      total: datosNormalizados.length,
+      insert: datosNormalizados.filter(d => d.accion === 'INSERT').length,
+      update: datosNormalizados.filter(d => d.accion === 'UPDATE' && !esEliminacionLogica(d)).length,
+      delete: datosNormalizados.filter(d => d.accion === 'DELETE' || esEliminacionLogica(d)).length,
+    };
+  }, [datosNormalizados]);
 
   const formatearFecha = (fecha: string) => {
     if (!fecha) return 'N/A';
@@ -100,61 +129,59 @@ export const AuditoriaPage = () => {
     }
   };
 
-  // Función mejorada que muestra detalles contextuales reales
   const renderDetalle = (d: ReturnType<typeof normalizarAuditoria>) => {
-    const config = ACCION_CONFIG[d.accion] || {
+    const esElimLogica = esEliminacionLogica(d.resumen);
+    const accionReal = esElimLogica ? 'DELETE' : d.accion;
+    const config = ACCION_CONFIG[accionReal] || {
       color: 'bg-gray-100 text-gray-700 border-gray-300',
       icon: Clock,
       label: d.accion,
       descripcion: 'Operación registrada'
     };
-    const Icono = config.icon;
     const nombreTabla = formatNombreTabla(d.tabla);
 
-    // Construir mensaje descriptivo real según la acción
-    const getMensajeDescriptivo = () => {
+    const getMensajeAccion = () => {
+      if (esElimLogica) {
+        return `Se eliminó (lógicamente) el registro "${d.identificador}" de "${nombreTabla}". El estatus cambió de Activo a Inactivo.`;
+      }
       switch (d.accion) {
-        case 'INSERT':
-          return `Se registró un nuevo elemento en "${nombreTabla}".`;
-        case 'UPDATE':
-          return `Se actualizaron los datos de un registro en "${nombreTabla}".`;
-        case 'DELETE':
-          return `Se eliminó (lógicamente) un registro de "${nombreTabla}".`;
-        default:
-          return `Operación "${d.accion}" ejecutada sobre "${nombreTabla}".`;
+        case 'INSERT': return `Se registró un nuevo elemento en "${nombreTabla}".`;
+        case 'UPDATE': return `Se actualizaron los datos de un registro en "${nombreTabla}".`;
+        case 'DELETE': return `Se eliminó (lógicamente) un registro de "${nombreTabla}".`;
+        default: return `Operación "${d.accion}" ejecutada sobre "${nombreTabla}".`;
       }
     };
 
-    // Determinar si el resumen contiene información útil real
     const resumenEsUtil = d.resumen &&
       d.resumen !== 'N/A' &&
       !d.resumen.includes('Ver columnas modificadas') &&
-      d.resumen.trim().length > 0;
+      d.resumen.trim().length > 0 &&
+      !esElimLogica;
 
     return (
       <div className="mt-3 bg-gradient-to-br from-gray-50 to-white rounded-lg p-4 border border-gray-200 shadow-sm">
-        {/* Encabezado del detalle */}
         <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-md ${config.color}`}>
-              <Icono size={16} />
+            <div className={`p-2 rounded-md ${esElimLogica ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700'}`}>
+              {esElimLogica ? <Trash2 size={16} /> : <FileJson size={16} />}
             </div>
             <div>
-              <h4 className="text-sm font-bold text-gray-900">{config.label} de Registro</h4>
+              <h4 className="text-sm font-bold text-gray-900">Detalle de la Operación</h4>
               <p className="text-xs text-gray-500">{config.descripcion}</p>
             </div>
           </div>
           <span className="text-xs font-mono text-gray-400">#{d.id}</span>
         </div>
 
-        {/* Información detallada */}
         <div className="space-y-2.5 text-sm">
           <div className="flex gap-3 items-start">
             <span className="font-semibold text-gray-700 min-w-[120px] flex items-center gap-1.5">
               <Info size={12} className="text-indigo-500" />
               Acción:
             </span>
-            <span className="text-gray-900">{getMensajeDescriptivo()}</span>
+            <span className={`font-medium ${esElimLogica ? 'text-red-600' : 'text-gray-900'}`}>
+              {getMensajeAccion()}
+            </span>
           </div>
 
           <div className="flex gap-3 items-start">
@@ -201,11 +228,10 @@ export const AuditoriaPage = () => {
             </div>
           )}
 
-          {/* Resumen real si existe */}
           {resumenEsUtil && (
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="flex items-center gap-2 mb-2">
-                <ArrowRightLeft size={14} className="text-indigo-600" />
+                <Edit size={14} className="text-indigo-600" />
                 <span className="text-xs font-bold text-indigo-700 uppercase">
                   Detalle del cambio
                 </span>
@@ -216,8 +242,7 @@ export const AuditoriaPage = () => {
             </div>
           )}
 
-          {/* Nota para UPDATE sin resumen detallado */}
-          {d.accion === 'UPDATE' && !resumenEsUtil && (
+          {d.accion === 'UPDATE' && !resumenEsUtil && !esElimLogica && (
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-900">
                 <Info size={14} className="text-amber-600 shrink-0 mt-0.5" />
@@ -250,7 +275,6 @@ export const AuditoriaPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Encabezado */}
       <div className="flex items-start gap-4">
         <div className="bg-indigo-100 p-3 rounded-xl">
           <Shield className="text-indigo-600" size={32} />
@@ -263,7 +287,6 @@ export const AuditoriaPage = () => {
         </div>
       </div>
 
-      {/* Tarjetas de estadísticas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <p className="text-sm text-gray-500">Total Movimientos</p>
@@ -278,12 +301,11 @@ export const AuditoriaPage = () => {
           <p className="text-2xl font-bold text-blue-600 mt-1">{stats.update}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <p className="text-sm text-gray-500">Eliminaciones</p>
+          <p className="text-sm text-gray-500">Eliminaciones (lógicas)</p>
           <p className="text-2xl font-bold text-red-600 mt-1">{stats.delete}</p>
         </div>
       </div>
 
-      {/* Barra de filtros */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div className="relative">
@@ -302,9 +324,7 @@ export const AuditoriaPage = () => {
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Todas las tablas</option>
-            {tablasDisponibles.map(t => (
-              <option key={t} value={t}>{formatNombreTabla(t)}</option>
-            ))}
+            {tablasDisponibles.map(t => <option key={t} value={t}>{formatNombreTabla(t)}</option>)}
           </select>
           <select
             value={filtroAccion}
@@ -317,11 +337,7 @@ export const AuditoriaPage = () => {
             <option value="DELETE">DELETE (Eliminación)</option>
           </select>
           <button
-            onClick={() => {
-              setBusqueda('');
-              setFiltroTabla('');
-              setFiltroAccion('');
-            }}
+            onClick={() => { setBusqueda(''); setFiltroTabla(''); setFiltroAccion(''); }}
             className="flex items-center justify-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
           >
             <X size={14} /> Limpiar filtros
@@ -329,7 +345,6 @@ export const AuditoriaPage = () => {
         </div>
       </div>
 
-      {/* Tabla de auditoría */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="p-12 text-center">
@@ -358,10 +373,13 @@ export const AuditoriaPage = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {datosFiltrados.map((d) => {
-                  const config = ACCION_CONFIG[d.accion] || {
+                  const esElimLogica = esEliminacionLogica(d.resumen);
+                  const accionReal = esElimLogica ? 'DELETE' : d.accion;
+                  const config = ACCION_CONFIG[accionReal] || {
                     color: 'bg-gray-100 text-gray-700 border-gray-300',
                     icon: Clock,
-                    label: d.accion
+                    label: d.accion,
+                    descripcion: 'Operación registrada'
                   };
                   const Icono = config.icon;
                   const expandida = filaExpandida === d.id;

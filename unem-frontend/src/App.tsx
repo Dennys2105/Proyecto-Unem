@@ -4,12 +4,12 @@ import { queryClient } from './lib/queryClient';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Layout } from './components/Layout';
-import { Dashboard } from './pages/Dashboard'; // <-- Importamos el Dashboard real
+import { Dashboard } from './pages/Dashboard'; 
 import { Municipios } from './pages/Municipios';
 import { Programas } from './pages/Programas';
 import { EjesFormativos } from './pages/EjesFormativos';
 import { PeriodosAcademicos } from './pages/PeriodosAcademicos';
-import { Docentes } from './pages/Docentes';
+import { DocentesPage } from './pages/Docentes';
 import { Estudiantes } from './pages/Estudiantes';
 import { Secciones } from './pages/Secciones';
 import { EspaciosFisicos } from './pages/EspaciosFisicos';
@@ -35,7 +35,7 @@ function App() {
               <Route path="/programas" element={<Programas />} />
               <Route path="/ejes" element={<EjesFormativos />} />
               <Route path="/periodos" element={<PeriodosAcademicos />} />
-              <Route path="/docentes" element={<Docentes />} />
+              <Route path="/docentes" element={<DocentesPage />} />
               <Route path="/estudiantes" element={<Estudiantes />} />
               <Route path="/secciones" element={<Secciones />} />
               <Route path="/espacios" element={<EspaciosFisicos />} />

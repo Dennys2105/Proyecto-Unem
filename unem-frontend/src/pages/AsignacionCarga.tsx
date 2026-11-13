@@ -17,12 +17,17 @@ import type { AsignacionCarga, AsignacionCreate, AsignacionUpdate } from '../typ
 
 const asignacionSchema = z.object({
   id_doc: z.string().min(1, 'Selecciona un docente'),
-  id_malla: z.string().min(1, 'Selecciona una malla'),
+  id_malla: z.string().min(1, 'Selecciona una malla/materia'),
   id_esp: z.string().min(1, 'Selecciona un espacio'),
   id_dia: z.string().min(1, 'Selecciona un día'),
   id_per: z.string().min(1, 'Selecciona un periodo'),
   hora_inicio: z.string().min(1, 'Obligatorio'),
   hora_fin: z.string().min(1, 'Obligatorio'),
+}).refine((data) => {
+  return data.hora_fin > data.hora_inicio;
+}, {
+  message: "La hora de fin debe ser posterior a la hora de inicio",
+  path: ["hora_fin"],
 });
 
 type AsignacionFormData = z.infer<typeof asignacionSchema>;
@@ -71,36 +76,97 @@ export const AsignacionCargaPage = () => {
   const closeModal = () => { setIsModalOpen(false); setEditingAsignacion(null); reset(); };
   const closeReportModal = () => { setIsReportModalOpen(false); setReportType(null); setSelectedDocenteId(''); setSelectedPnf(''); };
 
-  const onSubmit = (data: AsignacionFormData) => {
+  const onSubmit = (data: z.infer<typeof asignacionSchema>) => {
     const formatTime = (time: string) => time.length === 5 ? `${time}:00` : time;
-    const payload: any = {
-      id_doc: parseInt(data.id_doc, 10),
+    const nuevoInicio = formatTime(data.hora_inicio);
+    const nuevoFin = formatTime(data.hora_fin);
+    const nuevoDia = parseInt(data.id_dia, 10);
+    const nuevoDocente = parseInt(data.id_doc, 10);
+    const nuevoEspacio = parseInt(data.id_esp, 10);
+
+    const haySolapamiento = (ini1: string, fin1: string, ini2: string, fin2: string) => {
+      return ini1 < fin2 && ini2 < fin1;
+    };
+
+    const conflictos = (asignaciones || []).filter((asig) => {
+      if (editingAsignacion && asig.id_asig === editingAsignacion.id_asig) return false;
+      if (asig.id_dia !== nuevoDia) return false;
+
+      const choqueDocente = asig.id_doc === nuevoDocente && 
+        haySolapamiento(nuevoInicio, nuevoFin, asig.hora_inicio, asig.hora_fin);
+        
+      const choqueEspacio = asig.id_esp === nuevoEspacio && 
+        haySolapamiento(nuevoInicio, nuevoFin, asig.hora_inicio, asig.hora_fin);
+
+      return choqueDocente || choqueEspacio;
+    });
+
+    if (conflictos.length > 0) {
+      const nombreDia = dias?.find(d => d.id_dia === nuevoDia)?.dia || 'este día';
+      const conflictoDocente = conflictos.find(c => c.id_doc === nuevoDocente);
+      const conflictoEspacio = conflictos.find(c => c.id_esp === nuevoEspacio);
+
+      if (conflictoDocente) {
+        const doc = docentes?.find(d => d.id_doc === nuevoDocente);
+        toast.error(
+          `⚠️ CONFLICTO: El docente ${doc?.nombre} ${doc?.apellido} ya tiene clase el ${nombreDia} de ${conflictoDocente.hora_inicio} a ${conflictoDocente.hora_fin}.`,
+          { duration: 6000 }
+        );
+        return;
+      }
+
+      if (conflictoEspacio) {
+        const esp = espacios?.find(e => e.id_esp === nuevoEspacio);
+        toast.error(
+          `⚠️ CONFLICTO: El espacio "${esp?.nombre_centro}" ya está ocupado el ${nombreDia} de ${conflictoEspacio.hora_inicio} a ${conflictoEspacio.hora_fin}.`,
+          { duration: 6000 }
+        );
+        return;
+      }
+    }
+
+    // ✅ CORRECCIÓN 3: Tipamos el payload correctamente para usar los imports
+    const payload: AsignacionCreate | AsignacionUpdate = {
+      id_doc: nuevoDocente,
       id_malla: parseInt(data.id_malla, 10),
-      id_esp: parseInt(data.id_esp, 10),
-      id_dia: parseInt(data.id_dia, 10),
+      id_esp: nuevoEspacio,
+      id_dia: nuevoDia,
       id_per: parseInt(data.id_per, 10),
-      hora_inicio: formatTime(data.hora_inicio),
-      hora_fin: formatTime(data.hora_fin),
+      hora_inicio: nuevoInicio,
+      hora_fin: nuevoFin,
       tipo_actividad: "Carga Académica",
       observaciones: "Asignación directa",
     };
 
     if (editingAsignacion) {
       updateAsignacion({ id: editingAsignacion.id_asig, data: payload as AsignacionUpdate });
+      toast.success('Asignación actualizada correctamente');
     } else {
       createAsignacion(payload as AsignacionCreate);
+      toast.success('Asignación creada exitosamente');
     }
     closeModal();
   };
 
   const handleDelete = (asig: AsignacionCarga) => setDeleteConfirm(asig);
-  const confirmDelete = () => {
-    if (deleteConfirm) { deleteAsignacion(deleteConfirm.id_asig); setDeleteConfirm(null); }
+  
+  const confirmDelete = async () => {
+    if (deleteConfirm) {
+      try {
+        await deleteAsignacion(deleteConfirm.id_asig);
+        toast.success('Asignación eliminada correctamente');
+        setDeleteConfirm(null);
+      } catch (error: any) {
+        const mensajeError = error.response?.data?.detail || 'Error desconocido al eliminar';
+        toast.error(`No se pudo eliminar: ${mensajeError}`);
+        console.error('Detalle del error:', error.response?.data);
+      }
+    }
   };
 
   const handleGenerateReport = () => {
     if (reportType === 'individual') {
-      if (!selectedDocenteId) return alert('Selecciona un docente.');
+      if (!selectedDocenteId) return toast.error('Por favor, selecciona un docente de la lista.', { duration: 6000 });
       const docente = docentes?.find((d) => d.id_doc.toString() === selectedDocenteId);
       if (!docente) return;
 
@@ -156,24 +222,21 @@ export const AsignacionCargaPage = () => {
       }, `Ficha_${docente.nombre}_${docente.apellido}`.replace(/\s+/g, '_'));
 
       closeReportModal();
+      toast.success('Reporte individual generado exitosamente.', { duration: 5000 });
 
     } else if (reportType === 'general') {
-      if (!selectedPnf) return toast.error('Por favor, selecciona un PNF (Primaria o Especial).');
+      if (!selectedPnf) return toast.error('Por favor, selecciona un PNF (Primaria o Especial).', { duration: 6000 });
 
-      // FILTRO ROBUSTO: Intenta usar el nombre del programa, pero si no existe, usa una lógica de respaldo
       const asignacionesFiltradas = asignaciones?.filter((asig) => {
         const malla = mallas?.find((m) => m.id_malla === asig.id_malla);
         if (!malla) return false;
 
-        // Opción A: Si el backend devuelve el objeto programa anidado (lo ideal)
         if (malla.programa && malla.programa.nombre) {
           const nombrePrograma = malla.programa.nombre.toLowerCase();
           if (selectedPnf === 'primaria') return nombrePrograma.includes('primaria');
           if (selectedPnf === 'especial') return nombrePrograma.includes('especial');
         }
-        
-        // Opción B (Respaldo): Si el backend solo devuelve id_pro, podemos mapear IDs conocidos
-        // (Ajusta estos IDs según los que tengas en tu BD real. En el SQL 4.1, id_pro 1 es Primaria, 2 es Especial)
+
         if (selectedPnf === 'primaria' && malla.id_pro === 1) return true;
         if (selectedPnf === 'especial' && malla.id_pro === 2) return true;
 
@@ -185,10 +248,9 @@ export const AsignacionCargaPage = () => {
         const dia = dias?.find((d) => d.id_dia === asig.id_dia)?.dia || 'N/A';
         const espacio = espacios?.find((e) => e.id_esp === asig.id_esp)?.nombre_centro || 'N/A';
         const malla = mallas?.find((m) => m.id_malla === asig.id_malla);
-        
-        // Intenta obtener el nombre de la materia si el backend la incluye, sino usa el ID de malla
-        const materiaNombre = typeof malla?.materia === 'string' 
-          ? malla.materia 
+
+        const materiaNombre = typeof malla?.materia === 'string'
+          ? malla.materia
           : (malla?.materia as any)?.nombre || `Malla ID: ${malla?.id_malla}`;
 
         return {
@@ -202,8 +264,8 @@ export const AsignacionCargaPage = () => {
 
       const pnfLabel = selectedPnf === 'especial' ? 'EDUCACIÓN ESPECIAL' : 'EDUCACIÓN PRIMARIA';
       generateGeneralPNFPDF(datosParaTabla, pnfLabel);
-      toast.success('Reporte generado exitosamente. Revisa la nueva pestaña.');
       closeReportModal();
+      toast.success('Reporte general generado exitosamente.', { duration: 5000 });
     }
   };
 
@@ -263,7 +325,7 @@ export const AsignacionCargaPage = () => {
       <DataTable columns={columns} data={asignaciones || []} isLoading={isLoading} onEdit={openEditModal} onDelete={handleDelete} rowKey={(row) => row.id_asig} />
 
       {isReportModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Generar Reporte PDF</h2>
@@ -296,7 +358,7 @@ export const AsignacionCargaPage = () => {
             ) : (
               <div className="space-y-4">
                 <button onClick={() => setReportType(null)} className="text-sm text-purple-600 hover:underline flex items-center gap-1 mb-2">
-                  ← Volver a opciones
+                  Volver a opciones
                 </button>
 
                 {reportType === 'individual' && (
@@ -337,7 +399,7 @@ export const AsignacionCargaPage = () => {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">{editingAsignacion ? 'Editar Asignación' : 'Nueva Asignación'}</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -405,7 +467,7 @@ export const AsignacionCargaPage = () => {
       )}
 
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-sm">
             <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
             <p className="text-gray-700 mb-6">¿Eliminar esta asignación?</p>
