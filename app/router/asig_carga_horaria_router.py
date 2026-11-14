@@ -55,19 +55,25 @@ def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, ses
     
     validar_conflictos_horarios(session,dato_in,carga_id)
     
-    if not service.existe_llave_foranea_dia(session,dato_in.id_dia):
+    dia = dato_in.id_dia
+    doc = dato_in.id_doc
+    malla = dato_in.id_malla
+    per = dato_in.id_per
+    esp = dato_in.id_esp
+    
+    if dia is not None and not service.existe_llave_foranea_dia(session,dato_in.id_dia):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El dia no existe")
     
-    elif not service.existe_llave_foranea_doc(session,dato_in.id_doc):
+    elif doc is not None and not service.existe_llave_foranea_doc(session,dato_in.id_doc):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El Docente no existe")
     
-    elif not service.existe_llave_foranea_malla(session,dato_in.id_malla):
+    elif malla is not None and not service.existe_llave_foranea_malla(session,dato_in.id_malla):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Malla no existe")
     
-    elif not service.existe_llave_foranea_per(session,dato_in.id_per):
+    elif per is not None and not service.existe_llave_foranea_per(session,dato_in.id_per):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El Periodo Academico no existe")
     
-    elif not service.existe_llave_foranea_esp(session,dato_in.id_esp):
+    elif esp is not None and not service.existe_llave_foranea_esp(session,dato_in.id_esp):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El espacio no existe")
     
     db_dato = service.obtener_dato_por_id(carga_id, session)

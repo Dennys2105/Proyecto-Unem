@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 1cm;
+        }
+        body {
+            font-family: Helvetica, sans-serif;
+            font-size: 8pt;
+            color: #000;
+            line-height: 1.1;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            padding: 0;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 3px 4px;
+            vertical-align: middle;
+            text-align: left;
+        }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .header-title {
+            font-size: 10pt;
+            font-weight: bold;
+            text-align: center;
+        }
+        .small-text {
+            font-size: 7.5pt;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ENCABEZADO INSTITUCIONAL -->
+    <table>
+        <tr>
+            <td style="width: 25%; text-align: center;" class="small-text">
+                <b>UNEM</b><br/>
+                <span style="font-size: 5.5pt;">UNIVERSIDAD NACIONAL EXPERIMENTAL<br/>DEL MAGISTERIO "SAMUEL ROBINSON"</span>
+            </td>
+            <td style="width: 75%;" class="header-title">
+                FICHA DE ORGANIZACIÓN ACADÉMICA DEL DOCENTE INVESTIGADOR
+            </td>
+        </tr>
+    </table>
+
+    <!-- UBICACIÓN -->
+    <table>
+        <tr>
+            <td style="width: 33%;"><b>Estado:</b> {{ estado }}</td>
+            <td style="width: 33%;"><b>Municipio:</b> {{ municipio }}</td>
+            <td style="width: 34%;"><b>Aula Taller:</b> {{ aula_taller }}</td>
+        </tr>
+    </table>
+
+    <!-- PERÍODO Y PROGRAMA -->
+    <table>
+        <tr>
+            <td colspan="3"><b>Periodo Académico:</b> {{ periodo }}</td>
+        </tr>
+        <tr>
+            <td style="width: 45%;"><b>Programa de Formación:</b> {{ programa }}</td>
+            <td style="width: 25%;"><b>Cohorte:</b> {{ cohorte }}</td>
+            <td style="width: 30%;"><b>Trayecto:</b> {{ trayecto }}     <b>Semestre:</b> {{ semestre }}</td>
+        </tr>
+        <tr>
+            <td colspan="3"><b>Bachilleres:</b> {{ bachilleres }}</td>
+        </tr>
+    </table>
+
+    <!-- UNIDADES CURRICULARES DINÁMICAS -->
+    <table>
+        <tr>
+            <td>
+                <b>Unidad Curricular:</b><br/>
+                {% for uc in unidades_curriculares %}
+                    {{ loop.index }}. {{ uc }}<br/>
+                {% endfor %}
+            </td>
+        </tr>
+    </table>
+
+    <!-- DATOS DEL DOCENTE -->
+    <table>
+        <tr>
+            <td style="width: 65%;"><b>Docente Investigador:</b> {{ docente }}</td>
+            <td style="width: 35%;"><b>Cédula de Identidad:</b> {{ cedula }}</td>
+        </tr>
+        <tr>
+            <td><b>Correo:</b> {{ correo }}</td>
+            <td><b>Teléfono:</b> {{ telefono }}</td>
+        </tr>
+    </table>
+
+    <!-- INSTRUCCIÓN DE HORAS -->
+    <table>
+        <tr>
+            <td style="width: 35%;"><b>Fecha de Entrega:</b> {{ fecha_entrega }}</td>
+            <td style="width: 65%; font-size: 7.5pt;" class="center">
+                A continuación, indique las secciones o ambientes de aprendizaje que Usted atiende (05 horas semanales).
+            </td>
+        </tr>
+    </table>
+
+    <!-- RETÍCULA DE HORARIO DINÁMICA -->
+    <table>
+        <thead>
+            <tr style="background-color: #f2f2f2;" class="center">
+                <td style="width: 18%;"><b>Horario</b></td>
+                <td style="width: 25%;"><b>Viernes</b></td>
+                <td style="width: 37%;"><b>Sábado</b></td>
+                <td style="width: 20%;"><b>Observación</b></td>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bloque in bloques_horario %}
+            <tr>
+                <td>{{ bloque.hora }}</td>
+                <td>{{ bloque.viernes | safe }}</td>
+                <td>{{ bloque.sabado | safe }}</td>
+                {% if loop.first %}
+                <td rowspan="{{ bloques_horario|length }}" class="center" style="vertical-align: middle;">
+                    <b>{{ tipo_contrato | upper }}</b><br/><br/>
+                    CON {{ total_horas }} HORAS
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- PIE DE PÁGINA -->
+    <div style="margin-top: 15px; font-size: 7.5pt;">
+        Vicerrectorado Académico Territorial/AQ/2024
+    </div>
+
+</body>
+</html>

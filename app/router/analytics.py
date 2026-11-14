@@ -4,24 +4,35 @@ from typing import Optional
 from datetime import date
 from app.dependencies.auth_deps import verificar_permiso
 from app.config.db_conection import get_session 
-from app.models.model_read_only import VwResumenEstadisticoRead,VwPermisosEfectivosRead,VwMovimientosRead,VwHorarioCompletoDocenteRead, VwDocentesPorContratoRead, VwDocentesPorProgramaMunicipioRead
+from app.models.model_read_only import VwResumenEstadisticoRead,VwPermisosEfectivosRead,VwMovimientosRead,VwHorarioCompletoDocenteRead, VwDocentesPorContratoRead, VwDocentesPorProgramaMunicipioRead, VwAnalisisNotas
 router = APIRouter(prefix="/analytics", tags=["Analítica y Reportes"])
 
 #No se a implementado la funcion de autenticacion para facilitar las pruebas 
 
 @router.get("/resumen", response_model=VwResumenEstadisticoRead)
 def obtener_resumen_dashboard(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC","LIM"))):
-    # 1. Consulta SQL directa a la vista de la base de datos
     statement = text("SELECT * FROM general.vw_resumen_estadistico")
     
-    # 2. Obtenemos la primera fila como un diccionario clave-valor
     resultado = session.exec(statement).mappings().first()
     
     if not resultado:
-        return {}  # O maneja una excepción 404 si el dashboard no arroja datos
+        return {} 
         
-    # 3. Deserializamos el diccionario directamente en tu modelo Pydantic/SQLModel
     return VwResumenEstadisticoRead(**resultado)
+
+@router.get("/analisis_notas", response_model=VwAnalisisNotas)
+def obtner_analisis_notas(
+    cod_programa: Optional[str] = Query(None, description="Filtrar por Codigo de materia"),
+    session: Session = Depends(get_session), 
+    usuario_actual: dict = Depends(verificar_permiso("estudiantes", "LEC", "LIM"))):
+
+    statement = text("SELECT * FROM academico.vw_analisis_notas WHERE cod_programa = :cod_programa").params(cod_programa=cod_programa)
+    resultados = session.exec(statement).mappings().all()
+    
+    if not resultados:
+        raise HTTPException(status_code=404, detail="No se encontraron datos para analisar")
+        
+    return [VwAnalisisNotas(**row) for row in resultados]
 
 @router.get("/permisos", response_model=list[VwPermisosEfectivosRead])
 def obtener_permiso_usuarios(usuario_id: int, session: Session = Depends(get_session)):
@@ -56,7 +67,8 @@ def consultar_auditoria_avanzada(
             accion, 
             registro_identificador, 
             resumen_cambio AS resumen_cambios, 
-            ip_origen 
+            ip_origen,
+            val_antes, val_despues
         FROM general.vw_auditoria_legible
         WHERE 1=1
     """

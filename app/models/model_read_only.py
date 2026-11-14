@@ -21,6 +21,8 @@ class VwMovimientosRead(SQLModel, table=False):
     registro_identificador: Optional[str] = None
     resumen_cambios: Optional[str] = None
     ip_origen: Optional[str] = None
+    val_antes: Optional[dict] = None
+    val_despues: Optional[dict] = None
 
 class VwDocentesPorContratoRead(SQLModel, table=False):
     tipo_contrato: str
@@ -67,3 +69,22 @@ class VwHorarioCompletoDocenteRead(SQLModel, table=False):
     espacio_fisico: str | None = None
     nombre_centro: str | None = None
     tipo_actividad: str | None = None
+
+class VwAnalisisNotas(SQLModel, table = False):
+    cod_programa: str | None = None
+    programa: str | None = None
+    trayecto: int | None = None
+    periodo: int | None = None
+    periodo_academico: str | None = None
+    cod_materia: str | None = None
+    materia: str | None = None
+    cod_eje: str | None = None
+    eje_formativo: str | None = None
+    total_estudiantes_evaluados: int | None = None
+    promedio: float | None = None
+    nota_minima: float | None = None
+    nota_maxima: float | None = None
+    desviacion_estandar: float | None = None
+    aprovados: int | None = None
+    reprovados: int | None = None
+    porcentaje_aprobacion: float | None = None
