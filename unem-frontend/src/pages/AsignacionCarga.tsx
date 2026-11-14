@@ -10,6 +10,7 @@ import { DataTable } from '../components/DataTable';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { isAxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import { exportToExcel, generateFichaAcademicaPDF, generateGeneralPNFPDF } from '../utils/exportUtils';
 import { FileSpreadsheet, FileText, X, User, Building } from 'lucide-react';
@@ -79,7 +80,7 @@ export const AsignacionCargaPage = () => {
   const closeModal = () => { setIsModalOpen(false); setEditingAsignacion(null); reset(); };
   const closeReportModal = () => { setIsReportModalOpen(false); setReportType(null); setSelectedDocenteId(''); setSelectedPnf(''); };
 
-  const onSubmit = (data: z.infer<typeof asignacionSchema>) => {
+  const onSubmit = async (data: z.infer<typeof asignacionSchema>) => {
     const formatTime = (time: string) => time.length === 5 ? `${time}:00` : time;
     const nuevoInicio = formatTime(data.hora_inicio);
     const nuevoFin = formatTime(data.hora_fin);
@@ -140,14 +141,24 @@ export const AsignacionCargaPage = () => {
       observaciones: "Asignación directa",
     };
 
-    if (editingAsignacion) {
-      updateAsignacion({ id: editingAsignacion.id_asig, data: payload as AsignacionUpdate });
-      toast.success('Asignación actualizada correctamente');
-    } else {
-      createAsignacion(payload as AsignacionCreate);
-      toast.success('Asignación creada exitosamente');
+    try {
+      if (editingAsignacion) {
+        await updateAsignacion({ id: editingAsignacion.id_asig, data: payload as AsignacionUpdate });
+        toast.success('Asignación actualizada correctamente');
+      } else {
+        await createAsignacion(payload as AsignacionCreate);
+        toast.success('Asignación creada exitosamente');
+      }
+      closeModal();
+    } catch (error: unknown) {
+      const detail = isAxiosError<{ detail?: unknown }>(error)
+        ? error.response?.data?.detail
+        : undefined;
+      const mensajeError = typeof detail === 'string'
+        ? detail
+        : 'Error al guardar la asignación';
+      toast.error(mensajeError, { duration: 5000 });
     }
-    closeModal();
   };
 
   const handleDelete = (asig: AsignacionCarga) => setDeleteConfirm(asig);

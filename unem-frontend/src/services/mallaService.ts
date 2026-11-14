@@ -3,7 +3,7 @@ import type { MallaCurricular, MallaCreate, MallaUpdate } from '../types/models'
 
 export const mallaService = {
   getAll: async (): Promise<MallaCurricular[]> => {
-    const response = await api.get('/malla_curicular/');
+    const response = await api.get('/mallas');
     return response.data;
   },
   create: async (data: MallaCreate): Promise<MallaCurricular> => {

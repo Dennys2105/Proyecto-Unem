@@ -190,16 +190,15 @@ export interface Seccion {
 // Espacios Físicos
 export interface EspacioFisico {
   id_esp: number;
-  id_mun: number;
   nombre_centro: string;
   ubicacion: string;
-  tipo_espacio: string;
+  tipo_espacio: 'Aula' | 'Laboratorio' | 'Auditorio' | 'Cancha';
   capacidad: number;
-  equipamiento: string | null;
-  disponibilidad: boolean | null;
-  municipio: any | null;
-  creado: string;
-  actualizar: string;
+  equipamiento?: string;
+  disponibilidad: boolean;
+  municipio: string;
+  total_asignaciones: number;
+  horas_ocupadas: number;
 }
 
 export interface EspacioFisicoCreate {
@@ -222,36 +221,35 @@ export interface EspacioFisicoUpdate {
   disponibilidad?: boolean;
 }
 
-// Materias
+// Materias (Catálogo Maestro)
 export interface Materia {
   id_mat: number;
   codigo: string;
   nombre: string;
-  uc: number;
-  horas_teoricas: number;
-  horas_practicas: number;
+  unidades_creditos: number;
   id_eje?: number;
+  eje_nombre?: string;
+  descripcion?: string;
   estatus: string;
-  creado: string;
-  actualizar: string;
+  // Nuevos campos para saber dónde se usa
+  programas_count: number;
+  programas_nombres?: string;
 }
 
 export interface MateriaCreate {
   codigo: string;
   nombre: string;
-  uc: number;
-  horas_teoricas: number;
-  horas_practicas: number;
+  unidades_creditos: number;
   id_eje?: number;
+  descripcion?: string;
 }
 
 export interface MateriaUpdate {
   codigo?: string;
   nombre?: string;
-  uc?: number;
-  horas_teoricas?: number;
-  horas_practicas?: number;
+  unidades_creditos?: number;
   id_eje?: number;
+  descripcion?: string;
 }
 
 // Ejes Formativos
@@ -311,28 +309,54 @@ export interface PeriodoUpdate {
   actualizar?: string;
 }
 
-// Malla Curricular
+// Malla Curricular (pensum)
 export interface MallaCurricular {
   id_malla: number;
   id_pro: number;
   id_mat: number;
-  trayecto?: number;        
-  periodo?: number;         
+  trayecto: number;         
+  periodo: number;          
+  orden: number;            
   perequisito_id_mat?: number;
-  programa?: Programa;
-  materia?: Materia;
-  prerequisito?: Materia;
+  estatus?: string;
+  creado?: string;
+  actualizar?: string;
+
+  // Relaciones anidadas (el backend ahora las envía así)
+  programa?: {
+    id_pro: number;
+    codigo: string;
+    nombre: string;
+  };
+  materia?: {
+    id_mat: number;
+    codigo: string;
+    nombre: string;
+    unidades_creditos: number;
+    eje_nombre?: string;
+  };
+  prerequisito?: {
+    id_mat: number;
+    codigo: string;
+    nombre: string;
+  } | null;
 }
 
 export interface MallaCreate {
   id_pro: number;
   id_mat: number;
+  trayecto: number;
+  periodo: number;
+  orden?: number;
   perequisito_id_mat?: number;
 }
 
 export interface MallaUpdate {
   id_pro?: number;
   id_mat?: number;
+  trayecto?: number;
+  periodo?: number;
+  orden?: number;
   perequisito_id_mat?: number;
 }
 

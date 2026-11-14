@@ -5,7 +5,7 @@ from app.config.db_conection import get_session
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaReplace,AsigCargaHorariaResponse,AsigCargaHorariaUpdate
 import app.service.asig_carga_hor_service as service
 from app.dependencies.auth_deps import recurso_propietario, verificar_permiso
-from app.dependencies.asig_hor_deps import validar_conflictos_horarios
+from app.dependencies.asig_hor_deps import validar_conflictos_horarios, validar_disponibilidad_docente
 
 
 router= APIRouter(
@@ -17,6 +17,7 @@ router= APIRouter(
 @router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED)
 def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','CRE','TODO'))):
     validar_conflictos_horarios(session,AsigCargaHorariaCreate)
+    validar_disponibilidad_docente(session, carga_in.id_doc, carga_in.id_dia, carga_in.hora_inicio, carga_in.hora_fin)
     dia_id = service.existe_llave_foranea_dia(session,carga_in.id_dia)
     doc_id = service.existe_llave_foranea_doc(session,carga_in.id_doc)
     malla_id = service.existe_llave_foranea_malla(session,carga_in.id_malla)
@@ -79,6 +80,15 @@ def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, ses
     db_dato = service.obtener_dato_por_id(carga_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carga Horaria no encontrada")
+
+    if dato_in.id_doc is not None or dato_in.id_dia is not None or dato_in.hora_inicio is not None or dato_in.hora_fin is not None:
+        id_doc = dato_in.id_doc if dato_in.id_doc is not None else db_dato.id_doc
+        id_dia = dato_in.id_dia if dato_in.id_dia is not None else db_dato.id_dia
+        hora_inicio = dato_in.hora_inicio if dato_in.hora_inicio is not None else db_dato.hora_inicio
+        hora_fin = dato_in.hora_fin if dato_in.hora_fin is not None else db_dato.hora_fin
+
+        validar_disponibilidad_docente(session, id_doc, id_dia, hora_inicio, hora_fin)
+
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 @router.delete("/{carga_horaria_id}", status_code=status.HTTP_200_OK)

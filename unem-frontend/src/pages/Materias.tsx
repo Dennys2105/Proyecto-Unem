@@ -1,142 +1,161 @@
 import { useState } from 'react';
-import { useMaterias } from '../hooks/useMaterias';
-import { DataTable } from '../components/DataTable';
-import { FormField } from '../components/FormField';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import type { Materia, MateriaCreate, MateriaUpdate } from '../types/models';
-
-const materiaSchema = z.object({
-  codigo: z.string().min(1, 'El código es obligatorio').max(20, 'Máximo 20 caracteres'),
-  nombre: z.string().min(3, 'Mínimo 3 caracteres').max(150, 'Máximo 150 caracteres'),
-  uc: z.string().min(1, 'Obligatorio'),
-  horas_teoricas: z.string().min(1, 'Obligatorio'),
-  horas_practicas: z.string().min(1, 'Obligatorio'),
-});
-
-type MateriaFormData = z.infer<typeof materiaSchema>;
+import { useQuery } from '@tanstack/react-query';
+import api from '../lib/axios';
+import type { Materia, EjeFormativo } from '../types/models';
+import { BookOpen, Search, Layers } from 'lucide-react';
 
 export const Materias = () => {
-  const { materias, isLoading, createMateria, updateMateria, deleteMateria, isCreating, isUpdating } = useMaterias();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingMateria, setEditingMateria] = useState<Materia | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Materia | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroEje, setFiltroEje] = useState<number | ''>('');
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<MateriaFormData>({
-    resolver: zodResolver(materiaSchema),
+  // 1. Cargar ejes formativos para el dropdown
+  const { data: ejes } = useQuery<EjeFormativo[]>({
+    queryKey: ['ejes'],
+    queryFn: async () => {
+      const res = await api.get('/EjesFormativos/');
+      return res.data;
+    },
   });
 
-  const openCreateModal = () => {
-    setEditingMateria(null);
-    reset({ codigo: '', nombre: '', uc: '', horas_teoricas: '', horas_practicas: '' });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (mat: Materia) => {
-    setEditingMateria(mat);
-    reset({
-      codigo: mat.codigo,
-      nombre: mat.nombre,
-      uc: mat.uc.toString(),
-      horas_teoricas: mat.horas_teoricas.toString(),
-      horas_practicas: mat.horas_practicas.toString(),
-    });
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingMateria(null);
-    reset();
-  };
-
-  const onSubmit = (data: MateriaFormData) => {
-    const payload = {
-      codigo: data.codigo,
-      nombre: data.nombre,
-      uc: parseInt(data.uc, 10),
-      horas_teoricas: parseInt(data.horas_teoricas, 10),
-      horas_practicas: parseInt(data.horas_practicas, 10),
-    };
-
-    if (editingMateria) {
-      updateMateria({ id: editingMateria.id_mat, data: payload as MateriaUpdate });
-    } else {
-      createMateria(payload as MateriaCreate);
-    }
-    closeModal();
-  };
-
-  const handleDelete = (mat: Materia) => setDeleteConfirm(mat);
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      deleteMateria(deleteConfirm.id_mat);
-      setDeleteConfirm(null);
-    }
-  };
-
-  const columns = [
-    { key: 'id_mat', label: 'ID' },
-    { key: 'codigo', label: 'Código' },
-    { key: 'nombre', label: 'Nombre' },
-    { key: 'uc', label: 'UC' },
-    { key: 'horas_teoricas', label: 'H. Teóricas' },
-    { key: 'horas_practicas', label: 'H. Prácticas' },
-  ];
+  // 2. Cargar materias PASANDO los filtros directamente al backend
+  const { data: materias, isLoading } = useQuery<Materia[]>({
+    queryKey: ['materias', busqueda, filtroEje],
+    queryFn: async () => {
+      const params: Record<string, any> = {};
+      if (busqueda) params.busqueda = busqueda;
+      if (filtroEje) params.id_eje = filtroEje;
+      
+      const res = await api.get('/materias', { params });
+      return res.data;
+    },
+  });
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Materias</h1>
-        <button onClick={openCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          Nueva Materia
-        </button>
+    <div className="space-y-6">
+      {/* Encabezado */}
+      <div className="flex items-start gap-4">
+        <div className="bg-indigo-100 p-3 rounded-xl">
+          <BookOpen className="text-indigo-600" size={32} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Catálogo de Materias</h1>
+          <p className="text-gray-600 mt-1">
+            Registro maestro de unidades curriculares y su asignación en los programas
+          </p>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={materias || []}
-        isLoading={isLoading}
-        onEdit={openEditModal}
-        onDelete={handleDelete}
-        rowKey={(row) => row.id_mat}
-      />
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">{editingMateria ? 'Editar Materia' : 'Nueva Materia'}</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <FormField label="Código" name="codigo" register={register} errors={errors} placeholder="Ej: MAT-101" />
-              <FormField label="Nombre" name="nombre" register={register} errors={errors} placeholder="Ej: Matemáticas I" />
-              <FormField label="Unidades de Crédito (UC)" name="uc" type="text" register={register} errors={errors} placeholder="Ej: 4" />
-              <FormField label="Horas Teóricas" name="horas_teoricas" type="text" register={register} errors={errors} placeholder="Ej: 3" />
-              <FormField label="Horas Prácticas" name="horas_practicas" type="text" register={register} errors={errors} placeholder="Ej: 1" />
-
-              <div className="flex justify-end space-x-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={isCreating || isUpdating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </form>
+      {/* Barra de Filtros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por código o nombre..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <select
+            value={filtroEje}
+            onChange={(e) => setFiltroEje(e.target.value ? Number(e.target.value) : '')}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Todos los ejes formativos</option>
+            {ejes?.map((e) => (
+              <option key={e.id_eje} value={e.id_eje}>{e.codigo} - {e.nombre}</option>
+            ))}
+          </select>
+          <div className="flex items-center text-sm text-gray-500 gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+            <Layers size={16} />
+            <span>{materias?.length || 0} materias encontradas</span>
           </div>
         </div>
-      )}
+      </div>
 
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
-            <p className="text-gray-700 mb-6">¿Eliminar la materia <strong>{deleteConfirm.nombre}</strong>?</p>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-              <button onClick={confirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
-            </div>
+      {/* Tabla de Materias */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="text-gray-500 mt-4">Cargando catálogo...</p>
           </div>
-        </div>
-      )}
+        ) : !materias || materias.length === 0 ? (
+          <div className="p-12 text-center">
+            <BookOpen className="mx-auto text-gray-300 mb-3" size={48} />
+            <p className="text-gray-500">No se encontraron materias con los filtros actuales</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Código</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Unidad Curricular</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">UC</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Eje Formativo</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Se imparte en</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {materias.map((m) => (
+                  <tr key={m.id_mat} className="hover:bg-gray-50 transition group">
+                    <td className="px-6 py-4 text-sm font-mono text-indigo-700 font-medium">
+                      {m.codigo}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{m.nombre}</div>
+                      {m.descripcion && (
+                        <div className="text-xs text-gray-500 mt-1 line-clamp-1" title={m.descripcion}>
+                          {m.descripcion}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
+                        {m.unidades_creditos}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {m.eje_nombre ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                          {m.eje_nombre}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs italic">Sin asignar</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {m.programas_count > 0 ? (
+                        <div className="flex items-center gap-2 group/tooltip relative">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold">
+                            {m.programas_count}
+                          </span>
+                          <span className="text-sm text-gray-600 truncate max-w-[200px]">
+                            {m.programas_nombres}
+                          </span>
+                          {/* Tooltip al pasar el mouse */}
+                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover/tooltip:block z-10">
+                            <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg">
+                              {m.programas_nombres}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-400 italic">
+                          Aún no asignada a ningún PNF
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

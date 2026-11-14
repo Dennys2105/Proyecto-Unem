@@ -1,56 +1,67 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, Query, HTTPException, status
+from sqlmodel import Session, text
+from typing import Optional, List
+from pydantic import BaseModel
+from app.dependencies.auth_deps import verificar_permiso
 from app.config.db_conection import get_session
-from app.schemas.esq_espacio_fisico import EspacioFisicoCreate,EspacioFisicoReplace,EspacioFisicoResponse,EspacioFisicoUpdate
-import app.service.esp_fis_service as service
-from app.dependencies.auth_deps import recurso_propietario,requerir_rol,obtener_usuario_actual,verificar_permiso
 
+router = APIRouter(prefix="/espacios_fisicos", tags=["Espacios Físicos"])
 
-router= APIRouter(
-    prefix="/esp_fisico",
-    tags=["Espacio Fisico"]
-)
+class EspacioFisicoRead(BaseModel):
+    id_esp: int
+    nombre_centro: str
+    ubicacion: str
+    tipo_espacio: str
+    capacidad: int
+    equipamiento: Optional[str] = None
+    disponibilidad: bool
+    municipio: str
+    total_asignaciones: int = 0
+    horas_ocupadas: float = 0.0
 
-# --- CREATE ---
-@router.post("/", response_model=EspacioFisicoResponse, status_code=status.HTTP_201_CREATED)
-def crear_espacio(esp_in: EspacioFisicoCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('infraestrutura', 'CRE','TODO'))):
-    mun_id = service.existe_llave_foranea_mun(session,esp_in.id_mun)
-    if not mun_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El Municipio no existe")
+@router.get("/", response_model=List[EspacioFisicoRead])
+def listar_espacios(
+    tipo: Optional[str] = Query(None, description="Filtrar por tipo (Aula, Laboratorio, Auditorio, Cancha)"),
+    disponible: Optional[bool] = Query(None, description="Filtrar por disponibilidad"),
+    capacidad_min: Optional[int] = Query(None, description="Capacidad mínima"),
+    busqueda: Optional[str] = Query(None, description="Buscar por nombre o ubicación"),
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("espacios", "LEC", "TODO"))
+):
+    query = """
+        SELECT 
+            e.id_esp,
+            e.nombre_centro,
+            e.ubicacion,
+            e.tipo_espacio,
+            e.capacidad,
+            e.equipamiento,
+            e.disponibilidad,
+            m.nombre AS municipio,
+            COUNT(a.id_asig) AS total_asignaciones,
+            COALESCE(SUM(EXTRACT(EPOCH FROM (a.hora_fin - a.hora_inicio)) / 3600.0), 0) AS horas_ocupadas
+        FROM infraestructura.espacios_fis e
+        LEFT JOIN general.municipios m ON m.id_mun = e.id_mun
+        LEFT JOIN horarios.asig_carga_horarias a ON a.id_esp = e.id_esp AND a.estatus = 'A'
+        WHERE e.estatus = 'A'
+    """
+    params = {}
     
-    return service.crear(session, esp_in)
-
-# --- READ ALL ---
-@router.get("/", response_model=List[EspacioFisicoResponse])
-def leer_espacio(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('infraestrutura','LEC','TODO'))):
-    return service.leer_todos(session)
-
-# --- READ ONE ---
-@router.get("/{espacio_id}", response_model=EspacioFisicoResponse)
-def leer_espacio_id(esp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('infraestrutura','LEC','SP'))):
-    dato = service.obtener_dato_por_id(esp_id, session)
-    if not dato:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aula no encontrada")
-    return dato
-
-# --- UPDATE (PARCIAL - PATCH) ---
-@router.patch("/{espacio_id}", response_model=EspacioFisicoResponse)
-def actualizar_parcial_espacio(esp_id: int, dato_in: EspacioFisicoUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('infraestrutura','ACT','LIM'))):
-    if not service.existe_llave_foranea_mun(session,dato_in.id_mun):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Municipio no encontrado")
+    if tipo:
+        query += " AND e.tipo_espacio = :tipo"
+        params["tipo"] = tipo
+    if disponible is not None:
+        query += " AND e.disponibilidad = :disponible"
+        params["disponible"] = disponible
+    if capacidad_min:
+        query += " AND e.capacidad >= :capacidad_min"
+        params["capacidad_min"] = capacidad_min
+    if busqueda:
+        query += " AND (e.nombre_centro ILIKE :busqueda OR e.ubicacion ILIKE :busqueda)"
+        params["busqueda"] = f"%{busqueda}%"
     
-    db_dato = service.obtener_dato_por_id(esp_id, session)
-    if not db_dato:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aula no encontrada")
-    return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
-
-
-# --- DELETE LOGICO ---
-@router.delete("/{espacio_id}", status_code=status.HTTP_200_OK)
-def eliminar_espacio(esp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('infraestrutura','BOR','TODO'))):
-    db_dato = service.obtener_dato_por_id(esp_id, session)
-    if not db_dato:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aula no encontrada")
-    service.eliminar(session=session, db_dato=db_dato)
-    return {"message": "Aula eliminada exitosamente"}
+    query += " GROUP BY e.id_esp, e.nombre_centro, e.ubicacion, e.tipo_espacio, e.capacidad, e.equipamiento, e.disponibilidad, m.nombre"
+    query += " ORDER BY e.nombre_centro, e.ubicacion"
+    
+    resultados = session.exec(text(query).params(**params)).mappings().all()
+    return [EspacioFisicoRead(**dict(r)) for r in resultados]

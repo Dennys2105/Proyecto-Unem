@@ -251,7 +251,26 @@ export const Roles = () => {
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+            <div className="p-6 border-t border-gray-200 flex justify-between items-center">
+              <button
+                onClick={async () => {
+                  if (usuarioSeleccionado && window.confirm('¿Restaurar todos los permisos a los valores por defecto del rol?')) {
+                    try {
+                      await rolesService.resetearPermisos(usuarioSeleccionado.id_usu);
+                      toast.success('Permisos restaurados a valores del rol');
+                      const data = await rolesService.getPermisosUsuario(usuarioSeleccionado.id_usu);
+                      setMatriz(data);
+                    } catch (error) {
+                      toast.error('Error al restaurar permisos');
+                    }
+                  }
+                }}
+                className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition text-sm font-medium"
+              >
+                Restaurar a valores del rol
+              </button>
+
+              <div className="flex gap-3">
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
@@ -266,6 +285,7 @@ export const Roles = () => {
                 <Save size={16} />
                 Guardar Permisos
               </button>
+              </div>
             </div>
           </div>
         </div>
