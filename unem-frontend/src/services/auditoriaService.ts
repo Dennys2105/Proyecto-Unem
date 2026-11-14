@@ -16,4 +16,16 @@ export const auditoriaService = {
     const response = await api.get('/analytics/auditoria/movimientos');
     return response.data;
   },
+  getWithFilters: async (filters: {
+    tabla?: string;
+    usuario?: string;
+    fecha_inicio?: string;
+  }): Promise<MovimientoAuditoria[]> => {
+    const params: Record<string, string> = {};
+    if (filters.tabla) params.tabla = filters.tabla;
+    if (filters.usuario) params.usuario = filters.usuario;
+    if (filters.fecha_inicio) params.fecha_inicio = filters.fecha_inicio;
+    const response = await api.get('/analytics/auditoria/movimientos', { params });
+    return response.data;
+  },
 };

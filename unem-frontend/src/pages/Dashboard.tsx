@@ -3,10 +3,9 @@ import axios from 'axios';
 import { BookOpen, Calendar, FileBarChart, UserCheck, Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-// Función para obtener los datos del nuevo endpoint del backend
 const fetchResumen = async () => {
   const token = sessionStorage.getItem('unem_token');
-  const response = await axios.get('http://localhost:8000/api/v1/analytics/resumen', {
+  const response = await axios.get('http://localhost:8000/analytics/resumen', {
     headers: { Authorization: `Bearer ${token}` }
   });
   return response.data;
@@ -20,6 +19,7 @@ export const Dashboard = () => {
 
   if (isLoading) return <div className="p-10 text-center text-gray-500">Cargando estadísticas...</div>;
 
+  // Aquí es donde se calculan y muestran las estadísticas reales del backend
   const stats = [
     { title: 'Docentes Activos', value: resumen?.total_docentes_activos || 0, icon: Users, color: 'bg-blue-600' },
     { title: 'Estudiantes', value: resumen?.total_estudiantes_activos || 0, icon: UserCheck, color: 'bg-green-600' },
@@ -43,6 +43,7 @@ export const Dashboard = () => {
         <p className="text-gray-600 mt-1">Resumen operativo y análisis de carga académica en tiempo real</p>
       </div>
 
+      {/*TARJETAS DE ESTADÍSTICAS: Aquí se inyectan los datos reales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -60,6 +61,7 @@ export const Dashboard = () => {
         })}
       </div>
 
+      {/* GRÁFICA DE BARRAS */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center gap-2 mb-6">
           <FileBarChart className="text-blue-600" size={24} />

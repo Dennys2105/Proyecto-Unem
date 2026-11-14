@@ -33,3 +33,42 @@ Thumbs.db
 desktop.ini
 .env
 .env.local
+
+
+# ==========================================
+# FRONTEND
+# ==========================================
+node_modules/
+dist/
+.vite/
+.env
+.env.local
+
+# ==========================================
+# BACKEND (Python)
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ==========================================
+# BASE DE DATOS Y DOCUMENTOS PESADOS
+# ==========================================
+*.sql
+*.html
+Base de Datos*.sql
+diccionario*.html
+
+# ==========================================
+# SISTEMA Y EDITORES
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

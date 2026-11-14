@@ -3,7 +3,7 @@ import { useAuditoria } from '../hooks/useAuditoria';
 import { normalizarAuditoria } from '../types/models';
 import {
   Shield, Search, ChevronDown, ChevronUp, Plus, Edit, Trash2,
-  AlertTriangle, Clock, User, Globe, Database, FileJson, X, Info
+  AlertTriangle, Clock, User, Database, FileJson, X, Info
 } from 'lucide-react';
 
 const ACCION_CONFIG: Record<string, { color: string; icon: any; label: string; descripcion: string }> = {
@@ -95,7 +95,7 @@ export const AuditoriaPage = () => {
       if (filtroTabla && d.tabla !== filtroTabla) return false;
       if (filtroAccion && d.accion !== filtroAccion) return false;
       if (busqueda) {
-        const texto = `${d.usuario} ${d.tabla} ${d.identificador} ${d.ip} ${d.resumen}`.toLowerCase();
+        const texto = `${d.usuario} ${d.tabla} ${d.identificador} ${d.resumen}`.toLowerCase();
         if (!texto.includes(busqueda.toLowerCase())) return false;
       }
       return true;
@@ -218,16 +218,6 @@ export const AuditoriaPage = () => {
             <span className="text-gray-900">{formatearFecha(d.fecha)}</span>
           </div>
 
-          {d.ip && d.ip !== 'N/A' && (
-            <div className="flex gap-3 items-start">
-              <span className="font-semibold text-gray-700 min-w-[120px] flex items-center gap-1.5">
-                <Globe size={12} className="text-indigo-500" />
-                Dirección IP:
-              </span>
-              <span className="text-gray-900 font-mono text-xs">{d.ip}</span>
-            </div>
-          )}
-
           {resumenEsUtil && (
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="flex items-center gap-2 mb-2">
@@ -312,7 +302,7 @@ export const AuditoriaPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
-              placeholder="Buscar usuario, tabla, IP..."
+              placeholder="Buscar usuario, tabla..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -366,8 +356,7 @@ export const AuditoriaPage = () => {
                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Usuario</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Módulo</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Acción</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Identificador</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">IP</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Identificador</th>                  
                   <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Detalle</th>
                 </tr>
               </thead>
@@ -405,14 +394,8 @@ export const AuditoriaPage = () => {
                             {config.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate font-mono" title={d.identificador}>
+                        <td className="px-4 py-3 text-sm text-gray-700 max-w-[220px] truncate" title={d.identificador}>
                           {d.identificador}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Globe size={12} className="text-gray-400" />
-                            {d.ip}
-                          </div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button

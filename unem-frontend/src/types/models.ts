@@ -316,6 +316,8 @@ export interface MallaCurricular {
   id_malla: number;
   id_pro: number;
   id_mat: number;
+  trayecto?: number;        
+  periodo?: number;         
   perequisito_id_mat?: number;
   programa?: Programa;
   materia?: Materia;
@@ -442,3 +444,49 @@ export const normalizarAuditoria = (a: AuditoriaMovimiento) => ({
   antes: null, // El endpoint ya no devuelve val_antes/val_despues
   despues: null,
 });
+
+
+// ==========================================
+// PERMISOS Y ROLES
+// ==========================================
+export interface Modulo {
+  id_mod: number;
+  codigo: string;
+  nombre: string;
+  descripcion?: string;
+}
+
+export interface Permiso {
+  id_perm: number;
+  codigo: 'CRE' | 'ACT' | 'LEC' | 'BOR';
+  nombre: string;
+  descripcion?: string;
+}
+
+export interface PermisoRol {
+  id_pr: number;
+  id_rol: number;
+  id_mod: number;
+  id_perm: number;
+  alcance: 'TODO' | 'SP' | 'LIM' | 'NAD';
+  estatus: string;
+}
+
+export interface PermisoUsuario {
+  id_pu: number;
+  id_usu: number;
+  id_mod: number;
+  id_perm: number;
+  alcance: 'TODO' | 'SP' | 'LIM' | 'NAD' | null; // null = hereda del rol
+  estatus: string;
+}
+
+export interface MatrizPermiso {
+  modulo: Modulo;
+  permisos: {
+    CRE: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    ACT: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    LEC: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    BOR: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+  };
+}

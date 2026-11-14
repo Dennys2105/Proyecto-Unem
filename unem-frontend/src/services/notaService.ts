@@ -2,7 +2,7 @@ import api from '../lib/axios';
 import type { Nota, NotaCreate, NotaUpdate } from '../types/models';
 
 export const notaService = {
-  getAll: async (): Promise<Nota[]> => {
+  getAll: async (): Promise<Nota[]> => {    
     const response = await api.get('/notas');
     return response.data;
   },

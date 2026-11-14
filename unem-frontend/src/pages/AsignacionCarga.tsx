@@ -44,7 +44,6 @@ export const AsignacionCargaPage = () => {
   const { esAdmin, esCoordinador } = useAuth();
   const puedeEditar = esAdmin || esCoordinador;
 
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [editingAsignacion, setEditingAsignacion] = useState<AsignacionCarga | null>(null);
@@ -129,7 +128,6 @@ export const AsignacionCargaPage = () => {
       }
     }
 
-   
     const payload: AsignacionCreate | AsignacionUpdate = {
       id_doc: nuevoDocente,
       id_malla: parseInt(data.id_malla, 10),
@@ -166,6 +164,24 @@ export const AsignacionCargaPage = () => {
         console.error('Detalle del error:', error.response?.data);
       }
     }
+  };
+
+  // ✅ NUEVA FUNCIÓN: Descarga el PDF profesional generado por el backend
+  const handleDescargarHorarioPDF = () => {
+    if (!selectedDocenteId) {
+      toast.error('Por favor, selecciona un docente de la lista primero.', { duration: 4000 });
+      return;
+    }
+    
+    const docente = docentes?.find((d) => d.id_doc.toString() === selectedDocenteId);
+    if (!docente || !docente.cedula) {
+      toast.error('No se encontró la cédula del docente seleccionado.', { duration: 4000 });
+      return;
+    }
+
+    const url = `http://localhost:8000/analytics/Horario_docente/pdf?cedula=${encodeURIComponent(docente.cedula)}`;
+    window.open(url, '_blank');
+    toast.success('Abriendo horario visual generado por el servidor...', { duration: 3000 });
   };
 
   const handleGenerateReport = () => {
@@ -207,19 +223,28 @@ export const AsignacionCargaPage = () => {
         horarioSemanal.push({ horario: 'Sin asignaciones', viernes: '', sabado: '', observacion: '' });
       }
 
+      //  DATOS REALES DE LA BD (Adiós a los hardcodeados)
+      const mallaPrimera = mallas?.find((m) => m.id_malla === primeraAsig?.id_malla);
+      const nombrePrograma = mallaPrimera?.programa?.nombre || 'PNF';
+      const trayectoReal = mallaPrimera?.trayecto?.toString() || 'I';
+      const periodoReal = mallaPrimera?.periodo?.toString() || 'I';
+      const espacioPrimero = espacios?.find((e) => e.id_esp === primeraAsig?.id_esp);
+      const aulaTallerReal = espacioPrimero?.nombre_centro || 'SEDE PRINCIPAL';
+      const correoReal = (docente as any).email || 'correo@unem.edu.ve';
+
       generateFichaAcademicaPDF({
         estado: 'TÁCHIRA',
         municipio: municipioDocente.toUpperCase(),
-        aulaTaller: 'SEDE PRINCIPAL',
+        aulaTaller: aulaTallerReal.toUpperCase(),
         periodoAcademico: periodo?.nombre || '2026-1',
-        programaFormacion: 'PNF',
-        cohorte: '2023',
-        trayecto: 'III',
-        semestre: 'VII',
+        programaFormacion: nombrePrograma,
+        cohorte: '2026',
+        trayecto: `T${trayectoReal}`,
+        semestre: `P${periodoReal}`,
         unidadCurricular: ucSet.size > 0 ? Array.from(ucSet) : ['Sin asignaciones'],
         docenteInvestigador: `${docente.nombre} ${docente.apellido} (${docente.especialidad || 'Docente'})`.toUpperCase(),
         cedulaIdentidad: docente.cedula || 'V-00.000.000',
-        correo: 'correo@ejemplo.com',
+        correo: correoReal,
         telefono: docente.telefono || '0000-0000000',
         fechaEntrega: new Date().toLocaleDateString('es-VE'),
         horarioSemanal,
@@ -314,13 +339,11 @@ export const AsignacionCargaPage = () => {
           <p className="text-sm text-gray-500 mt-1">Gestione las asignaciones y genere reportes institucionales</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          
           {puedeEditar && (
             <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm">
               Nueva Asignación
             </button>
           )}
-          
           <button onClick={() => setIsReportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium shadow-sm">
             <FileText size={18} /> Generar Reportes PDF
           </button>
@@ -376,6 +399,28 @@ export const AsignacionCargaPage = () => {
                       <option value="">-- Seleccione un docente --</option>
                       {docentes?.map((d) => <option key={d.id_doc} value={d.id_doc}>{d.nombre} {d.apellido}</option>)}
                     </select>
+
+                    {/* ✅ NUEVO BOTÓN: Llama directamente al backend para el PDF profesional */}
+                    <button
+                      onClick={handleDescargarHorarioPDF}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium shadow-sm border border-indigo-500"
+                    >
+                      <FileText size={18} /> Descargar Horario Visual (PDF Servidor)
+                    </button>
+
+                    <div className="relative flex py-2 items-center">
+                      <div className="flex-grow border-t border-gray-300"></div>
+                      <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">O usa el generador frontend</span>
+                      <div className="flex-grow border-t border-gray-300"></div>
+                    </div>
+
+                    <button
+                      onClick={handleGenerateReport}
+                      className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      disabled={!selectedDocenteId}
+                    >
+                      Generar Ficha Académica (Frontend)
+                    </button>
                   </div>
                 )}
 
