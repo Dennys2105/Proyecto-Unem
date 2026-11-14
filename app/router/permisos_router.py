@@ -14,12 +14,8 @@ router = APIRouter(
 def upsert_permiso_usuario_endpoint(
     payload: PermisoUsuCreate,
     db: Session = Depends(get_session),
-    # usuario_actual = Depends(verificar_permiso(...)) # Descomenta y ajusta tus dependencias de seguridad si es necesario
+    # usuario_actual = Depends(verificar_permiso(...)) comentado para facilitar las pruebas
 ):
-    """
-    Endpoint para crear un permiso de usuario si no existe, 
-    o modificarlo automáticamente si ya existe la combinación (id_usu, id_mod, id_perm).
-    """
     resultado = service.guardar_o_actualizar_permiso_usuario(
         db=db,
         id_usu=payload.id_usu,

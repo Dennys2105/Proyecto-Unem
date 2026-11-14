@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import type { Nota, NotaCreate, NotaUpdate } from '../types/models';
+import { useAuth } from '../hooks/useAuth';
 
 // Schema estricto: nota es number desde el inicio
 const notaSchema = z.object({
@@ -29,6 +30,9 @@ export const NotasPage = () => {
   const { estudiantes } = useEstudiantes();
   const { mallas } = useMallas();
   const { periodos } = usePeriodos();
+  const { esAdmin, esCoordinador } = useAuth();
+  const puedeEditar = esAdmin || esCoordinador;
+
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNota, setEditingNota] = useState<Nota | null>(null);
@@ -122,18 +126,20 @@ export const NotasPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestión de Notas</h1>
           <p className="text-sm text-gray-500 mt-1">Registro y control de evaluaciones académicas</p>
         </div>
+      {puedeEditar && (
         <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm">
           Nueva Nota
         </button>
+      )}
       </div>
 
       <DataTable 
         columns={columns} 
         data={notas || []} 
         isLoading={isLoading} 
-        onEdit={openEditModal} 
-        onDelete={handleDelete} 
-        rowKey={(row) => row.id_nota || 0} 
+        onEdit={puedeEditar ? openEditModal : undefined} 
+        onDelete={puedeEditar ? handleDelete : undefined} 
+        rowKey={(row) => row.id_nota ?? `nota-${Math.random()}`} 
       />
 
       {isModalOpen && (

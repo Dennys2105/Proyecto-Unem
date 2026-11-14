@@ -4,7 +4,8 @@ from sqlmodel import Session
 from app.config.db_conection import get_session
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaReplace,AsigCargaHorariaResponse,AsigCargaHorariaUpdate
 import app.service.asig_carga_hor_service as service
-from app.dependencies.auth_deps import obtener_usuario_actual,requerir_rol,recurso_propietario, verificar_permiso
+from app.dependencies.auth_deps import recurso_propietario, verificar_permiso
+from app.dependencies.asig_hor_deps import validar_conflictos_horarios
 
 
 router= APIRouter(
@@ -14,12 +15,13 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED)
-def crear_carga_horaria(disp_in: AsigCargaHorariaCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','CRE','TODO'))):
-    dia_id = service.existe_llave_foranea_dia(session,disp_in.id_dia)
-    doc_id = service.existe_llave_foranea_doc(session,disp_in.id_doc)
-    malla_id = service.existe_llave_foranea_malla(session,disp_in.id_malla)
-    per_id = service.existe_llave_foranea_per(session,disp_in.id_per)
-    esp_id = service.existe_llave_foranea_esp(session,disp_in.id_esp)
+def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','CRE','TODO'))):
+    validar_conflictos_horarios(session,AsigCargaHorariaCreate)
+    dia_id = service.existe_llave_foranea_dia(session,carga_in.id_dia)
+    doc_id = service.existe_llave_foranea_doc(session,carga_in.id_doc)
+    malla_id = service.existe_llave_foranea_malla(session,carga_in.id_malla)
+    per_id = service.existe_llave_foranea_per(session,carga_in.id_per)
+    esp_id = service.existe_llave_foranea_esp(session,carga_in.id_esp)
     if not dia_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dia no existe")
     elif not doc_id:
@@ -31,7 +33,7 @@ def crear_carga_horaria(disp_in: AsigCargaHorariaCreate, session: Session = Depe
     elif not esp_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Espacio no existe")
     
-    return service.crear(session, disp_in)
+    return service.crear(session, carga_in)
 
 # --- READ ALL ---
 @router.get("/", response_model=List[AsigCargaHorariaResponse])
@@ -49,7 +51,9 @@ def leer_carga_horaria_id(disp_id: int, session: Session = Depends(get_session),
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse)
-def actualizar_parcial_carga(disp_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','ACT','TODO'))):
+def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','ACT','TODO'))):
+    
+    validar_conflictos_horarios(session,dato_in,carga_id)
     
     if not service.existe_llave_foranea_dia(session,dato_in.id_dia):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El dia no existe")
@@ -66,7 +70,7 @@ def actualizar_parcial_carga(disp_id: int, dato_in: AsigCargaHorariaUpdate, sess
     elif not service.existe_llave_foranea_esp(session,dato_in.id_esp):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El espacio no existe")
     
-    db_dato = service.obtener_dato_por_id(disp_id, session)
+    db_dato = service.obtener_dato_por_id(carga_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carga Horaria no encontrada")
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)

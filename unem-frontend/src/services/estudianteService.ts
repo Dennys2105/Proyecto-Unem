@@ -3,12 +3,12 @@ import type { Estudiante, EstudianteCreate, EstudianteUpdate } from '../types/mo
 
 export const estudianteService = {
   getAll: async (): Promise<Estudiante[]> => {
-    const response = await api.get('/estudiantes');
+    const response = await api.get('/estudiantes/');
     return response.data;
   },
   
   create: async (data: EstudianteCreate): Promise<Estudiante> => {
-    const response = await api.post('/estudiantes', data);
+    const response = await api.post('/estudiantes/', data);
     return response.data;
   },
   

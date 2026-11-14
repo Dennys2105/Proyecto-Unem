@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import { exportToExcel, generateFichaAcademicaPDF, generateGeneralPNFPDF } from '../utils/exportUtils';
 import { FileSpreadsheet, FileText, X, User, Building } from 'lucide-react';
 import type { AsignacionCarga, AsignacionCreate, AsignacionUpdate } from '../types/models';
+import { useAuth } from '../hooks/useAuth';
 
 const asignacionSchema = z.object({
   id_doc: z.string().min(1, 'Selecciona un docente'),
@@ -40,6 +41,9 @@ export const AsignacionCargaPage = () => {
   const { dias } = useDias();
   const { periodos } = usePeriodos();
   const { municipios } = useMunicipios();
+  const { esAdmin, esCoordinador } = useAuth();
+  const puedeEditar = esAdmin || esCoordinador;
+
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -125,7 +129,7 @@ export const AsignacionCargaPage = () => {
       }
     }
 
-    // ✅ CORRECCIÓN 3: Tipamos el payload correctamente para usar los imports
+   
     const payload: AsignacionCreate | AsignacionUpdate = {
       id_doc: nuevoDocente,
       id_malla: parseInt(data.id_malla, 10),
@@ -310,9 +314,13 @@ export const AsignacionCargaPage = () => {
           <p className="text-sm text-gray-500 mt-1">Gestione las asignaciones y genere reportes institucionales</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm">
-            Nueva Asignación
-          </button>
+          
+          {puedeEditar && (
+            <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm">
+              Nueva Asignación
+            </button>
+          )}
+          
           <button onClick={() => setIsReportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium shadow-sm">
             <FileText size={18} /> Generar Reportes PDF
           </button>
@@ -322,7 +330,7 @@ export const AsignacionCargaPage = () => {
         </div>
       </div>
 
-      <DataTable columns={columns} data={asignaciones || []} isLoading={isLoading} onEdit={openEditModal} onDelete={handleDelete} rowKey={(row) => row.id_asig} />
+      <DataTable columns={columns} data={asignaciones || []} isLoading={isLoading} onEdit={puedeEditar ? openEditModal : undefined} onDelete={puedeEditar ? handleDelete : undefined} rowKey={(row) => row.id_asig} />
 
       {isReportModalOpen && (
         <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50">

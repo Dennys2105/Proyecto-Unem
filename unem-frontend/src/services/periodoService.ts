@@ -3,11 +3,11 @@ import type { PeriodoAcademico, PeriodoCreate, PeriodoUpdate } from '../types/mo
 
 export const periodoService = {
   getAll: async (): Promise<PeriodoAcademico[]> => {
-    const response = await api.get('/PeriodoAcademico');
+    const response = await api.get('/PeriodoAcademico/');
     return response.data;
   },
   create: async (data: PeriodoCreate): Promise<PeriodoAcademico> => {
-    const response = await api.post('/PeriodoAcademico', data);
+    const response = await api.post('/PeriodoAcademico/', data);
     return response.data;
   },
   update: async (id: number, data: PeriodoUpdate): Promise<PeriodoAcademico> => {

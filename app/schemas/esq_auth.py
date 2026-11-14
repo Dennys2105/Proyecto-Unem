@@ -3,8 +3,8 @@ from datetime import datetime
 from enum import Enum
 
 class RolAsignados(int,Enum):
-    Docente = 2
-    Estudiante = 3
+    Docente = 3
+    USUARIO = 4
 
 
 #Credenciales
@@ -32,7 +32,7 @@ class UsuarioResposive(BaseModel):
     id_usu: int
     username: str
     id_rol: int
-    email: EmailStr
+    email: EmailStr | None = None
     estatus: str
     creado: datetime
     actualizar: datetime
@@ -59,20 +59,3 @@ class UserRegister(BaseModel):
     password: str
     email: EmailStr
     id_rol: RolAsignados
-
-"""#Actualizar Toda la Informacion de los usuarios
-class UpdateUserDocente(BaseModel):
-    usuario: UsuarioUpdate
-    docente: DocenteUpdate
-
-class UpdateUserEstudiante(BaseModel):
-    usuario: UsuarioUpdate
-    estudiante: EstudianteUpdate
-
-class UpdateUserDocenteResponse(BaseModel):
-    usuario: UsuarioResposive
-    docente: DocenteResponse
-
-class UpdateUserEstudianteResponse(BaseModel):
-    usuario: UsuarioResposive
-    estudiante: EstudianteResponse"""

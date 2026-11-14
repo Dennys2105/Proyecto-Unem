@@ -35,11 +35,12 @@ def leer_ptograma_id(programa_id: int, session: Session = Depends(get_session),u
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{programa_id}", response_model=ProgramasResposive)
 def actualizar_parcial_programa(programa_id: int, programa_in: ProgramasUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('malla','ACT','LIM'))):
-    validar_unicidad(Programa,"codigo","id_pro")(programa_in,session,programa_id)
-    
     db_programa = service.obtener_programa_por_id(programa_id, session)
     if not db_programa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no encontrado")
+    
+    validar_unicidad(Programa,"codigo","id_pro")(programa_in,session,programa_id)
+
     return service.actualizar_programa(session=session, db_programa=db_programa, programa_in=programa_in, parcial=True)
 
 # --- DELETE LOGICO ---

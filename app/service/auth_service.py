@@ -177,7 +177,7 @@ def iniciar_sesion(form_data: OAuth2PasswordRequestForm, session: Session) -> di
     }
 
 def listar_usuarios(session: Session):
-    statement = select(Usuario,Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu)
+    statement = select(Usuario,Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu).where(Usuario.estatus == "A")
     usuarios = session.exec(statement).all()
     
     #hay una forma mas optima de hecer esto con selectinload, pero por cansacio lo hacemos asi
@@ -195,10 +195,10 @@ def actualizar_usuario(session: Session, db_dato: Usuario, dato_in: UsuarioUpdat
 
 def obtener_user_informacion(session: Session, user_id: int, user_inf: int ):
     if user_inf == 1:
-        select_statement = select(Docente).where(Docente.id_usu == user_id)
+        select_statement = select(Docente).where(Docente.id_usu == user_id and Docente.estatus == "A")
     
     elif user_inf == 2:
-        select_statement = select(Estudiante).where(Estudiante.id_usu == user_id)
+        select_statement = select(Estudiante).where(Estudiante.id_usu == user_id and Estudiante.estatus == "A")
     
     else:
         raise HTTPException(
@@ -213,3 +213,17 @@ def eliminar(session: Session, db_dato: Usuario) -> None:
 
 def obtener_dato_por_id(dato_id: int, session:Session) -> Optional[Usuario]:
     return obtener_por_id(db=session,modelo=Usuario,id=dato_id)
+
+def obtener_usuario_con_credenciales_por_id(session: Session, usuario_id: int):
+    statement = select(Usuario, Credencial).join(Credencial, Usuario.id_usu == Credencial.id_usu).where(Usuario.id_usu == usuario_id and Usuario.estatus == "A")
+    resultado = session.exec(statement).first()
+    
+    if not resultado:
+        return None
+        
+    usuario, credencial = resultado
+    return {
+        "usuario": usuario,
+        "credenciales": credencial
+    }
+
