@@ -1,6 +1,5 @@
 import api from '../lib/axios';
 
-// Interfaz que coincide con la respuesta del endpoint
 export interface MovimientoAuditoria {
   id_aud: number;
   fecha: string;
@@ -14,22 +13,7 @@ export interface MovimientoAuditoria {
 
 export const auditoriaService = {
   getAll: async (): Promise<MovimientoAuditoria[]> => {
-    const response = await api.get('/api/v1/analytics/auditoria/movimientos');
-    return response.data;
-  },
-
-  // Versión con filtros del servidor (opcional, para mejorar rendimiento)
-  getWithFilters: async (filters: {
-    tabla?: string;
-    usuario?: string;
-    fecha_inicio?: string;
-  }): Promise<MovimientoAuditoria[]> => {
-    const params: Record<string, string> = {};
-    if (filters.tabla) params.tabla = filters.tabla;
-    if (filters.usuario) params.usuario = filters.usuario;
-    if (filters.fecha_inicio) params.fecha_inicio = filters.fecha_inicio;
-
-    const response = await api.get('/api/v1/analytics/auditoria/movimientos', { params });
+    const response = await api.get('/analytics/auditoria/movimientos');
     return response.data;
   },
 };

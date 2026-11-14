@@ -1,42 +1,35 @@
-@"
-# Node (CRÍTICO)
+# ==========================================
+# DEPENDENCIAS (NUNCA SUBIR)
+# ==========================================
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-dist/
-build/
-
-# Python
+.venv/
+venv/
+env/
 __pycache__/
-*.py[cod]
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-*.egg-info/
+
+# ==========================================
+# ARCHIVOS DE CONSTRUCCIÓN
+# ==========================================
 dist/
 build/
-*.egg
+.vite/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# ==========================================
+# BASE DE DATOS (Archivos pesados)
+# ==========================================
+*.sql
+Base de Datos*.sql
+diccionario*.html
 
-# OS
+# ==========================================
+# SISTEMA
+# ==========================================
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Environment
 .env
 .env.local
-.env.*.local
-"@ | Out-File -FilePath .gitignore -Encoding utf8
