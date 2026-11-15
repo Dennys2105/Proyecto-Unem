@@ -42,13 +42,15 @@ def leer_docente_id(docente_id: int, session: Session = Depends(get_session), us
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{docente_id}", response_model=DocenteResponse)
-def actualizar_parcial_docente(docente_id: int, dato_in: DocenteUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('docentes','ACT','LIM'))):
-    if not service.existe_llave_foranea_usu(session,dato_in.id_mun):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Municipio no existe")
-    validar_unicidad(Docente,["id_usu","cedula"],"id_doc")(dato_in,session,docente_id)
+def actualizar_parcial_docente(
+    docente_id: int,
+    dato_in: DocenteUpdate,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('docentes', 'ACT', 'LIM'))
+):
     db_dato = service.obtener_dato_por_id(docente_id, session)
     if not db_dato:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Docente no encontrado")
+        raise HTTPException(status_code=404, detail="Docente no encontrado")
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 

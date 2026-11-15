@@ -7,6 +7,7 @@ from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,Estudi
 import app.service.estudiante_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
 from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual,verificar_permiso
+from sqlmodel import select
 
 router= APIRouter(
     prefix="/estudiantes",
@@ -35,8 +36,12 @@ def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends
 
 # --- READ ALL ---
 @router.get("/", response_model=List[EstudianteResponse])
-def leer_estudiante(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','LEC','LIM'))):
-    return service.leer_todos(session)
+def leer_estudiantes(
+    session: Session = Depends(get_session), 
+    usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'LEC', 'TODO'))
+):
+    statement = select(Estudiante).order_by(Estudiante.id_est)
+    return session.exec(statement).all()
 
 # --- READ ONE ---
 @router.get("/{estudiante_id}", response_model=EstudianteResponse)
@@ -49,23 +54,18 @@ def leer_estudiante_id(estudiante_id: int, session: Session = Depends(get_sessio
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{estudiante_id}", response_model=EstudianteResponse)
-def actualizar_parcial_estudiante(estudiante_id: int, dato_in: EstudianteUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','ACT','LIM'))):
-
-    municipio = service.existe_llave_foranea_mun(session,dato_in.id_mun)
-    prog = service.existe_llave_foranea_pro(session,dato_in.id_pro)
-    seccion = service.existe_llave_foranea_usu(session,dato_in.id_sec)
-    
-    if not municipio:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Municipio no existe")
-    elif not prog:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no existe")
-    elif not seccion:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Seccion no existe")
-    
-    validar_unicidad(Estudiante,"cedula","id_est")(dato_in,session,estudiante_id)
+def actualizar_parcial_estudiante(
+    estudiante_id: int,                          
+    dato_in: EstudianteUpdate,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'ACT', 'LIM'))
+):
     db_dato = service.obtener_dato_por_id(estudiante_id, session)
     if not db_dato:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estudiante no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Estudiante no encontrado"
+        )
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 

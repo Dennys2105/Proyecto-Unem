@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from sqlmodel import Session
+from sqlmodel import Session, select
 from app.models.unem_db_models import Seccion
 from app.config.db_conection import get_session
 from app.schemas.esq_seccion import SeccionCreate,SeccionReplace,SeccionResponse,SeccionUpdate
@@ -26,7 +26,8 @@ def crear_seccion(seccion_in: SeccionCreate, session: Session = Depends(get_sess
 # --- READ ALL ---
 @router.get("/", response_model=List[SeccionResponse])
 def leer_seccion(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','LEC','TODO'))):
-    return service.leer_todos(session)
+    statement = select(Seccion).order_by(Seccion.codigo)
+    return session.exec(statement).all()
 
 # --- READ ONE ---
 @router.get("/{seccion_id}", response_model=SeccionResponse)

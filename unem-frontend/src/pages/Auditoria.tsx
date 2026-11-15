@@ -27,13 +27,11 @@ const ACCION_CONFIG: Record<string, { color: string; icon: any; label: string; d
   },
 };
 
-// Detecta si un UPDATE es en realidad una eliminación lógica
-// (cambio de estatus de 'A' a 'I' sin otros campos modificados)
-const esEliminacionLogica = (resumen: string): boolean => {
-  if (!resumen) return false;
-  const resumenLower = resumen.toLowerCase();
-  // Si el único campo modificado es "estatus"
-  return resumenLower === 'estatus' || resumenLower.includes('solo estatus');
+// ✅ UNIFICADA: Detecta si un UPDATE es en realidad una eliminación lógica
+const esBorradoLogico = (d: { accion: string; resumen: string }): boolean => {
+  if (d.accion !== 'UPDATE') return false;
+  const r = (d.resumen || '').toLowerCase();
+  return r.includes('estatus') || r.includes('inactivo') || r.includes('eliminado');
 };
 
 const TABLA_NOMBRES: Record<string, string> = {
@@ -79,16 +77,9 @@ export const AuditoriaPage = () => {
 
   const datosFiltrados = useMemo(() => {
     return datosNormalizados.filter(d => {
-      // Detectar si es una eliminación lógica (UPDATE que cambia estatus)
-      const esEliminacionLogica = 
-        d.accion === 'UPDATE' && 
-        (d.resumen.toLowerCase().includes('estatus') || 
-        d.resumen.toLowerCase().includes('eliminado') ||
-        d.resumen.toLowerCase().includes('inactivo'));
-      
-      // Si el filtro es DELETE, incluir tanto eliminaciones físicas como lógicas
+      // ✅ Si el filtro es DELETE, incluir borrados físicos Y lógicos
       if (filtroAccion === 'DELETE') {
-        return d.accion === 'DELETE' || esEliminacionLogica;
+        return d.accion === 'DELETE' || esBorradoLogico(d);
       }
       
       // Para otros filtros, comportamiento normal
@@ -103,17 +94,11 @@ export const AuditoriaPage = () => {
   }, [datosNormalizados, filtroTabla, filtroAccion, busqueda]);
 
   const stats = useMemo(() => {
-    const esEliminacionLogica = (d: any) => 
-      d.accion === 'UPDATE' && 
-      (d.resumen.toLowerCase().includes('estatus') || 
-      d.resumen.toLowerCase().includes('eliminado') ||
-      d.resumen.toLowerCase().includes('inactivo'));
-    
     return {
       total: datosNormalizados.length,
       insert: datosNormalizados.filter(d => d.accion === 'INSERT').length,
-      update: datosNormalizados.filter(d => d.accion === 'UPDATE' && !esEliminacionLogica(d)).length,
-      delete: datosNormalizados.filter(d => d.accion === 'DELETE' || esEliminacionLogica(d)).length,
+      update: datosNormalizados.filter(d => d.accion === 'UPDATE' && !esBorradoLogico(d)).length,
+      delete: datosNormalizados.filter(d => d.accion === 'DELETE' || esBorradoLogico(d)).length,
     };
   }, [datosNormalizados]);
 
@@ -130,7 +115,8 @@ export const AuditoriaPage = () => {
   };
 
   const renderDetalle = (d: ReturnType<typeof normalizarAuditoria>) => {
-    const esElimLogica = esEliminacionLogica(d.resumen);
+    // ✅ Usa la función unificada
+    const esElimLogica = esBorradoLogico(d);
     const accionReal = esElimLogica ? 'DELETE' : d.accion;
     const config = ACCION_CONFIG[accionReal] || {
       color: 'bg-gray-100 text-gray-700 border-gray-300',
@@ -364,7 +350,6 @@ export const AuditoriaPage = () => {
                 {datosFiltrados.map((d) => (
                   <Fragment key={d.id}>
                     <tr
-                      key={`movimiento-${d.id}`}
                       className="hover:bg-gray-50 transition cursor-pointer"
                       onClick={() => setFilaExpandida(filaExpandida === d.id ? null : d.id)}
                     >
@@ -374,15 +359,26 @@ export const AuditoriaPage = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{d.usuario}</td>
                       <td className="px-4 py-3 text-sm text-gray-700 capitalize">{formatNombreTabla(d.tabla)}</td>
+                      
+                      {/* ✅ BADGE CORREGIDO: Detecta borrado lógico y lo pinta de rojo */}
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold ${
-                          d.accion === 'INSERT' ? 'bg-green-100 text-green-700' :
-                          d.accion === 'UPDATE' ? 'bg-blue-100 text-blue-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {d.accion}
-                        </span>
+                        {(() => {
+                          const esLogico = esBorradoLogico(d);
+                          const esDelete = d.accion === 'DELETE' || esLogico;
+                          const esInsert = d.accion === 'INSERT';
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold ${
+                              esInsert ? 'bg-green-100 text-green-700' :
+                              esDelete ? 'bg-red-100 text-red-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {esDelete ? <Trash2 size={12} /> : esInsert ? <Plus size={12} /> : <Edit size={12} />}
+                              {esDelete ? (d.accion === 'DELETE' ? 'DELETE' : 'DELETE LÓGICO') : d.accion}
+                            </span>
+                          );
+                        })()}
                       </td>
+                      
                       <td
                         className="px-4 py-3 text-sm text-gray-600 max-w-[220px] truncate"
                         title={d.identificador}
@@ -404,7 +400,7 @@ export const AuditoriaPage = () => {
                       </td>
                     </tr>
                     {filaExpandida === d.id && (
-                      <tr key={`detalle-${d.id}`}>
+                      <tr>
                         <td colSpan={7} className="p-0">
                           <div className="p-4 bg-indigo-50/50 border-b border-indigo-100">
                             <div className="flex items-start gap-3">

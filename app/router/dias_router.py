@@ -1,17 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from sqlmodel import Session
+from sqlmodel import Session, select  # ✅ Aquí se agrega 'select'
 from app.config.db_conection import get_session
 from app.models.unem_db_models import DiaLaboral
-from app.schemas.esq_dias_laborales import DiasCreate,DiasUpdate, DiasResposive,DiasRemplace
+from app.schemas.esq_dias_laborales import DiasCreate, DiasUpdate, DiasResposive, DiasRemplace
 import app.service.dias_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import obtener_usuario_actual,requerir_rol,recurso_propietario,verificar_permiso
+from app.dependencies.auth_deps import obtener_usuario_actual, requerir_rol, recurso_propietario, verificar_permiso
 
-router= APIRouter(
+router = APIRouter(
     prefix="/DiasLaborales",
     tags=["DiasLaborales"]
 )
+
 
 # --- CREATE ---
 @router.post("/", response_model=DiasResposive, status_code=status.HTTP_201_CREATED)
@@ -21,8 +22,10 @@ def crear_dia_laboral(dia_in: DiasCreate, session: Session = Depends(get_session
 
 # --- READ ALL ---
 @router.get("/", response_model=List[DiasResposive])
-def leer_dias_laborales(session: Session = Depends(get_session),usuario_actual: dict = Depends(obtener_usuario_actual)):
-    return service.leer_todos(session)
+def leer_dias_laborales(session: Session = Depends(get_session), usuario_actual: dict = Depends(obtener_usuario_actual)):
+
+    statement = select(DiaLaboral).order_by(DiaLaboral.orden)
+    return session.exec(statement).all()
 
 # --- READ ONE ---
 @router.get("/{dia_id}", response_model=DiasResposive)

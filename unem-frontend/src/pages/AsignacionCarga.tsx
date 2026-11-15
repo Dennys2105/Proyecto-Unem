@@ -5,14 +5,12 @@ import { useMallas } from '../hooks/useMallas';
 import { useEspaciosFisicos } from '../hooks/useEspaciosFisicos';
 import { useDias } from '../hooks/useDias';
 import { usePeriodos } from '../hooks/usePeriodos';
-import { useMunicipios } from '../hooks/useMunicipios'; // ✅ NUEVO
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { isAxiosError } from 'axios';
-import api from '../lib/axios'; // ✅ NUEVO
 import toast from 'react-hot-toast';
-import { exportToExcel, generateFichaAcademicaPDF, generateGeneralPNFPDF } from '../utils/exportUtils'; // ✅ ACTUALIZADO
+import { exportToExcel, exportHorarioDocente, generateGeneralPNFPDF } from '../utils/exportUtils';
 import { 
   FileSpreadsheet, FileText, X, User, Building, Calendar, 
   Clock, AlertTriangle, CheckCircle 
@@ -20,6 +18,8 @@ import {
 import type { AsignacionCarga, AsignacionCreate, AsignacionUpdate } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
 import { ordenarNaturalPor } from '../utils/ordenarNatural';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const asignacionSchema = z.object({
   id_doc: z.string().min(1, 'Selecciona un docente'),
@@ -44,7 +44,6 @@ export const AsignacionCargaPage = () => {
   const { espacios } = useEspaciosFisicos();
   const { dias } = useDias();
   const { periodos } = usePeriodos();
-  const { municipios } = useMunicipios(); // ✅ NUEVO
   const { esAdmin, esCoordinador } = useAuth();
   const puedeEditar = esAdmin || esCoordinador;
 
@@ -149,7 +148,7 @@ export const AsignacionCargaPage = () => {
       closeModal();
     } catch (error: unknown) {
       const detail = isAxiosError<{ detail?: unknown }>(error) ? error.response?.data?.detail : undefined;
-      toast.error(typeof detail === 'string' ? detail : 'Error al guardar la asignación (validación del servidor)', { duration: 5000 });
+      toast.error(typeof detail === 'string' ? detail : 'Error al guardar la asignación', { duration: 5000 });
     }
   };
 
@@ -167,150 +166,55 @@ export const AsignacionCargaPage = () => {
   };
 
   // ==========================================
-  // ✅ FUNCIONES DE REPORTES ACTUALIZADAS
+  // FUNCIONES DE REPORTES CONECTADAS AL BACKEND
   // ==========================================
-  const handleVistaImpresion = async () => {
+  const handleDescargarHorarioPDF = () => {
     const docente = docentes?.find(d => d.id_doc.toString() === selectedDocenteId);
-    if (!docente?.cedula) { toast.error('Selecciona un docente válido'); return; }
-
-    try {
-      const res = await api.get('/analytics/Horario_docente', { params: { cedula: docente.cedula } });
-      const datos = res.data as any[];
-
-      if (!datos.length) {
-        toast.error('Este docente no tiene asignaciones activas registradas');
-        return;
-      }
-
-      const ordenDias = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-      const filas = [...datos]
-        .sort((a, b) => (ordenDias.indexOf(a.dia) - ordenDias.indexOf(b.dia)) || a.hora_inicio.localeCompare(b.hora_inicio))
-        .map(r => `
-          <tr>
-            <td><b>${r.dia}</b></td>
-            <td>${r.hora_inicio.slice(0,5)} - ${r.hora_fin.slice(0,5)}</td>
-            <td>${r.materia} <span class="cod">(${r.cod_materia})</span></td>
-            <td>${r.cod_seccion ?? '—'}</td>
-            <td>${r.espacio_fisico ?? '—'}<br><span class="cod">${r.nombre_centro ?? ''}</span></td>
-            <td>${r.eje_formativo}</td>
-            <td>${r.tipo_actividad}</td>
-          </tr>`)
-        .join('');
-
-      const win = window.open('', '_blank');
-      if (!win) { toast.error('El navegador bloqueó la ventana emergente'); return; }
-      win.document.write(`
-        <html><head><title>Horario - ${docente.nombre} ${docente.apellido}</title>
-        <style>
-          body{font-family:Arial,sans-serif;margin:30px;color:#1a1a2e}
-          h1{font-size:16px;text-align:center;margin:0} h2{font-size:11px;text-align:center;color:#555;margin:4px 0 2px}
-          .linea{border-bottom:2px solid #003366;margin:10px 0 20px}
-          .info{display:flex;justify-content:space-between;font-size:12px;margin-bottom:15px}
-          table{width:100%;border-collapse:collapse;font-size:11px}
-          th{background:#003366;color:#fff;padding:8px;text-align:left}
-          td{padding:7px 8px;border-bottom:1px solid #ddd;vertical-align:top}
-          tr:nth-child(even){background:#f5f7fa}
-          .cod{color:#777;font-size:9px}
-          .pie{margin-top:25px;font-size:9px;color:#888;text-align:center}
-          @media print{button{display:none}}
-        </style></head><body>
-        <h1>UNIVERSIDAD NACIONAL EXPERIMENTAL DEL MAGISTERIO</h1>
-        <h2>"SAMUEL ROBINSON" — Vicerrectorado Académico Territorial</h2>
-        <div class="linea"></div>
-        <div class="info">
-          <span><b>Docente:</b> ${docente.nombre} ${docente.apellido} — C.I. ${docente.cedula}</span>
-          <span><b>Período:</b> ${datos[0].periodo_academico}</span>
-        </div>
-        <table>
-          <thead><tr><th>Día</th><th>Hora</th><th>Unidad Curricular</th><th>Sección</th><th>Espacio</th><th>Eje</th><th>Actividad</th></tr></thead>
-          <tbody>${filas}</tbody>
-        </table>
-        <p class="pie">Generado desde el sistema de gestión de horarios — ${new Date().toLocaleString('es-VE')}</p>
-        <button onclick="window.print()" style="margin-top:20px;padding:10px 20px;background:#003366;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button>
-        </body></html>`);
-      win.document.close();
-    } catch (e) {
-      toast.error('No se pudo consultar el horario al servidor');
+    if (!docente?.cedula) {
+      toast.error('El docente seleccionado no tiene cédula registrada');
+      return;
     }
+    const url = `${API_BASE_URL}/exportar/Horario_docente/pdf?cedula=${encodeURIComponent(docente.cedula)}`;
+    window.open(url, '_blank');
+    toast.success('Generando horario visual desde el servidor...');
   };
 
-  const handleGenerateReport = () => {
-    if (reportType === 'individual') {
-      if (!selectedDocenteId) return toast.error('Selecciona un docente', { duration: 4000 });
-      const docente = docentes?.find(d => d.id_doc.toString() === selectedDocenteId);
-      if (!docente) return;
-
-      const asigsDocente = asignaciones?.filter(a => a.id_doc?.toString() === selectedDocenteId) || [];
-      const primera = asigsDocente[0];
-      const periodo = periodos?.find(p => p.id_per === primera?.id_per);
-      const municipioDocente = municipios?.find(m => m.id_mun === docente.id_mun)?.nombre || 'SAN CRISTÓBAL';
-
-      const ucSet = new Set<string>();
-      asigsDocente.forEach(a => {
-        const malla = mallas?.find(m => m.id_malla === a.id_malla);
-        if (malla?.materia?.nombre) ucSet.add(`${malla.materia.codigo}: ${malla.materia.nombre}`);
-      });
-
-      const franjas = [...new Set(asigsDocente.map(a => `${a.hora_inicio?.slice(0,5)} - ${a.hora_fin?.slice(0,5)}`))].sort();
-      const horarioSemanal = franjas.map(franja => {
-        const enFranja = asigsDocente.filter(a => `${a.hora_inicio?.slice(0,5)} - ${a.hora_fin?.slice(0,5)}` === franja);
-        const porDia: Record<string, string> = {};
-        enFranja.forEach(a => {
-          const nombreDia = dias?.find(d => d.id_dia === a.id_dia)?.dia || 'N/A';
-          const malla = mallas?.find(m => m.id_malla === a.id_malla);
-          porDia[nombreDia] = (porDia[nombreDia] ? porDia[nombreDia] + ' | ' : '') + (malla?.materia?.codigo || `Malla ${a.id_malla}`);
-        });
-        return { horario: franja, viernes: porDia['Viernes'] || '', sabado: porDia['Sábado'] || '',
-          observacion: Object.keys(porDia).filter(d => !['Viernes','Sábado'].includes(d)).join(', ') };
-      });
-      if (!horarioSemanal.length) horarioSemanal.push({ horario: 'Sin asignaciones', viernes: '', sabado: '', observacion: '' });
-
-      const mallaPrimera = mallas?.find(m => m.id_malla === primera?.id_malla);
-      const espacioPrimero = espacios?.find(e => e.id_esp === primera?.id_esp);
-
-      generateFichaAcademicaPDF({
-        estado: 'TÁCHIRA', municipio: municipioDocente.toUpperCase(),
-        aulaTaller: (espacioPrimero?.nombre_centro || 'SEDE PRINCIPAL').toUpperCase(),
-        periodoAcademico: periodo?.nombre || '2025-I',
-        programaFormacion: mallaPrimera?.programa?.nombre || 'PNF',
-        cohorte: '2026', trayecto: `T${mallaPrimera?.trayecto ?? 'I'}`, semestre: `P${mallaPrimera?.periodo ?? 'I'}`,
-        unidadCurricular: ucSet.size ? Array.from(ucSet) : ['Sin asignaciones'],
-        docenteInvestigador: `${docente.nombre} ${docente.apellido} (${docente.especialidad || 'Docente'})`.toUpperCase(),
-        cedulaIdentidad: docente.cedula || 'V-00.000.000',
-        correo: (docente as any).email || 'correo@unem.edu.ve',
-        telefono: docente.telefono || '0000-0000000',
-        fechaEntrega: new Date().toLocaleDateString('es-VE'),
-        horarioSemanal,
-      }, `Ficha_${docente.nombre}_${docente.apellido}`.replace(/\s+/g, '_'));
-
-      closeReportModal();
-      toast.success('Ficha académica generada');
-    } else if (reportType === 'general') {
-      if (!selectedPnf) return toast.error('Selecciona un PNF', { duration: 4000 });
-
-      const filtradas = (asignaciones || []).filter(a => {
-        const malla = mallas?.find(m => m.id_malla === a.id_malla);
-        if (!malla) return false;
-        return selectedPnf === 'primaria' ? malla.id_pro === 1 : malla.id_pro === 2;
-      });
-
-      const datos = filtradas.map(a => {
-        const doc = docentes?.find(d => d.id_doc === a.id_doc);
-        const malla = mallas?.find(m => m.id_malla === a.id_malla);
-        const esp = espacios?.find(e => e.id_esp === a.id_esp);
-        return {
-          dia: dias?.find(d => d.id_dia === a.id_dia)?.dia || 'N/A',
-          hora: `${a.hora_inicio?.slice(0,5)} - ${a.hora_fin?.slice(0,5)}`,
-          docente: doc ? `${doc.nombre} ${doc.apellido}` : 'N/A',
-          materia: malla?.materia?.nombre || `Malla ${a.id_malla}`,
-          espacio: esp ? `${esp.ubicacion} (${esp.nombre_centro})` : 'N/A',
-        };
-      }).sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora));
-
-      generateGeneralPNFPDF(datos, selectedPnf === 'especial' ? 'EDUCACIÓN ESPECIAL' : 'EDUCACIÓN PRIMARIA');
-      closeReportModal();
-      toast.success('Horario general generado');
+  const handleDescargarFichaPDF = () => {
+    const docente = docentes?.find(d => d.id_doc.toString() === selectedDocenteId);
+    if (!docente?.cedula) {
+      toast.error('El docente seleccionado no tiene cédula registrada');
+      return;
     }
+    const url = `${API_BASE_URL}/exportar/ficha-docente-pdf/${encodeURIComponent(docente.cedula)}`;
+    window.open(url, '_blank');
+    toast.success('Generando ficha académica desde el servidor...');
+  };
+
+  const handleGenerarPDFGeneral = () => {
+    if (!selectedPnf) return toast.error('Selecciona un PNF', { duration: 4000 });
+
+    const filtradas = (asignaciones || []).filter(a => {
+      const malla = mallas?.find(m => m.id_malla === a.id_malla);
+      if (!malla) return false;
+      return selectedPnf === 'primaria' ? malla.id_pro === 1 : malla.id_pro === 2;
+    });
+
+    const datos = filtradas.map(a => {
+      const doc = docentes?.find(d => d.id_doc === a.id_doc);
+      const malla = mallas?.find(m => m.id_malla === a.id_malla);
+      const esp = espacios?.find(e => e.id_esp === a.id_esp);
+      return {
+        dia: dias?.find(d => d.id_dia === a.id_dia)?.dia || 'N/A',
+        hora: `${a.hora_inicio?.slice(0,5)} - ${a.hora_fin?.slice(0,5)}`,
+        docente: doc ? `${doc.nombre} ${doc.apellido}` : 'N/A',
+        materia: malla?.materia?.nombre || `Malla ${a.id_malla}`,
+        espacio: esp ? `${esp.ubicacion} (${esp.nombre_centro})` : 'N/A',
+      };
+    }).sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora));
+
+    generateGeneralPNFPDF(datos, selectedPnf === 'especial' ? 'EDUCACIÓN ESPECIAL' : 'EDUCACIÓN PRIMARIA');
+    closeReportModal();
+    toast.success('Horario general descargado');
   };
 
   // ==========================================
@@ -353,7 +257,6 @@ export const AsignacionCargaPage = () => {
           <button onClick={() => setIsReportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium shadow-sm">
             <FileText size={16} /> Reportes PDF
           </button>
-          {/* ✅ BOTÓN EXCEL ENRIQUECIDO */}
           <button 
             onClick={() => exportToExcel(
               (asignaciones || []).map(a => {
@@ -388,21 +291,12 @@ export const AsignacionCargaPage = () => {
             <Clock size={18} className="text-blue-600" />
             <span className="font-medium">Vista Horario Semanal</span>
           </div>
-
           <div className="flex gap-2 w-full md:w-auto">
-            <select
-              value={filtroDocente}
-              onChange={(e) => setFiltroDocente(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-48"
-            >
+            <select value={filtroDocente} onChange={(e) => setFiltroDocente(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-48">
               <option value="">Todos los docentes</option>
               {docentes?.map(d => <option key={d.id_doc} value={d.id_doc}>{d.nombre} {d.apellido}</option>)}
             </select>
-            <select
-              value={filtroEspacio}
-              onChange={(e) => setFiltroEspacio(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-48"
-            >
+            <select value={filtroEspacio} onChange={(e) => setFiltroEspacio(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-48">
               <option value="">Todos los espacios</option>
               {espacios?.map(e => <option key={e.id_esp} value={e.id_esp}>{e.ubicacion}</option>)}
             </select>
@@ -604,30 +498,36 @@ export const AsignacionCargaPage = () => {
         </div>
       )}
 
-      {/* Modal de Reportes */}
+      {/* MODAL DE REPORTES (CONECTADO AL BACKEND) */}
       {isReportModalOpen && (
         <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Generar Reporte PDF</h2>
+              <h2 className="text-xl font-bold text-gray-900">Generar Reportes</h2>
               <button onClick={closeReportModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
             </div>
+            
             {!reportType ? (
               <div className="grid grid-cols-1 gap-4">
                 <button onClick={() => setReportType('individual')} className="flex items-center gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition text-left">
                   <div className="bg-purple-100 p-3 rounded-full text-purple-600"><User size={24} /></div>
-                  <div><h3 className="font-bold text-gray-900">Horario Individual por Docente</h3><p className="text-sm text-gray-600">Genera la ficha académica con el horario específico.</p></div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Reportes por Docente</h3>
+                    <p className="text-sm text-gray-600">Horario visual y ficha académica individual.</p>
+                  </div>
                 </button>
                 <button onClick={() => setReportType('general')} className="flex items-center gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-left">
                   <div className="bg-blue-100 p-3 rounded-full text-blue-600"><Building size={24} /></div>
-                  <div><h3 className="font-bold text-gray-900">Horario General por PNF</h3><p className="text-sm text-gray-600">Consolidado semanal por PNF (Primaria o Especial).</p></div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Horario General por PNF</h3>
+                    <p className="text-sm text-gray-600">Consolidado semanal de todos los docentes.</p>
+                  </div>
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
-                <button onClick={() => setReportType(null)} className="text-sm text-purple-600 hover:underline flex items-center gap-1 mb-2">Volver a opciones</button>
+                <button onClick={() => setReportType(null)} className="text-sm text-purple-600 hover:underline flex items-center gap-1 mb-2">← Volver a opciones</button>
                 
-                {/* ✅ REPORTE INDIVIDUAL ACTUALIZADO */}
                 {reportType === 'individual' && (
                   <div className="space-y-4">
                     <label className="block text-sm font-medium text-gray-700">Seleccionar Docente</label>
@@ -636,25 +536,33 @@ export const AsignacionCargaPage = () => {
                       {docentes?.map((d) => <option key={d.id_doc} value={d.id_doc}>{d.nombre} {d.apellido}</option>)}
                     </select>
 
-                    <button onClick={handleVistaImpresion} disabled={!selectedDocenteId}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm font-medium">
-                      <FileText size={18} /> Vista de Impresión (datos del servidor)
+                    <button onClick={handleDescargarHorarioPDF} disabled={!selectedDocenteId}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium shadow-sm">
+                      <FileText size={18} /> Descargar Horario Semanal (PDF)
                     </button>
 
-                    <div className="relative flex py-2 items-center">
-                      <div className="flex-grow border-t border-gray-300"></div>
-                      <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">o descarga el PDF</span>
-                      <div className="flex-grow border-t border-gray-300"></div>
-                    </div>
+                    <button onClick={handleDescargarFichaPDF} disabled={!selectedDocenteId}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium shadow-sm">
+                      <FileText size={18} /> Descargar Ficha Académica (PDF)
+                    </button>
 
-                    <button onClick={handleGenerateReport} disabled={!selectedDocenteId}
-                      className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition">
-                      Generar Ficha Académica (PDF)
+                    {/* ✅ CORREGIDO: Se agregaron '?? []' para evitar el error de TypeScript */}
+                    <button
+                      onClick={() => {
+                        const docente = docentes?.find(d => d.id_doc.toString() === selectedDocenteId);
+                        if (!docente) return;
+                        const asigsDocente = asignaciones?.filter(a => a.id_doc?.toString() === selectedDocenteId) || [];
+                        exportHorarioDocente(docente, asigsDocente, dias ?? [], mallas ?? [], espacios ?? []);
+                        toast.success('Horario individual exportado a Excel');
+                      }}
+                      disabled={!selectedDocenteId}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition text-sm font-medium shadow-sm"
+                    >
+                      <FileSpreadsheet size={18} /> Exportar Horario Individual (Excel)
                     </button>
                   </div>
                 )}
 
-                {/* ✅ REPORTE GENERAL ACTUALIZADO */}
                 {reportType === 'general' && (
                   <div className="space-y-4">
                     <label className="block text-sm font-medium text-gray-700">Seleccionar PNF</label>
@@ -663,15 +571,15 @@ export const AsignacionCargaPage = () => {
                       <option value="primaria">Educación Primaria</option>
                       <option value="especial">Educación Especial</option>
                     </select>
-                    <button onClick={handleGenerateReport} disabled={!selectedPnf}
-                      className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition text-sm font-medium flex items-center justify-center gap-2">
-                      <FileText size={18} /> Generar Horario General (PDF)
+                    <button onClick={handleGenerarPDFGeneral} disabled={!selectedPnf}
+                      className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium flex items-center justify-center gap-2 shadow-sm">
+                      <FileText size={18} /> Descargar Horario General (PDF)
                     </button>
                   </div>
                 )}
 
                 <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-                  <button onClick={closeReportModal} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
+                  <button onClick={closeReportModal} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
                 </div>
               </div>
             )}

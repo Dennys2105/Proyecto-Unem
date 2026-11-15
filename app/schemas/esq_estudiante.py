@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from app.dependencies.pruebas_optimizacion import validar_cedula_venezolana
 from app.schemas.esq_municipios import MunicipiosResposive
 from app.schemas.esq_auth import UsuarioResposive
+from app.schemas.esq_seccion import SeccionResponse
 
 class EstudianteBase(BaseModel):
     cedula: str = Field(..., max_length=20) # [DATO ÚNICO]
@@ -34,6 +35,7 @@ class EstudianteUpdate(BaseModel):
     id_pro: Optional[int] = None
     id_sec: Optional[int] = None
     trayecto: Optional[int] = None
+    estatus: Optional[str] = None
     
     @field_validator("cedula")
     @classmethod
@@ -44,12 +46,12 @@ class EstudianteUpdate(BaseModel):
 
 class EstudianteResponse(EstudianteBase):
     id_est: int
-    id_usu: Optional[int] = None 
+    id_usu: Optional[int] = None
+    estatus: str = "A"          
     creado: datetime
     actualizar: datetime
-    
     municipio: Optional[MunicipiosResposive] = None
-    usuario: Optional[UsuarioResposive] = None
+    seccion: Optional[SeccionResponse] = None
 
     class Config:
         from_attributes = True

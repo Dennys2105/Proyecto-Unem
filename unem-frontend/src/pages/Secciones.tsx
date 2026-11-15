@@ -1,30 +1,54 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { useSecciones } from '../hooks/useSecciones';
 import { useProgramas } from '../hooks/useProgramas';
-import { DataTable } from '../components/DataTable';
-import { FormField } from '../components/FormField';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { Seccion } from '../types/models';
+import type { Seccion, SeccionCreate, SeccionUpdate } from '../types/models';
+import {
+  Layers, Search, Plus, X, AlertCircle, Info,
+  CheckCircle2, XCircle, Edit
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const aRomano = (n: number): string => {
+  const romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+  return romanos[n - 1] || n.toString();
+};
+
+interface ColumnDef {
+  key: string;
+  label: string;
+  render?: (value: any, row: Seccion) => ReactNode;
+}
 
 const seccionSchema = z.object({
-  codigo: z.string().min(1, 'El código es obligatorio').max(20, 'Máximo 20 caracteres'),
+  codigo: z.string()
+    .min(3, 'El código debe tener al menos 3 caracteres')
+    .regex(/^[A-Z0-9.\-]+$/, 'Solo mayúsculas, números, puntos y guiones'),
+  trayecto: z.string().min(1, 'Selecciona un trayecto'),
+  periodo: z.string().min(1, 'Selecciona un período'),
+  capacidad_maxima: z.string()
+    .min(1, 'La capacidad es obligatoria')
+    .regex(/^[1-9][0-9]*$/, 'Debe ser un número válido mayor a 0'),
   id_pro: z.string().min(1, 'Selecciona un programa'),
-  trayecto: z.string().min(1, 'Obligatorio'),
-  periodo: z.string().min(1, 'Obligatorio'),
-  capacidad_maxima: z.string().min(1, 'Obligatorio'),
 });
 
 type SeccionFormData = z.infer<typeof seccionSchema>;
 
 export const Secciones = () => {
-  const { secciones, isLoading, createSeccion, updateSeccion, deleteSeccion, isCreating, isUpdating } = useSecciones();
+  const { secciones, isLoading, createSeccion, updateSeccion, isCreating, isUpdating } = useSecciones();
   const { programas } = useProgramas();
-  
+
+  const listaProgramas: any[] = Array.isArray(programas) ? programas : [];
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSeccion, setEditingSeccion] = useState<Seccion | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Seccion | null>(null);
+  const [filtroPrograma, setFiltroPrograma] = useState<string>('');
+  const [filtroTrayecto, setFiltroTrayecto] = useState<string>('');
+  const [filtroEstado, setFiltroEstado] = useState<string>('A');
+  const [busqueda, setBusqueda] = useState<string>('');
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<SeccionFormData>({
     resolver: zodResolver(seccionSchema),
@@ -32,18 +56,18 @@ export const Secciones = () => {
 
   const openCreateModal = () => {
     setEditingSeccion(null);
-    reset({ codigo: '', id_pro: '', trayecto: '', periodo: '', capacidad_maxima: '40' });
+    reset({ codigo: '', trayecto: '', periodo: '', capacidad_maxima: '', id_pro: '' });
     setIsModalOpen(true);
   };
 
-  const openEditModal = (seccion: Seccion) => {
-    setEditingSeccion(seccion);
+  const openEditModal = (sec: Seccion) => {
+    setEditingSeccion(sec);
     reset({
-      codigo: seccion.codigo,
-      id_pro: seccion.id_pro.toString(),
-      trayecto: seccion.trayecto.toString(),
-      periodo: seccion.periodo.toString(),
-      capacidad_maxima: seccion.capacidad_maxima.toString(),
+      codigo: sec.codigo ?? '',
+      trayecto: (sec.trayecto ?? 1).toString(),
+      periodo: (sec.periodo ?? 1).toString(),
+      capacidad_maxima: (sec.capacidad_maxima ?? 30).toString(), // ✅ FIX: usa capacidad_maxima con fallback
+      id_pro: sec.id_pro?.toString() ?? '',
     });
     setIsModalOpen(true);
   };
@@ -54,102 +78,310 @@ export const Secciones = () => {
     reset();
   };
 
-  const onSubmit = (data: SeccionFormData) => {
+  const onSubmit = async (data: SeccionFormData) => {
     const payload = {
-      codigo: data.codigo,
-      id_pro: parseInt(data.id_pro, 10),
+      codigo: data.codigo.trim().toUpperCase(),
       trayecto: parseInt(data.trayecto, 10),
       periodo: parseInt(data.periodo, 10),
-      capacidad_maxima: parseInt(data.capacidad_maxima, 10),
+      capacidad_maxima: parseInt(data.capacidad_maxima, 10), // ✅ FIX: envía capacidad_maxima
+      id_pro: parseInt(data.id_pro, 10),
     };
 
-    if (editingSeccion) {
-      updateSeccion({ id: editingSeccion.id_sec, data: payload });
-    } else {
-      createSeccion(payload);
-    }
-    closeModal();
-  };
-
-  const handleDelete = (seccion: Seccion) => setDeleteConfirm(seccion);
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      deleteSeccion(deleteConfirm.id_sec);
-      setDeleteConfirm(null);
+    try {
+      if (editingSeccion) {
+        await updateSeccion({ id: editingSeccion.id_sec, data: payload as SeccionUpdate });
+        toast.success(`Sección "${data.codigo}" actualizada correctamente`);
+      } else {
+        await createSeccion(payload as SeccionCreate);
+        toast.success(`Sección "${data.codigo}" creada exitosamente`);
+      }
+      closeModal();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Error al guardar la sección');
     }
   };
 
-  const columns = [
+  const toggleStatus = async (sec: Seccion) => {
+    const actual = sec.estatus ?? 'A'; // ✅ FIX: fallback si estatus es undefined
+    const nuevoEstatus = actual === 'A' ? 'I' : 'A';
+    const accion = nuevoEstatus === 'A' ? 'activada' : 'desactivada';
+
+    try {
+      await updateSeccion({
+        id: sec.id_sec,
+        data: { estatus: nuevoEstatus } as SeccionUpdate,
+      });
+      toast.success(`Sección "${sec.codigo}" ${accion} correctamente`, {
+        icon: nuevoEstatus === 'A' ? '✅' : '⛔',
+        duration: 3000,
+      });
+    } catch {
+      toast.error(`No se pudo ${accion} la sección`);
+    }
+  };
+
+  const seccionesFiltradas = useMemo(() => {
+    if (!secciones) return [];
+    return secciones.filter(s => {
+      if (filtroPrograma && s.id_pro?.toString() !== filtroPrograma) return false;
+      if (filtroTrayecto && s.trayecto.toString() !== filtroTrayecto) return false;
+      if (filtroEstado && s.estatus !== filtroEstado) return false;
+      if (busqueda) {
+        const texto = `${s.codigo} ${s.programa?.nombre || ''}`.toLowerCase();
+        if (!texto.includes(busqueda.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [secciones, filtroPrograma, filtroTrayecto, filtroEstado, busqueda]);
+
+  const columns: ColumnDef[] = [
     { key: 'id_sec', label: 'ID' },
-    { key: 'codigo', label: 'Código' },
-    { key: 'trayecto', label: 'Trayecto' },
-    { key: 'periodo', label: 'Período' },
-    { key: 'capacidad_maxima', label: 'Capacidad' },
-    { 
-      key: 'programa', 
+    {
+      key: 'codigo',
+      label: 'Código',
+      render: (value: any) => <span className="font-mono font-semibold text-gray-900 text-sm">{value}</span>,
+    },
+    {
+      key: 'trayecto',
+      label: 'Trayecto',
+      render: (value: any) => (
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-bold text-xs">
+          {aRomano(value)}
+        </span>
+      ),
+    },
+    {
+      key: 'periodo',
+      label: 'Período',
+      render: (value: any) => (
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold text-xs">
+          {aRomano(value)}
+        </span>
+      ),
+    },
+    {
+      key: 'capacidad_maxima', // ✅ FIX: nombre correcto de la columna
+      label: 'Capacidad',
+      render: (value: any) => <span className="text-sm text-gray-700">{value} est.</span>,
+    },
+    {
+      key: 'programa',
       label: 'Programa',
-      render: (value: any) => value?.nombre || 'N/A'
+      render: (_: any, row: Seccion) => (
+        <span className="text-sm text-gray-700">{row.programa?.codigo || `Prog. ${row.id_pro}`}</span>
+      ),
+    },
+    {
+      key: 'estatus',
+      label: 'Estado',
+      render: (value: any) => (
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+          value === 'A' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'
+        }`}>
+          {value === 'A' ? 'Activo' : 'Inactivo'}
+        </span>
+      ),
+    },
+    {
+      key: 'acciones',
+      label: 'Acciones',
+      render: (_: any, row: Seccion) => {
+        const isActive = row.estatus === 'A';
+        return (
+          <div className="flex gap-2">
+            <button
+              onClick={() => openEditModal(row)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+              title="Editar sección"
+            >
+              <Edit size={14} /> Editar
+            </button>
+            <button
+              onClick={() => toggleStatus(row)}
+              disabled={isUpdating}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+                isActive ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+              }`}
+              title={isActive ? 'Desactivar sección' : 'Activar sección'}
+            >
+              {isActive ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
+              {isActive ? 'Desactivar' : 'Activar'}
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Secciones</h1>
-        <button onClick={openCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          Nueva Sección
-        </button>
+    <div className="space-y-6">
+      <div className="flex items-start gap-4">
+        <div className="bg-indigo-100 p-3 rounded-xl">
+          <Layers className="text-indigo-600" size={32} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Secciones</h1>
+          <p className="text-gray-600 mt-1 max-w-3xl">
+            Las secciones representan los grupos de estudiantes organizados por{' '}
+            <strong>programa, trayecto y período académico</strong>. Cada sección tiene un código
+            institucional único y una capacidad máxima de estudiantes.
+          </p>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={secciones || []}
-        isLoading={isLoading}
-        onEdit={openEditModal}
-        onDelete={handleDelete}
-        rowKey={(row) => row.id_sec}
-      />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por código o programa..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <select
+            value={filtroPrograma}
+            onChange={(e) => setFiltroPrograma(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Todos los programas</option>
+            {listaProgramas.map((p) => (
+              <option key={p.id_pro} value={p.id_pro}>{p.codigo} - {p.nombre}</option>
+            ))}
+          </select>
+          <select
+            value={filtroTrayecto}
+            onChange={(e) => setFiltroTrayecto(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Todos los trayectos</option>
+            {[1, 2, 3, 4].map(t => <option key={t} value={t}>Trayecto {aRomano(t)}</option>)}
+          </select>
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Todos los estados</option>
+            <option value="A">Activos</option>
+            <option value="I">Inactivos</option>
+          </select>
+          <button
+            onClick={openCreateModal}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap"
+          >
+            <Plus size={16} /> Nueva Sección
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="text-gray-500 mt-4">Cargando secciones...</p>
+          </div>
+        ) : seccionesFiltradas.length === 0 ? (
+          <div className="p-12 text-center">
+            <Layers className="mx-auto text-gray-300 mb-3" size={48} />
+            <p className="text-gray-500 font-medium">No se encontraron secciones</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  {columns.map(col => (
+                    <th key={col.key} className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">{col.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {seccionesFiltradas.map(sec => (
+                  <tr key={sec.id_sec} className="hover:bg-gray-50 transition">
+                    {columns.map(col => (
+                      <td key={col.key} className="px-4 py-3 text-sm text-gray-700">
+                        {col.render ? col.render((sec as any)[col.key], sec) : (sec as any)[col.key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-gray-500 text-center">
+        Mostrando {seccionesFiltradas.length} de {secciones?.length || 0} secciones registradas
+      </p>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">{editingSeccion ? 'Editar Sección' : 'Nueva Sección'}</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <FormField label="Código" name="codigo" register={register} errors={errors} placeholder="Ej: SEC-001" />
-              
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Programa *</label>
-                <select {...register('id_pro')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                  <option value="">Selecciona un programa</option>
-                  {programas?.map((p) => <option key={p.id_pro} value={p.id_pro}>{p.nombre}</option>)}
-                </select>
-                {errors.id_pro && <p className="text-sm text-red-600">{errors.id_pro.message}</p>}
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">{editingSeccion ? 'Editar Sección' : 'Nueva Sección'}</h2>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition"><X size={24} /></button>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+              <div className="flex gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                <Info size={18} className="shrink-0 mt-0.5" />
+                <p>El <strong>código</strong> debe seguir el formato institucional (ej: <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs">NT.2021.AESP.20.01</code>).</p>
               </div>
 
-              <FormField label="Trayecto" name="trayecto" type="text" register={register} errors={errors} placeholder="Ej: 1" />
-              <FormField label="Período" name="periodo" type="text" register={register} errors={errors} placeholder="Ej: 1" />
-              <FormField label="Capacidad Máxima" name="capacidad_maxima" type="text" register={register} errors={errors} placeholder="Ej: 40" />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Código *</label>
+                <input type="text" {...register('codigo')} placeholder="Ej: NT.2021.AESP.20.01" className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono uppercase" />
+                {errors.codigo && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.codigo.message}</p>}
+              </div>
 
-              <div className="flex justify-end space-x-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={isCreating || isUpdating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar'}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Programa *</label>
+                  <select {...register('id_pro')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">Selecciona</option>
+                    {listaProgramas.map((p) => <option key={p.id_pro} value={p.id_pro}>{p.codigo} - {p.nombre}</option>)}
+                  </select>
+                  {errors.id_pro && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.id_pro.message}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Capacidad Máx. *</label>
+                  <input type="text" inputMode="numeric" {...register('capacidad_maxima')} placeholder="Ej: 30" className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                  {errors.capacidad_maxima && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.capacidad_maxima.message}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Trayecto *</label>
+                  <select {...register('trayecto')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">Selecciona</option>
+                    {[1, 2, 3, 4].map(t => <option key={t} value={t}>Trayecto {aRomano(t)}</option>)}
+                  </select>
+                  {errors.trayecto && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.trayecto.message}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Período *</label>
+                  <select {...register('periodo')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">Selecciona</option>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(p => <option key={p} value={p}>Período {aRomano(p)}</option>)}
+                  </select>
+                  {errors.periodo && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.periodo.message}</p>}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancelar</button>
+                <button type="submit" disabled={isCreating || isUpdating} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm font-medium flex items-center gap-2">
+                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar Sección'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
-            <p className="text-gray-700 mb-6">¿Eliminar la sección <strong>{deleteConfirm.codigo}</strong>?</p>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-              <button onClick={confirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
-            </div>
           </div>
         </div>
       )}

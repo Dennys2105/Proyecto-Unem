@@ -59,14 +59,14 @@ export interface Docente {
   nombre: string;
   apellido: string;
   id_mun: number;
-  especialidad: string; // <-- NUEVO
+  especialidad: string;          // ✅ TEXTO (no id_pro)
   tipo_contrato: string;
   horas_max_sem: number;
-  horas_asignadas: number;
-  horas_disponibles: number;
-  telefono: string;
-  observaciones?: string; // <-- NUEVO
-  foto_url?: string;      // <-- NUEVO
+  horas_asignadas?: number;
+  horas_disponibles?: number;
+  telefono?: string;
+  observaciones?: string;
+  foto_url?: string;
   estatus: string;
   creado: string;
   actualizar: string;
@@ -74,17 +74,15 @@ export interface Docente {
 }
 
 export interface DocenteCreate {
-  id_usu?: number;
   cedula: string;
   nombre: string;
   apellido: string;
   id_mun: number;
-  especialidad: string;
-  tipo_contrato: 'Estipendio' | 'Contratado';
+  especialidad: string;          // ✅ Obligatorio (NOT NULL en BD)
+  tipo_contrato: string;
   horas_max_sem: number;
-  horas_asignadas?: number;
-  horas_disponibles: number;
   telefono?: string;
+  observaciones?: string;
 }
 
 export interface DocenteUpdate {
@@ -93,49 +91,46 @@ export interface DocenteUpdate {
   apellido?: string;
   id_mun?: number;
   especialidad?: string;
-  tipo_contrato?: 'Estipendio' | 'Contratado';
+  tipo_contrato?: string;
   horas_max_sem?: number;
-  horas_asignadas?: number;
-  horas_disponibles?: number;
   telefono?: string;
+  observaciones?: string;
+  estatus?: string;              // ✅ Toggle Retirar/Reincorporar
 }
 
 // Estudiantes
 export interface Estudiante {
   id_est: number;
-  id_usu: number | null;
   cedula: string;
   nombre: string;
   apellido: string;
-  id_mun: number;
-  id_pro: number | null;
-  id_sec: number | null;
   trayecto: number;
-  municipio: string | null;
-  usuario: string | null;
-  creado: string;
-  actualizar: string;
+  id_mun?: number;
+  id_sec?: number;
+  estatus: string;          
+  creado?: string;
+  actualizar?: string;
+  municipio?: Municipio;
+  seccion?: Seccion;
 }
 
 export interface EstudianteCreate {
   cedula: string;
   nombre: string;
   apellido: string;
-  id_mun: number;
-  id_pro?: number;
-  id_sec?: number;
   trayecto: number;
-  id_usu?: number;
+  id_mun: number;
+  id_sec?: number;
 }
 
 export interface EstudianteUpdate {
   cedula?: string;
   nombre?: string;
   apellido?: string;
-  id_mun?: number;
-  id_pro?: number;
-  id_sec?: number;
   trayecto?: number;
+  id_mun?: number;
+  id_sec?: number;
+  estatus?: string;         
 }
 
 // Días Laborales
@@ -154,6 +149,7 @@ export interface DiaCreate {
 export interface DiaUpdate {
   dia?: string;
   orden?: number;
+  estatus?: string;
 }
 
 // Roles
@@ -181,10 +177,28 @@ export interface Seccion {
   id_pro: number;
   trayecto: number;
   periodo: number;
-  capacidad_maxima: number;
-  programa: any | null;
-  creado: string;
-  actualizar: string;
+  capacidad_maxima: number; 
+  estatus: string;          
+  creado?: string;
+  actualizar?: string;
+  programa?: Programa;
+}
+
+export interface SeccionCreate {
+  codigo: string;
+  id_pro: number;
+  trayecto: number;
+  periodo: number;
+  capacidad_maxima: number; 
+}
+
+export interface SeccionUpdate {
+  codigo?: string;
+  id_pro?: number;
+  trayecto?: number;
+  periodo?: number;
+  capacidad_maxima?: number; 
+  estatus?: string;         
 }
 
 // Espacios Físicos

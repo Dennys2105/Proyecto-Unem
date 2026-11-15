@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 class BaseDias(BaseModel): 
@@ -7,8 +9,10 @@ class BaseDias(BaseModel):
 class DiasCreate(BaseDias):
     pass
 
-class DiasUpdate(BaseDias):
-    dia: str | None = None
+class DiasUpdate(BaseModel):
+    dia: Optional[str] = None
+    orden: Optional[int] = None
+    estatus: Optional[str] = None
 
 class DiasResposive(BaseModel):
     id_dia: int
@@ -18,3 +22,4 @@ class DiasResposive(BaseModel):
 
 class DiasRemplace(BaseDias):
     pass
+

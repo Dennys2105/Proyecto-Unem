@@ -1,184 +1,130 @@
-import { useState } from 'react';
 import { useDias } from '../hooks/useDias';
 import { DataTable } from '../components/DataTable';
-import { FormField } from '../components/FormField';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import type { Dia, DiaCreate, DiaUpdate } from '../types/models';
-
-// Usamos z.string() para el orden para evitar conflictos de tipos con react-hook-form
-const diaSchema = z.object({
-  dia: z.string().min(3, 'El nombre del día debe tener al menos 3 caracteres').max(50, 'Máximo 50 caracteres'),
-  orden: z.string().min(1, 'El orden es obligatorio').max(1, 'Máximo 1 dígito'),
-});
-
-type DiaFormData = z.infer<typeof diaSchema>;
+import type { Dia, DiaUpdate } from '../types/models';
+import { CalendarDays, CheckCircle2, XCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const Dias = () => {
-  const { dias, isLoading, createDia, updateDia, deleteDia, isCreating, isUpdating } = useDias();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDia, setEditingDia] = useState<Dia | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Dia | null>(null);
+  const { dias, isLoading, updateDia, isUpdating } = useDias();
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<DiaFormData>({
-    resolver: zodResolver(diaSchema),
-  });
+  // ✅ ÚNICA ACCIÓN: Alternar Activo/Inactivo (borrado lógico)
+  const toggleStatus = async (dia: Dia) => {
+    const nuevoEstatus = dia.estatus === 'A' ? 'I' : 'A';
+    const accion = nuevoEstatus === 'A' ? 'activado' : 'desactivado';
 
-  const openCreateModal = () => {
-    setEditingDia(null);
-    reset({ dia: '', orden: '1' });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (dia: Dia) => {
-    setEditingDia(dia);
-    reset({ dia: dia.dia, orden: dia.orden.toString() });
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingDia(null);
-    reset();
-  };
-
-  const onSubmit = (data: DiaFormData) => {
-    // Convertimos el string a number solo aquí, para el payload del backend
-    const payload = {
-      dia: data.dia,
-      orden: parseInt(data.orden, 10),
-    };
-
-    if (editingDia) {
-      updateDia({ id: editingDia.id_dia, data: payload as DiaUpdate });
-    } else {
-      createDia(payload as DiaCreate);
-    }
-    closeModal();
-  };
-
-  const handleDelete = (dia: Dia) => {
-    setDeleteConfirm(dia);
-  };
-
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      deleteDia(deleteConfirm.id_dia);
-      setDeleteConfirm(null);
+    try {
+      await updateDia({
+        id: dia.id_dia,
+        data: { estatus: nuevoEstatus } as DiaUpdate,
+      });
+      toast.success(`Día "${dia.dia}" ${accion} correctamente`, {
+        icon: nuevoEstatus === 'A' ? '✅' : '⛔',
+        duration: 3000,
+      });
+    } catch {
+      toast.error(`No se pudo ${accion} el día "${dia.dia}"`);
     }
   };
 
   const columns = [
     { key: 'id_dia', label: 'ID' },
-    { key: 'dia', label: 'Día' },
-    { key: 'orden', label: 'Orden' },
+    {
+      key: 'dia',
+      label: 'Día Laboral',
+      render: (value: string) => (
+        <span className="font-semibold text-gray-900 capitalize">{value}</span>
+      ),
+    },
+    {
+      key: 'orden',
+      label: 'Orden',
+      render: (value: number) => (
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">
+          {value}
+        </span>
+      ),
+    },
     {
       key: 'estatus',
       label: 'Estado',
       render: (value: string) => (
-        <span className={`px-2 py-1 rounded text-xs font-medium ${value === 'A' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+            value === 'A'
+              ? 'bg-green-100 text-green-700 border border-green-200'
+              : 'bg-red-100 text-red-700 border border-red-200'
+          }`}
+        >
           {value === 'A' ? 'Activo' : 'Inactivo'}
         </span>
       ),
     },
+    {
+      key: 'acciones',
+      label: 'Acción',
+      render: (_: any, row: Dia) => {
+        const isActive = row.estatus === 'A';
+        return (
+          <button
+            onClick={() => toggleStatus(row)}
+            disabled={isUpdating}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+              isActive
+                ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+            }`}
+            title={isActive ? 'Desactivar día' : 'Activar día'}
+          >
+            {isActive ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
+            {isActive ? 'Desactivar' : 'Activar'}
+          </button>
+        );
+      },
+    },
   ];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Días Laborales</h1>
-        <button
-          onClick={openCreateModal}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Nuevo Día
-        </button>
+    <div className="space-y-6">
+      {/* Encabezado */}
+      <div className="flex items-start gap-4">
+        <div className="bg-indigo-100 p-3 rounded-xl">
+          <CalendarDays className="text-indigo-600" size={32} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Días Laborales</h1>
+          <p className="text-gray-600 mt-1 max-w-2xl">
+            Los días hábiles de la institución son de <strong>Lunes a Sábado</strong>. 
+            Puedes <strong>activar o desactivar</strong> cada día según las necesidades 
+            del calendario académico. Los días desactivados no aparecerán en los horarios 
+            ni en los reportes, pero se conservan en el historial del sistema.
+          </p>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={dias || []}
-        isLoading={isLoading}
-        onEdit={openEditModal}
-        onDelete={handleDelete}
-        rowKey={(row) => row.id_dia}
-      />
-
-      {/* Modal Crear/Editar */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {editingDia ? 'Editar Día' : 'Nuevo Día'}
-            </h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                label="Nombre del Día"
-                name="dia"
-                register={register}
-                errors={errors}
-                placeholder="Ej: Lunes"
-              />
-              <FormField
-                label="Orden (1-7)"
-                name="orden"
-                type="text"
-                register={register}
-                errors={errors}
-                placeholder="Ej: 1"
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreating || isUpdating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </form>
+      {/* Tabla */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {isLoading ? (
+          <div className="p-12 text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="text-gray-500 mt-4">Cargando días laborales...</p>
           </div>
-        </div>
-      )}
-
-      {/* Modal Confirmar Eliminación */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
-            <p className="text-gray-700 mb-6">
-              ¿Está seguro de eliminar el día <strong>{deleteConfirm.dia}</strong>?
+        ) : !dias || dias.length === 0 ? (
+          <div className="p-12 text-center">
+            <CalendarDays className="mx-auto text-gray-300 mb-3" size={48} />
+            <p className="text-gray-500 font-medium">No hay días laborales registrados</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Contacta al administrador para configurar los días iniciales.
             </p>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Eliminar
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <DataTable
+            columns={columns}
+            data={dias}
+            isLoading={false}
+            rowKey={(row) => row.id_dia}
+          />
+        )}
+      </div>
     </div>
   );
 };

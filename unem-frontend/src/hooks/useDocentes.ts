@@ -21,7 +21,7 @@ export const useDocentes = () => {
     mutationFn: ({ id, data }: { id: number; data: DocenteUpdate }) =>
       docenteService.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['docentes'] });
+      queryClient.invalidateQueries({ queryKey: ['docentes'] }); 
     },
   });
 
