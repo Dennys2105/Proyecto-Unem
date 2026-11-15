@@ -9,7 +9,7 @@ import app.service.auth_service as service
 from app.service.docentes_service import actualizar as actualizar_docente
 from app.service.estudiante_service import actualizar as actualizar_estudiante
 from fastapi.security import OAuth2PasswordRequestForm
-from app.dependencies.auth_deps import requerir_rol, verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso
 from app.dependencies.pruebas_optimizacion import validar_unicidad
 
 router= APIRouter(

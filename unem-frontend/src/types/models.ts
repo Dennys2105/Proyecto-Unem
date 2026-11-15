@@ -54,21 +54,23 @@ export interface ProgramaUpdate {
 // Docentes
 export interface Docente {
   id_doc: number;
-  id_usu: number | null;
+  id_usu?: number | null;
   cedula: string;
   nombre: string;
   apellido: string;
   id_mun: number;
-  especialidad: string;
-  tipo_contrato: 'Estipendio' | 'Contratado';
+  especialidad: string; // <-- NUEVO
+  tipo_contrato: string;
   horas_max_sem: number;
   horas_asignadas: number;
   horas_disponibles: number;
-  telefono: string | null;
-  municipio: Municipio | null;
-  usuario: Usuario | null;
+  telefono: string;
+  observaciones?: string; // <-- NUEVO
+  foto_url?: string;      // <-- NUEVO
+  estatus: string;
   creado: string;
   actualizar: string;
+  municipio?: { nombre: string };
 }
 
 export interface DocenteCreate {
@@ -188,16 +190,15 @@ export interface Seccion {
 // Espacios Físicos
 export interface EspacioFisico {
   id_esp: number;
-  id_mun: number;
   nombre_centro: string;
   ubicacion: string;
-  tipo_espacio: string;
+  tipo_espacio: 'Aula' | 'Laboratorio' | 'Auditorio' | 'Cancha';
   capacidad: number;
-  equipamiento: string | null;
-  disponibilidad: boolean | null;
-  municipio: any | null;
-  creado: string;
-  actualizar: string;
+  equipamiento?: string;
+  disponibilidad: boolean;
+  municipio: string;
+  total_asignaciones: number;
+  horas_ocupadas: number;
 }
 
 export interface EspacioFisicoCreate {
@@ -220,60 +221,35 @@ export interface EspacioFisicoUpdate {
   disponibilidad?: boolean;
 }
 
-// Materias
+// Materias (Catálogo Maestro)
 export interface Materia {
   id_mat: number;
   codigo: string;
   nombre: string;
-  uc: number;
-  horas_teoricas: number;
-  horas_practicas: number;
+  unidades_creditos: number;
   id_eje?: number;
+  eje_nombre?: string;
+  descripcion?: string;
   estatus: string;
-  creado: string;
-  actualizar: string;
+  // Nuevos campos para saber dónde se usa
+  programas_count: number;
+  programas_nombres?: string;
 }
 
 export interface MateriaCreate {
   codigo: string;
   nombre: string;
-  uc: number;
-  horas_teoricas: number;
-  horas_practicas: number;
+  unidades_creditos: number;
   id_eje?: number;
+  descripcion?: string;
 }
 
 export interface MateriaUpdate {
   codigo?: string;
   nombre?: string;
-  uc?: number;
-  horas_teoricas?: number;
-  horas_practicas?: number;
+  unidades_creditos?: number;
   id_eje?: number;
-}
-
-// Bloques Horarios
-export interface BloqueHorario {
-  id_bloq: number;
-  nombre: string;
-  hora_inicio: string;
-  hora_fin: string;
-  tipo: string;
-  estatus: string;
-}
-
-export interface BloqueHorarioCreate {
-  nombre: string;
-  hora_inicio: string;
-  hora_fin: string;
-  tipo: string;
-}
-
-export interface BloqueHorarioUpdate {
-  nombre?: string;
-  hora_inicio?: string;
-  hora_fin?: string;
-  tipo?: string;
+  descripcion?: string;
 }
 
 // Ejes Formativos
@@ -333,73 +309,204 @@ export interface PeriodoUpdate {
   actualizar?: string;
 }
 
-// Malla Curricular
+// Malla Curricular (pensum)
 export interface MallaCurricular {
   id_malla: number;
   id_pro: number;
   id_mat: number;
+  trayecto: number;         
+  periodo: number;          
+  orden: number;            
   perequisito_id_mat?: number;
-  programa?: Programa;
-  materia?: Materia;
-  prerequisito?: Materia;
+  estatus?: string;
+  creado?: string;
+  actualizar?: string;
+
+  // Relaciones anidadas (el backend ahora las envía así)
+  programa?: {
+    id_pro: number;
+    codigo: string;
+    nombre: string;
+  };
+  materia?: {
+    id_mat: number;
+    codigo: string;
+    nombre: string;
+    unidades_creditos: number;
+    eje_nombre?: string;
+  };
+  prerequisito?: {
+    id_mat: number;
+    codigo: string;
+    nombre: string;
+  } | null;
 }
 
 export interface MallaCreate {
   id_pro: number;
   id_mat: number;
+  trayecto: number;
+  periodo: number;
+  orden?: number;
   perequisito_id_mat?: number;
 }
 
 export interface MallaUpdate {
   id_pro?: number;
   id_mat?: number;
+  trayecto?: number;
+  periodo?: number;
+  orden?: number;
   perequisito_id_mat?: number;
 }
 
-// Asignación de Carga Horaria
+// ASIGNACIÓN DE CARGA HORARIA
 export interface AsignacionCarga {
   id_asig: number;
   id_doc?: number;
-  id_malla?: number;
   id_esp?: number;
-  id_bloq?: number;
-  id_dia: number;
+  id_malla?: number;
   id_per?: number;
+  id_sec?: number;          
+  id_dia: number;
   hora_inicio: string;
   hora_fin: string;
-  tipo_actividad?: string;
+  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación'; // ✅ NUEVO
   observaciones?: string;
-  // Relaciones para mostrar en tabla (el backend puede no enviarlas, las buscamos por ID)
-  docente?: any;
-  malla?: any;
-  espacio?: any;
-  bloque?: any;
-  dia?: any;
-  periodo?: any;
+  estatus: string;
+  creado: string;
+  actualizar: string;
 }
 
 export interface AsignacionCreate {
   id_doc?: number;
-  id_malla?: number;
   id_esp?: number;
-  id_bloq?: number;
-  id_dia: number;
+  id_malla?: number;
   id_per?: number;
+  id_sec?: number;         
+  id_dia: number;
   hora_inicio: string;
   hora_fin: string;
-  tipo_actividad?: string;
+  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación';
   observaciones?: string;
 }
 
 export interface AsignacionUpdate {
   id_doc?: number;
-  id_malla?: number;
   id_esp?: number;
-  id_bloq?: number;
-  id_dia?: number;
+  id_malla?: number;
   id_per?: number;
+  id_sec?: number;         
+  id_dia?: number;
   hora_inicio?: string;
   hora_fin?: string;
-  tipo_actividad?: string;
+  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación';
   observaciones?: string;
+}
+
+// Notas
+export interface Nota {
+  id_nota?: number;
+  id_est: number;
+  id_malla: number;
+  id_per: number;
+  nota: number;
+  tipo_evaluacion: string;
+  observaciones: string;
+  fecha_registro: string;
+  estudiante?: any;
+  malla?: any;
+  periodo?: any;
+}
+
+export interface NotaCreate {
+  id_est: number;
+  id_malla: number;
+  id_per: number;
+  nota: number;
+  tipo_evaluacion: string;
+  observaciones: string;
+  fecha_registro?: string;
+}
+
+export interface NotaUpdate {
+  id_est?: number;
+  id_malla?: number;
+  id_per?: number;
+  nota?: number;
+  tipo_evaluacion?: string;
+  observaciones?: string;
+  fecha_registro?: string;
+}
+
+// Auditoría (coincide con la respuesta del endpoint /api/v1/analytics/auditoria/movimientos)
+export interface AuditoriaMovimiento {
+  id_aud: number;
+  fecha: string;
+  usuario: string;
+  tabla_afectada: string;
+  accion: string;
+  registro_identificador: string;
+  resumen_cambios: string;
+  ip_origen: string | null;
+}
+
+// Normaliza los datos del backend al formato que usa el frontend
+export const normalizarAuditoria = (a: AuditoriaMovimiento) => ({
+  id: a.id_aud,
+  fecha: a.fecha,
+  usuario: a.usuario || 'Sistema',
+  tabla: a.tabla_afectada,
+  accion: a.accion,
+  identificador: a.registro_identificador || 'N/A',
+  resumen: a.resumen_cambios || 'N/A',
+  ip: a.ip_origen || 'N/A',
+  antes: null, // El endpoint ya no devuelve val_antes/val_despues
+  despues: null,
+});
+
+
+// ==========================================
+// PERMISOS Y ROLES
+// ==========================================
+export interface Modulo {
+  id_mod: number;
+  codigo: string;
+  nombre: string;
+  descripcion?: string;
+}
+
+export interface Permiso {
+  id_perm: number;
+  codigo: 'CRE' | 'ACT' | 'LEC' | 'BOR';
+  nombre: string;
+  descripcion?: string;
+}
+
+export interface PermisoRol {
+  id_pr: number;
+  id_rol: number;
+  id_mod: number;
+  id_perm: number;
+  alcance: 'TODO' | 'SP' | 'LIM' | 'NAD';
+  estatus: string;
+}
+
+export interface PermisoUsuario {
+  id_pu: number;
+  id_usu: number;
+  id_mod: number;
+  id_perm: number;
+  alcance: 'TODO' | 'SP' | 'LIM' | 'NAD' | null; // null = hereda del rol
+  estatus: string;
+}
+
+export interface MatrizPermiso {
+  modulo: Modulo;
+  permisos: {
+    CRE: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    ACT: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    LEC: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    BOR: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+  };
 }

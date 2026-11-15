@@ -1,162 +1,243 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useMallas } from '../hooks/useMallas';
 import { useProgramas } from '../hooks/useProgramas';
-import { useMaterias } from '../hooks/useMaterias';
-import { DataTable } from '../components/DataTable';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import type { MallaCurricular, MallaCreate, MallaUpdate } from '../types/models';
-
-const mallaSchema = z.object({
-  id_pro: z.string().min(1, 'Selecciona un programa'),
-  id_mat: z.string().min(1, 'Selecciona una materia'),
-  perequisito_id_mat: z.string().optional().or(z.literal('')),
-});
-
-type MallaFormData = z.infer<typeof mallaSchema>;
+import { Layers, ChevronRight, ChevronDown, BookOpen, Clock, Link as LinkIcon, Search, Filter } from 'lucide-react';
+import type { MallaCurricular } from '../types/models';
 
 export const MallaCurricularPage = () => {
-  const { mallas, isLoading, createMalla, updateMalla, deleteMalla, isCreating, isUpdating } = useMallas();
+  const { mallas, isLoading } = useMallas();
   const { programas } = useProgramas();
-  const { materias } = useMaterias();
+
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroPrograma, setFiltroPrograma] = useState<number | ''>('');
   
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingMalla, setEditingMalla] = useState<MallaCurricular | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<MallaCurricular | null>(null);
+  // Estado para controlar qué acordeones están abiertos
+  const [openPrograms, setOpenPrograms] = useState<Set<string>>(new Set());
+  const [openTrayectos, setOpenTrayectos] = useState<Set<string>>(new Set());
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<MallaFormData>({
-    resolver: zodResolver(mallaSchema),
-  });
-
-  const openCreateModal = () => {
-    setEditingMalla(null);
-    reset({ id_pro: '', id_mat: '', perequisito_id_mat: '' });
-    setIsModalOpen(true);
+  const toggleProgram = (key: string) => {
+    const next = new Set(openPrograms);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setOpenPrograms(next);
   };
 
-  const openEditModal = (malla: MallaCurricular) => {
-    setEditingMalla(malla);
-    reset({
-      id_pro: malla.id_pro.toString(),
-      id_mat: malla.id_mat.toString(),
-      perequisito_id_mat: malla.perequisito_id_mat?.toString() || '',
+  const toggleTrayecto = (key: string) => {
+    const next = new Set(openTrayectos);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setOpenTrayectos(next);
+  };
+
+  // 1. Filtrar datos
+  const mallasFiltradas = useMemo(() => {
+    return (mallas || []).filter(m => {
+      if (filtroPrograma !== '' && m.id_pro !== filtroPrograma) return false;
+      if (busqueda) {
+        const texto = `${m.materia?.codigo || ''} ${m.materia?.nombre || ''} ${m.materia?.eje_nombre || ''}`.toLowerCase();
+        if (!texto.includes(busqueda.toLowerCase())) return false;
+      }
+      return true;
     });
-    setIsModalOpen(true);
-  };
+  }, [mallas, filtroPrograma, busqueda]);
 
-  const closeModal = () => { setIsModalOpen(false); setEditingMalla(null); reset(); };
+  // 2. Agrupar en estructura de árbol: Programa -> Trayecto -> Periodo -> [Materias]
+  const arbolCurricular = useMemo(() => {
+    const arbol: Record<string, Record<string, Record<string, MallaCurricular[]>>> = {};
+    
+    mallasFiltradas.forEach(m => {
+      const progKey = `${m.id_pro}_${m.programa?.nombre || 'Desconocido'}`;
+      const trayKey = `T${m.trayecto}`;
+      const perKey = `P${m.periodo}`;
 
-  const onSubmit = (data: MallaFormData) => {
-    const payload = {
-      id_pro: parseInt(data.id_pro, 10),
-      id_mat: parseInt(data.id_mat, 10),
-      perequisito_id_mat: data.perequisito_id_mat && data.perequisito_id_mat.trim() !== '' 
-        ? parseInt(data.perequisito_id_mat, 10) 
-        : undefined,
-    };
+      if (!arbol[progKey]) arbol[progKey] = {};
+      if (!arbol[progKey][trayKey]) arbol[progKey][trayKey] = {};
+      if (!arbol[progKey][trayKey][perKey]) arbol[progKey][trayKey][perKey] = [];
+      
+      arbol[progKey][trayKey][perKey].push(m);
+    });
 
-    if (editingMalla) updateMalla({ id: editingMalla.id_malla, data: payload as MallaUpdate });
-    else createMalla(payload as MallaCreate);
-    closeModal();
-  };
+    // Ordenar periodos dentro de cada trayecto
+    Object.values(arbol).forEach(trayectos => {
+      Object.values(trayectos).forEach(periodos => {
+        Object.keys(periodos).sort().forEach(key => {
+          periodos[key].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+        });
+      });
+    });
 
-  const handleDelete = (malla: MallaCurricular) => setDeleteConfirm(malla);
-  const confirmDelete = () => {
-    if (deleteConfirm) { deleteMalla(deleteConfirm.id_malla); setDeleteConfirm(null); }
-  };
+    return arbol;
+  }, [mallasFiltradas]);
 
-  const columns = [
-    { key: 'id_malla', label: 'ID' },
-    { 
-      key: 'programa', 
-      label: 'Programa',
-      render: (value: any) => value?.nombre || 'N/A'
-    },
-    { 
-      key: 'materia', 
-      label: 'Materia',
-      render: (value: any) => value?.nombre || 'N/A'
-    },
-    { 
-      key: 'prerequisito', 
-      label: 'Prerequisito',
-      render: (value: any) => value?.nombre || 'Ninguno'
-    },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <p className="text-gray-500 mt-4">Cargando malla curricular...</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Malla Curricular</h1>
-        <button onClick={openCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          Nueva Asignación
-        </button>
+    <div className="space-y-6">
+      {/* Encabezado */}
+      <div className="flex items-start gap-4">
+        <div className="bg-indigo-100 p-3 rounded-xl">
+          <Layers className="text-indigo-600" size={32} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Malla Curricular</h1>
+          <p className="text-gray-600 mt-1">Pensum académico organizado jerárquicamente</p>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={mallas || []}
-        isLoading={isLoading}
-        onEdit={openEditModal}
-        onDelete={handleDelete}
-        rowKey={(row) => row.id_malla}
-      />
+      {/* Barra de Filtros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por código o nombre de materia..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <select
+            value={filtroPrograma}
+            onChange={(e) => setFiltroPrograma(e.target.value ? Number(e.target.value) : '')}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Todos los programas</option>
+            {programas?.map(p => (
+              <option key={p.id_pro} value={p.id_pro}>{p.codigo} - {p.nombre}</option>
+            ))}
+          </select>
+          <div className="flex items-center text-sm text-gray-500 gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+            <Filter size={16} />
+            <span>{mallasFiltradas.length} materias encontradas</span>
+          </div>
+        </div>
+      </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">{editingMalla ? 'Editar Malla' : 'Nueva Malla Curricular'}</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Programa *</label>
-                <select {...register('id_pro')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                  <option value="">Selecciona un programa</option>
-                  {programas?.map((p) => <option key={p.id_pro} value={p.id_pro}>{p.nombre}</option>)}
-                </select>
-                {errors.id_pro && <p className="text-sm text-red-600">{errors.id_pro.message}</p>}
-              </div>
+      {/* Vista de Árbol (Acordeón) */}
+      <div className="space-y-4">
+        {Object.keys(arbolCurricular).length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <BookOpen className="mx-auto text-gray-300 mb-3" size={48} />
+            <p className="text-gray-500">No se encontraron materias con los filtros actuales</p>
+          </div>
+        ) : (
+          Object.entries(arbolCurricular).map(([progKey, trayectos]) => {
+            const progNombre = progKey.split('_').slice(1).join('_');
+            const isOpen = openPrograms.has(progKey);
 
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Materia *</label>
-                <select {...register('id_mat')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                  <option value="">Selecciona una materia</option>
-                  {materias?.map((m) => <option key={m.id_mat} value={m.id_mat}>{m.nombre}</option>)}
-                </select>
-                {errors.id_mat && <p className="text-sm text-red-600">{errors.id_mat.message}</p>}
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Materia Prerequisito (Opcional)</label>
-                <select {...register('perequisito_id_mat')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                  <option value="">Ninguno</option>
-                  {materias?.map((m) => <option key={m.id_mat} value={m.id_mat}>{m.nombre}</option>)}
-                </select>
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={isCreating || isUpdating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar'}
+            return (
+              <div key={progKey} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                {/* Nivel 1: Programa */}
+                <button
+                  onClick={() => toggleProgram(progKey)}
+                  className="w-full flex items-center justify-between px-6 py-4 bg-indigo-50 hover:bg-indigo-100 transition text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    {isOpen ? <ChevronDown size={20} className="text-indigo-600" /> : <ChevronRight size={20} className="text-indigo-600" />}
+                    <h2 className="text-lg font-bold text-indigo-900">{progNombre}</h2>
+                  </div>
+                  <span className="text-xs font-semibold bg-indigo-200 text-indigo-800 px-2 py-1 rounded-full">
+                    {Object.values(trayectos).reduce((sum, periodos) =>
+                      sum + Object.values(periodos).reduce((s, materias) => s + materias.length, 0), 0
+                    )} materias
+                  </span>
                 </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
-            <p className="text-gray-700 mb-6">¿Eliminar esta asignación de malla?</p>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-              <button onClick={confirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
+                {/* Contenido del Programa */}
+                {isOpen && (
+                  <div className="divide-y divide-gray-100">
+                    {Object.entries(trayectos).map(([trayKey, periodos]) => {
+                      const trayOpen = openTrayectos.has(`${progKey}_${trayKey}`);
+                      
+                      return (
+                        <div key={trayKey}>
+                          {/* Nivel 2: Trayecto */}
+                          <button
+                            onClick={() => toggleTrayecto(`${progKey}_${trayKey}`)}
+                            className="w-full flex items-center gap-3 px-6 py-3 bg-gray-50 hover:bg-gray-100 transition text-left"
+                          >
+                            {trayOpen ? <ChevronDown size={16} className="text-gray-600" /> : <ChevronRight size={16} className="text-gray-600" />}
+                            <span className="font-semibold text-gray-800">{trayKey}</span>
+                          </button>
+
+                          {/* Contenido del Trayecto */}
+                          {trayOpen && (
+                            <div className="px-6 py-4 space-y-6 bg-white">
+                              {Object.entries(periodos).map(([perKey, materias]) => (
+                                <div key={perKey} className="space-y-2">
+                                  <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                    <Clock size={14} /> {perKey}
+                                  </h4>
+                                  
+                                  {/* Nivel 4: Tabla de Materias */}
+                                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                                    <table className="w-full text-sm">
+                                      <thead className="bg-gray-50 text-gray-600">
+                                        <tr>
+                                          <th className="px-4 py-2 text-left font-semibold">Código</th>
+                                          <th className="px-4 py-2 text-left font-semibold">Unidad Curricular</th>
+                                          <th className="px-4 py-2 text-center font-semibold">UC</th>
+                                          <th className="px-4 py-2 text-left font-semibold">Eje Formativo</th>
+                                          <th className="px-4 py-2 text-left font-semibold">Prerrequisito</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100">
+                                        {materias.map((m) => (
+                                          <tr key={m.id_malla} className="hover:bg-gray-50 transition">
+                                            <td className="px-4 py-3 font-mono text-indigo-700 font-medium">
+                                              {m.materia?.codigo || `MAT-${m.id_mat}`}
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-900 font-medium">
+                                              {m.materia?.nombre || 'Materia no especificada'}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold">
+                                                {m.materia?.unidades_creditos ?? 0}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                              <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-700">
+                                                {m.materia?.eje_nombre || 'Sin eje'}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                              {m.prerequisito ? (
+                                                <div className="flex items-center gap-1.5 text-amber-700">
+                                                  <LinkIcon size={14} />
+                                                  <span className="font-medium">{m.prerequisito.codigo}</span>
+                                                  <span className="text-gray-500 text-xs">({m.prerequisito.nombre})</span>
+                                                </div>
+                                              ) : (
+                                                <span className="text-gray-400 text-xs italic">Ninguno</span>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 };

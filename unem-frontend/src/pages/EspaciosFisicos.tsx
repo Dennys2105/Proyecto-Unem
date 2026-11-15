@@ -1,179 +1,249 @@
-import { useState } from 'react';
-import { useEspaciosFisicos } from '../hooks/useEspaciosFisicos';
-import { useMunicipios } from '../hooks/useMunicipios';
-import { DataTable } from '../components/DataTable';
-import { FormField } from '../components/FormField';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import type { EspacioFisico, EspacioFisicoCreate, EspacioFisicoUpdate } from '../types/models';
-
-const espacioSchema = z.object({
-  nombre_centro: z.string().min(3, 'Mínimo 3 caracteres').max(200, 'Máximo 200 caracteres'),
-  id_mun: z.string().min(1, 'Selecciona un municipio'),
-  ubicacion: z.string().min(3, 'Mínimo 3 caracteres').max(100, 'Máximo 100 caracteres'),
-  tipo_espacio: z.enum(['Aula'], { message: 'El backend solo acepta "Aula" por ahora' }),
-  capacidad: z.string().min(1, 'Obligatorio'),
-  equipamiento: z.string().optional().or(z.literal('')),
-});
-
-type EspacioFormData = z.infer<typeof espacioSchema>;
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '../lib/axios';
+import type { EspacioFisico } from '../types/models';
+import { MapPin, Search, Filter, Users, Clock, CheckCircle, XCircle, Info } from 'lucide-react';
 
 export const EspaciosFisicos = () => {
-  const { espacios, isLoading, createEspacio, updateEspacio, deleteEspacio, isCreating, isUpdating } = useEspaciosFisicos();
-  const { municipios } = useMunicipios();
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEspacio, setEditingEspacio] = useState<EspacioFisico | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<EspacioFisico | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState<string>('');
+  const [filtroEstado, setFiltroEstado] = useState<string>('');
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EspacioFormData>({
-    resolver: zodResolver(espacioSchema),
-    defaultValues: {
-      tipo_espacio: 'Aula'
-    }
+  // Cargar espacios
+  const { data: espacios, isLoading } = useQuery<EspacioFisico[]>({
+    queryKey: ['espacios'],
+    queryFn: async () => {
+      const res = await api.get('/espacios_fisicos/');
+      return res.data;
+    },
   });
 
-  const openCreateModal = () => {
-    setEditingEspacio(null);
-    reset({ nombre_centro: '', id_mun: '', ubicacion: '', tipo_espacio: 'Aula', capacidad: '', equipamiento: '' });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (esp: EspacioFisico) => {
-    setEditingEspacio(esp);
-    reset({
-      nombre_centro: esp.nombre_centro,
-      id_mun: esp.id_mun.toString(),
-      ubicacion: esp.ubicacion,
-      tipo_espacio: 'Aula', // Forzamos Aula porque el backend solo lo acepta
-      capacidad: esp.capacidad.toString(),
-      equipamiento: esp.equipamiento || '',
+  // Filtrar espacios
+  const espaciosFiltrados = useMemo(() => {
+    if (!espacios) return [];
+    
+    return espacios.filter(esp => {
+      // Filtro por búsqueda
+      if (busqueda) {
+        const texto = `${esp.nombre_centro} ${esp.ubicacion}`.toLowerCase();
+        if (!texto.includes(busqueda.toLowerCase())) return false;
+      }
+      
+      // Filtro por tipo
+      if (filtroTipo && esp.tipo_espacio !== filtroTipo) return false;
+      
+      // Filtro por disponibilidad (true/false)
+      if (filtroEstado !== '' && esp.disponibilidad.toString() !== filtroEstado) return false;
+      
+      return true;
     });
-    setIsModalOpen(true);
+  }, [espacios, busqueda, filtroTipo, filtroEstado]);
+
+  // Agrupar por centro educativo
+  const espaciosAgrupados = useMemo(() => {
+    return espaciosFiltrados.reduce((acc, esp) => {
+      if (!acc[esp.nombre_centro]) acc[esp.nombre_centro] = [];
+      acc[esp.nombre_centro].push(esp);
+      return acc;
+    }, {} as Record<string, EspacioFisico[]>);
+  }, [espaciosFiltrados]);
+
+  const TIPO_CONFIG: Record<string, { color: string; icon: string }> = {
+    'Aula': { color: 'bg-blue-100 text-blue-700 border-blue-300', icon: '📚' },
+    'Laboratorio': { color: 'bg-purple-100 text-purple-700 border-purple-300', icon: '🔬' },
+    'Auditorio': { color: 'bg-amber-100 text-amber-700 border-amber-300', icon: '🎤' },
+    'Cancha': { color: 'bg-green-100 text-green-700 border-green-300', icon: '⚽' },
   };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingEspacio(null);
-    reset();
-  };
-
-  const onSubmit = (data: EspacioFormData) => {
-    const payload = {
-      nombre_centro: data.nombre_centro,
-      id_mun: parseInt(data.id_mun, 10),
-      ubicacion: data.ubicacion,
-      tipo_espacio: 'Aula', // Enviamos estrictamente "Aula"
-      capacidad: parseInt(data.capacidad, 10),
-      equipamiento: data.equipamiento && data.equipamiento.trim() !== '' ? data.equipamiento : undefined,
-      disponibilidad: true,
-    };
-
-    if (editingEspacio) {
-      updateEspacio({ id: editingEspacio.id_esp, data: payload as EspacioFisicoUpdate });
-    } else {
-      createEspacio(payload as EspacioFisicoCreate);
-    }
-    closeModal();
-  };
-
-  const handleDelete = (esp: EspacioFisico) => setDeleteConfirm(esp);
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      deleteEspacio(deleteConfirm.id_esp);
-      setDeleteConfirm(null);
-    }
-  };
-
-  const columns = [
-    { key: 'id_esp', label: 'ID' },
-    { key: 'nombre_centro', label: 'Nombre del Centro' },
-    { key: 'ubicacion', label: 'Ubicación' },
-    { key: 'tipo_espacio', label: 'Tipo' },
-    { key: 'capacidad', label: 'Capacidad' },
-    { 
-      key: 'municipio', 
-      label: 'Municipio',
-      render: (value: any) => value?.nombre || 'N/A'
-    },
-  ];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Espacios Físicos</h1>
-        <button onClick={openCreateModal} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          Nuevo Espacio
-        </button>
+    <div className="space-y-6">
+      {/* Encabezado */}
+      <div className="flex items-start gap-4">
+        <div className="bg-indigo-100 p-3 rounded-xl">
+          <MapPin className="text-indigo-600" size={32} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Espacios Físicos</h1>
+          <p className="text-gray-600 mt-1">
+            Gestión de aulas, laboratorios y espacios de la universidad
+          </p>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={espacios || []}
-        isLoading={isLoading}
-        onEdit={openEditModal}
-        onDelete={handleDelete}
-        rowKey={(row) => row.id_esp}
-      />
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">{editingEspacio ? 'Editar Espacio' : 'Nuevo Espacio Físico'}</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField label="Nombre del Centro" name="nombre_centro" register={register} errors={errors} placeholder="Ej: Aula 101" />
-                
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Municipio *</label>
-                  <select {...register('id_mun')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option value="">Selecciona un municipio</option>
-                    {municipios?.map((m) => <option key={m.id_mun} value={m.id_mun}>{m.nombre}</option>)}
-                  </select>
-                  {errors.id_mun && <p className="text-sm text-red-600">{errors.id_mun.message}</p>}
-                </div>
-
-                <FormField label="Ubicación Detallada" name="ubicacion" register={register} errors={errors} placeholder="Ej: Piso 2, Ala Norte" />
-                
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Tipo de Espacio *</label>
-                  <select 
-                    {...register('tipo_espacio')} 
-                    disabled 
-                    className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-                  >
-                    <option value="Aula">Aula (Único tipo soportado por el backend)</option>
-                  </select>
-                  <p className="text-xs text-gray-500">Tu compañero debe agregar "Laboratorio", "Auditorio", etc. al backend para habilitar más opciones.</p>
-                </div>
-
-                <FormField label="Capacidad (personas)" name="capacidad" type="text" register={register} errors={errors} placeholder="Ej: 40" />
-                <FormField label="Equipamiento (Opcional)" name="equipamiento" register={register} errors={errors} placeholder="Ej: Proyector, Aire Acondicionado" />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-4 border-t">
-                <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={isCreating || isUpdating} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </form>
+      {/* Barra de Filtros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por nombre o ubicación..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <select
+            value={filtroTipo}
+            onChange={(e) => setFiltroTipo(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="Aula">Aula</option>
+            <option value="Laboratorio">Laboratorio</option>
+            <option value="Auditorio">Auditorio</option>
+            <option value="Cancha">Cancha</option>
+          </select>
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Disponibilidad</option>
+            <option value="true">Disponibles</option>
+            <option value="false">No disponibles</option>
+          </select>
+          <div className="flex items-center text-sm text-gray-500 gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+            <Filter size={16} />
+            <span>{espaciosFiltrados.length} espacios</span>
           </div>
         </div>
-      )}
+      </div>
 
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
-            <p className="text-gray-700 mb-6">¿Eliminar el espacio <strong>{deleteConfirm.nombre_centro}</strong>?</p>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-              <button onClick={confirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
+      {/* Contenido agrupado por centro */}
+      {isLoading ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="text-gray-500 mt-4">Cargando espacios...</p>
+        </div>
+      ) : Object.keys(espaciosAgrupados).length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <MapPin className="mx-auto text-gray-300 mb-3" size={48} />
+          <p className="text-gray-500">No se encontraron espacios con los filtros actuales</p>
+        </div>
+      ) : (
+        Object.entries(espaciosAgrupados).map(([centro, espaciosCentro]) => (
+          <div key={centro} className="space-y-4">
+            {/* Título del centro */}
+            <div className="bg-indigo-600 text-white rounded-lg px-5 py-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <MapPin size={20} />
+                {centro}
+              </h2>
+              <span className="text-sm bg-indigo-500 px-3 py-1 rounded-full">
+                {espaciosCentro.length} espacios
+              </span>
+            </div>
+
+            {/* Grid de tarjetas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* ✅ AQUÍ ESTÁ LA CORRECCIÓN: Ordenamiento nativo con tipos explícitos */}
+              {espaciosCentro
+                .sort((a: EspacioFisico, b: EspacioFisico) => 
+                  a.ubicacion.localeCompare(b.ubicacion, 'es', { numeric: true, sensitivity: 'base' })
+                )
+                .map((esp: EspacioFisico) => {
+                  const tipoConfig = TIPO_CONFIG[esp.tipo_espacio] || TIPO_CONFIG['Aula'];
+                  const ocupacionPorcentaje = esp.horas_ocupadas > 0 
+                    ? Math.min((esp.horas_ocupadas / 40) * 100, 100) 
+                    : 0;
+                  
+                  return (
+                    <div
+                      key={esp.id_esp}
+                      className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition hover:shadow-md ${
+                        esp.disponibilidad ? 'border-green-200' : 'border-red-200'
+                      }`}
+                    >
+                      {/* Header de la tarjeta */}
+                      <div className={`px-4 py-3 flex items-center justify-between ${
+                        esp.disponibilidad ? 'bg-green-50' : 'bg-red-50'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{tipoConfig.icon}</span>
+                          <h3 className="font-bold text-gray-900">{esp.ubicacion}</h3>
+                        </div>
+                        {esp.disponibilidad ? (
+                          <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded-full">
+                            <CheckCircle size={12} /> Disponible
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs font-bold text-red-700 bg-red-200 px-2 py-1 rounded-full">
+                            <XCircle size={12} /> Ocupado
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Contenido */}
+                      <div className="p-4 space-y-3">
+                        {/* Tipo y capacidad */}
+                        <div className="flex items-center justify-between">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${tipoConfig.color}`}>
+                            {esp.tipo_espacio}
+                          </span>
+                          <span className="flex items-center gap-1 text-sm text-gray-600">
+                            <Users size={14} />
+                            <span className="font-semibold">{esp.capacidad}</span> personas
+                          </span>
+                        </div>
+
+                        {/* Municipio */}
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <MapPin size={12} />
+                          {esp.municipio}
+                        </div>
+
+                        {/* Equipamiento (tooltip) */}
+                        {esp.equipamiento && (
+                          <div className="relative group">
+                            <div className="flex items-center gap-1 text-xs text-indigo-600 cursor-help">
+                              <Info size={12} />
+                              <span className="underline">Ver equipamiento</span>
+                            </div>
+                            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10 w-64">
+                              <div className="bg-gray-900 text-white text-xs rounded py-2 px-3 shadow-lg">
+                                {esp.equipamiento}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Métricas de uso */}
+                        <div className="pt-2 border-t border-gray-100 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600 flex items-center gap-1">
+                              <Clock size={12} />
+                              Horas ocupadas (semana)
+                            </span>
+                            <span className="font-bold text-gray-900">
+                              {esp.horas_ocupadas.toFixed(1)}h / 40h
+                            </span>
+                          </div>
+                          
+                          {/* Barra de ocupación */}
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                ocupacionPorcentaje > 80 ? 'bg-red-500' :
+                                ocupacionPorcentaje > 50 ? 'bg-amber-500' :
+                                'bg-green-500'
+                              }`}
+                              style={{ width: `${ocupacionPorcentaje}%` }}
+                            ></div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>{esp.total_asignaciones} asignaciones activas</span>
+                            <span>{ocupacionPorcentaje.toFixed(0)}% ocupado</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           </div>
-        </div>
+        ))
       )}
     </div>
   );

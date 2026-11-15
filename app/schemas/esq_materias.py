@@ -31,3 +31,15 @@ class MateriaResponse(MateriaBase):
     actualizar: datetime
     class Config:
         from_attributes = True
+
+class MateriaRead(BaseModel):
+    id_mat: int
+    codigo: str
+    nombre: str
+    unidades_creditos: int
+    id_eje: Optional[int] = None
+    eje_nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    estatus: str
+    programas_count: int
+    programas_nombres: Optional[str] = None

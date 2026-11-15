@@ -6,13 +6,15 @@ from app.config.db_conection import get_session
 from app.schemas.esq_seccion import SeccionCreate,SeccionReplace,SeccionResponse,SeccionUpdate
 import app.service.seccion_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual,recurso_propietario, verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso
 
 router= APIRouter(
     prefix="/seccion",
     tags=["Seccion"]
 )
 
+
+### DENNYS intentata modificar solos los rauter que nesesitas no elimine todo
 # --- CREATE ---
 @router.post("/", response_model=SeccionResponse, status_code=status.HTTP_201_CREATED)
 def crear_seccion(seccion_in: SeccionCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','CRE','LIM'))):

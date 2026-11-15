@@ -1,50 +1,74 @@
-   .env
-   __pycache__/
-   *.pyc
-   *.sql
-   venv/
-   .venv/
-
-# Dependencies
+# ==========================================
+# DEPENDENCIAS (NUNCA SUBIR)
+# ==========================================
 node_modules/
-.pnp/
-.pnp.js
-
-# Testing
-coverage/
-
-# Production
-build/
-dist/
-
-# Misc
-.DS_Store
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Python bytecode
+.venv/
+venv/
+env/
 __pycache__/
 *.pyc
 *.pyo
-*.pyd__pycache__/
-*.pyc
+*.pyd
+.Python
+
+# ==========================================
+# ARCHIVOS DE CONSTRUCCIÓN
+# ==========================================
+dist/
+build/
+.vite/
+
+# ==========================================
+# BASE DE DATOS (Archivos pesados)
+# ==========================================
+*.sql
+Base de Datos*.sql
+diccionario*.html
+
+# ==========================================
+# SISTEMA
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.env
+.env.local
+
+
+# ==========================================
+# FRONTEND
+# ==========================================
+node_modules/
+dist/
+.vite/
+.env
+.env.local
+
+# ==========================================
+# BACKEND (Python)
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ==========================================
+# BASE DE DATOS Y DOCUMENTOS PESADOS
+# ==========================================
+*.sql
+*.html
+Base de Datos*.sql
+diccionario*.html
+
+# ==========================================
+# SISTEMA Y EDITORES
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

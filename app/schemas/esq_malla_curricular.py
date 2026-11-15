@@ -51,3 +51,28 @@ class MallaCurricularResponse(MallaCurricularBase):
 
     class Config:
         from_attributes = True
+
+# Esquemas de respuesta anidados
+class MateriaInfo(BaseModel):
+    id_mat: int
+    codigo: str
+    nombre: str
+    unidades_creditos: int
+    eje_nombre: Optional[str] = None
+
+class ProgramaInfo(BaseModel):
+    id_pro: int
+    codigo: str
+    nombre: str
+
+class MallaRead(BaseModel):
+    id_malla: int
+    id_pro: int
+    id_mat: int
+    trayecto: int
+    periodo: int
+    orden: int
+    perequisito_id_mat: Optional[int] = None
+    programa: ProgramaInfo
+    materia: MateriaInfo
+    prerequisito: Optional[MateriaInfo] = None

@@ -3,11 +3,11 @@ import type { AsignacionCarga, AsignacionCreate, AsignacionUpdate } from '../typ
 
 export const asignacionService = {
   getAll: async (): Promise<AsignacionCarga[]> => {
-    const response = await api.get('/asig_carga_hor');
+    const response = await api.get('/asig_carga_hor/');
     return response.data;
   },
   create: async (data: AsignacionCreate): Promise<AsignacionCarga> => {
-    const response = await api.post('/asig_carga_hor', data);
+    const response = await api.post('/asig_carga_hor/', data);
     return response.data;
   },
   update: async (id: number, data: AsignacionUpdate): Promise<AsignacionCarga> => {

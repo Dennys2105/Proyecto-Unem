@@ -9,18 +9,6 @@ def obtener_usuario_actual(token: str = Depends(oauth2_scheme)) -> dict:
     payload = verificar_token(token)
     return payload
 
-## CODIGO ANTIGUA DE DEPENDENCIA DE ROLES, SE REEMPLAZARA POR NUEVA DE MANERA PROGRESIVA
-def requerir_rol(roles_permitidos: list[int]):
-    """Dependencia flexible para restringir acceso por ID de Rol."""
-    def rol_checker(usuario: dict = Depends(obtener_usuario_actual)):
-        rol_usuario = usuario.get("rol")
-        if rol_usuario not in roles_permitidos:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos para realizar esta acción"
-            )
-        return usuario
-    return rol_checker
 
 ##CODIGO ANTIGUO, AUNQUE PODRIA SEGUIR FUNCIONANDO CON LA NUEVA VERSION DE DEPENDECIA DE ROLES, SE NECESITA REVISAR Y VER SI ES NECESARIO CAMBIOS
 def recurso_propietario(usuario: dict , recurso_id: int = None, roles_restringidos: list[int] = None) -> bool:

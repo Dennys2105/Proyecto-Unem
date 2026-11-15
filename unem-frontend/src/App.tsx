@@ -1,24 +1,26 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast'; 
 import { queryClient } from './lib/queryClient';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Layout } from './components/Layout';
-import { Dashboard } from './pages/Dashboard'; // <-- Importamos el Dashboard real
+import { Dashboard } from './pages/Dashboard';
 import { Municipios } from './pages/Municipios';
 import { Programas } from './pages/Programas';
 import { EjesFormativos } from './pages/EjesFormativos';
 import { PeriodosAcademicos } from './pages/PeriodosAcademicos';
-import { Docentes } from './pages/Docentes';
+import { DocentesPage } from './pages/Docentes';
 import { Estudiantes } from './pages/Estudiantes';
 import { Secciones } from './pages/Secciones';
 import { EspaciosFisicos } from './pages/EspaciosFisicos';
 import { Materias } from './pages/Materias';
-import { BloquesHorarios } from './pages/BloquesHorarios';
 import { Dias } from './pages/Dias';
 import { Roles } from './pages/Roles';
 import { MallaCurricularPage } from './pages/MallaCurricular';
 import { AsignacionCargaPage } from './pages/AsignacionCarga';
+import { AuditoriaPage } from './pages/Auditoria';
+import { NotasPage } from './pages/Notas';
 
 function App() {
   return (
@@ -26,7 +28,6 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
@@ -34,21 +35,31 @@ function App() {
               <Route path="/programas" element={<Programas />} />
               <Route path="/ejes" element={<EjesFormativos />} />
               <Route path="/periodos" element={<PeriodosAcademicos />} />
-              <Route path="/docentes" element={<Docentes />} />
+              <Route path="/docentes" element={<DocentesPage />} />
               <Route path="/estudiantes" element={<Estudiantes />} />
               <Route path="/secciones" element={<Secciones />} />
               <Route path="/espacios" element={<EspaciosFisicos />} />
               <Route path="/materias" element={<Materias />} />
-              <Route path="/bloques-horarios" element={<BloquesHorarios />} />
               <Route path="/dias" element={<Dias />} />
               <Route path="/roles" element={<Roles />} />
               <Route path="/malla" element={<MallaCurricularPage />} />
               <Route path="/asignacion-carga" element={<AsignacionCargaPage />} />
+              <Route path="/auditoria" element={<AuditoriaPage />} />
+              <Route path="/notas" element={<NotasPage />} />
             </Route>
           </Route>
-
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        {/*  NUEVO: El Toaster global — sin esto, ningún toast se renderiza */}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: { fontSize: '14px', maxWidth: '420px' },
+            success: { iconTheme: { primary: '#16a34a', secondary: '#fff' } },
+            error: { iconTheme: { primary: '#dc2626', secondary: '#fff' } },
+          }}
+        />
       </BrowserRouter>
     </QueryClientProvider>
   );

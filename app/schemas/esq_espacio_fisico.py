@@ -7,7 +7,6 @@ from app.schemas.esq_municipios import MunicipiosResposive
 class TipoEspacio(str,Enum):
     AULA = "Aula"
 
-# --- ESPACIO FISICO ---
 class EspacioFisicoBase(BaseModel):
     id_mun: int
     nombre_centro: str = Field(..., max_length=200) # [DATO ÚNICO]
@@ -39,3 +38,15 @@ class EspacioFisicoResponse(EspacioFisicoBase):
     actualizar: datetime
     class Config:
         from_attributes = True
+
+class EspacioFisicoRead(BaseModel):
+    id_esp: int
+    nombre_centro: str
+    ubicacion: str
+    tipo_espacio: str
+    capacidad: int
+    equipamiento: Optional[str] = None
+    disponibilidad: bool
+    municipio: str
+    total_asignaciones: int = 0
+    horas_ocupadas: float = 0.0

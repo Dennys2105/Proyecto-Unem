@@ -1,19 +1,7 @@
-from sqlmodel import Session, select, text
+from sqlmodel import Session, select
 from typing import Optional
-from app.models.unem_db_models import PermisoUsario
-from app.schemas.esq_permisos import UsuarioSimple
-
-def listar_usuarios_activos(session: Session):
-    """Lista todos los usuarios con su rol asignado."""
-    query = text("""
-        SELECT u.id_usu, u.username, u.id_rol, r.rol, u.estatus
-        FROM general.usuarios u
-        JOIN general.roles r ON r.id_rol = u.id_rol
-        WHERE u.estatus = 'A'
-        ORDER BY u.username
-    """)
-    resultados = session.exec(query).mappings().all()
-    return [UsuarioSimple(**dict(r)) for r in resultados]
+from app.models.unem_db_models import PermisoUsario  # Asegúrate de que el nombre del modelo coincida con tus definiciones
+from app.schemas.esq_permisos import PermisoUsuCreate, PermisoUsuUpdate
 
 def guardar_o_actualizar_permiso_usuario(
     db: Session, 

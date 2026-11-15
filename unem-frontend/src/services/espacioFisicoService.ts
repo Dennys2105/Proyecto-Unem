@@ -3,21 +3,24 @@ import type { EspacioFisico, EspacioFisicoCreate, EspacioFisicoUpdate } from '..
 
 export const espacioFisicoService = {
   getAll: async (): Promise<EspacioFisico[]> => {
-    const response = await api.get('/esp_fisico');
+  
+    const response = await api.get('/espacios_fisicos/');
     return response.data;
   },
   
   create: async (data: EspacioFisicoCreate): Promise<EspacioFisico> => {
-    const response = await api.post('/esp_fisico', data);
+    const response = await api.post('/espacios_fisicos/', data);
     return response.data;
   },
   
   update: async (id: number, data: EspacioFisicoUpdate): Promise<EspacioFisico> => {
-    const response = await api.patch(`/esp_fisico/${id}`, data);
+
+    const response = await api.patch(`/espacios_fisicos/${id}`, data);
     return response.data;
   },
   
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/esp_fisico/${id}`);
+
+    await api.delete(`/espacios_fisicos/${id}`);
   }
 };
