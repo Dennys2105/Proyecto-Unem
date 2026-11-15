@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { Fragment, useState, useMemo } from 'react';
 import { useAuditoria } from '../hooks/useAuditoria';
 import { normalizarAuditoria } from '../types/models';
 import {
-  Shield, Search, ChevronDown, ChevronUp, Plus, Edit, Trash2,
+  Shield, Search, Plus, Edit, Trash2,
   AlertTriangle, Clock, User, Database, FileJson, X, Info
 } from 'lucide-react';
 
@@ -361,62 +361,72 @@ export const AuditoriaPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {datosFiltrados.map((d) => {
-                  const esElimLogica = esEliminacionLogica(d.resumen);
-                  const accionReal = esElimLogica ? 'DELETE' : d.accion;
-                  const config = ACCION_CONFIG[accionReal] || {
-                    color: 'bg-gray-100 text-gray-700 border-gray-300',
-                    icon: Clock,
-                    label: d.accion,
-                    descripcion: 'Operación registrada'
-                  };
-                  const Icono = config.icon;
-                  const expandida = filaExpandida === d.id;
-                  return (
-                    <div key={d.id} className="contents">
-                      <tr className="hover:bg-gray-50 transition">
-                        <td className="px-4 py-3 text-sm font-mono text-gray-600">#{d.id}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                          {formatearFecha(d.fecha)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <div className="flex items-center gap-2">
-                            <User size={14} className="text-gray-400" />
-                            {d.usuario}
+                {datosFiltrados.map((d) => (
+                  <Fragment key={d.id}>
+                    <tr
+                      key={`movimiento-${d.id}`}
+                      className="hover:bg-gray-50 transition cursor-pointer"
+                      onClick={() => setFilaExpandida(filaExpandida === d.id ? null : d.id)}
+                    >
+                      <td className="px-4 py-3 text-sm text-gray-600">#{d.id}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                        {new Date(d.fecha).toLocaleDateString('es-VE')}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{d.usuario}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 capitalize">{formatNombreTabla(d.tabla)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold ${
+                          d.accion === 'INSERT' ? 'bg-green-100 text-green-700' :
+                          d.accion === 'UPDATE' ? 'bg-blue-100 text-blue-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {d.accion}
+                        </span>
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm text-gray-600 max-w-[220px] truncate"
+                        title={d.identificador}
+                      >
+                        {d.identificador}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 text-right">
+                        <button
+                          type="button"
+                          className="text-indigo-600 hover:text-indigo-800 text-xs font-medium"
+                          aria-expanded={filaExpandida === d.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setFilaExpandida(filaExpandida === d.id ? null : d.id);
+                          }}
+                        >
+                          {filaExpandida === d.id ? 'Ocultar' : 'Ver detalle'}
+                        </button>
+                      </td>
+                    </tr>
+                    {filaExpandida === d.id && (
+                      <tr key={`detalle-${d.id}`}>
+                        <td colSpan={7} className="p-0">
+                          <div className="p-4 bg-indigo-50/50 border-b border-indigo-100">
+                            <div className="flex items-start gap-3">
+                              <Info className="text-indigo-600 mt-0.5 flex-shrink-0" size={16} />
+                              <div className="space-y-2 w-full">
+                                <p className="text-xs font-bold text-indigo-800 uppercase tracking-wide">
+                                  Resumen de cambios
+                                </p>
+                                <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                                  {d.resumen !== 'N/A'
+                                    ? d.resumen
+                                    : 'No hay detalles adicionales registrados.'}
+                                </p>
+                                {renderDetalle(d)}
+                              </div>
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 font-medium">
-                          {formatNombreTabla(d.tabla)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold border ${config.color}`}>
-                            <Icono size={12} />
-                            {config.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 max-w-[220px] truncate" title={d.identificador}>
-                          {d.identificador}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => setFilaExpandida(expandida ? null : d.id)}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
-                          >
-                            {expandida ? 'Ocultar' : 'Ver detalle'}
-                            {expandida ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          </button>
-                        </td>
                       </tr>
-                      {expandida && (
-                        <tr className="bg-gray-50">
-                          <td colSpan={8} className="px-6 py-4">
-                            {renderDetalle(d)}
-                          </td>
-                        </tr>
-                      )}
-                    </div>
-                  );
-                })}
+                    )}
+                  </Fragment>
+                ))}
               </tbody>
             </table>
           </div>

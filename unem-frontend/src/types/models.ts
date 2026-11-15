@@ -360,51 +360,47 @@ export interface MallaUpdate {
   perequisito_id_mat?: number;
 }
 
-// Asignación de Carga Horaria
+// ASIGNACIÓN DE CARGA HORARIA
 export interface AsignacionCarga {
   id_asig: number;
   id_doc?: number;
-  id_malla?: number;
   id_esp?: number;
-  id_bloq?: number;
-  id_dia: number;
+  id_malla?: number;
   id_per?: number;
+  id_sec?: number;          
+  id_dia: number;
   hora_inicio: string;
   hora_fin: string;
-  tipo_actividad?: string;
+  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación'; // ✅ NUEVO
   observaciones?: string;
-  // Relaciones para mostrar en tabla (el backend puede no enviarlas, las buscamos por ID)
-  docente?: any;
-  malla?: any;
-  espacio?: any;
-  bloque?: any;
-  dia?: any;
-  periodo?: any;
+  estatus: string;
+  creado: string;
+  actualizar: string;
 }
 
 export interface AsignacionCreate {
   id_doc?: number;
-  id_malla?: number;
   id_esp?: number;
-  id_bloq?: number;
-  id_dia: number;
+  id_malla?: number;
   id_per?: number;
+  id_sec?: number;         
+  id_dia: number;
   hora_inicio: string;
   hora_fin: string;
-  tipo_actividad?: string;
+  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación';
   observaciones?: string;
 }
 
 export interface AsignacionUpdate {
   id_doc?: number;
-  id_malla?: number;
   id_esp?: number;
-  id_bloq?: number;
-  id_dia?: number;
+  id_malla?: number;
   id_per?: number;
+  id_sec?: number;         
+  id_dia?: number;
   hora_inicio?: string;
   hora_fin?: string;
-  tipo_actividad?: string;
+  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación';
   observaciones?: string;
 }
 

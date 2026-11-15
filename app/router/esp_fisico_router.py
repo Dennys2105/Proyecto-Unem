@@ -61,7 +61,7 @@ def listar_espacios(
         params["busqueda"] = f"%{busqueda}%"
     
     query += " GROUP BY e.id_esp, e.nombre_centro, e.ubicacion, e.tipo_espacio, e.capacidad, e.equipamiento, e.disponibilidad, m.nombre"
-    query += " ORDER BY e.nombre_centro, e.ubicacion"
+    query += " ORDER BY e.nombre_centro, (NULLIF(regexp_replace(e.ubicacion, '[^0-9]', '', 'g'), '')::int) NULLS LAST, e.ubicacion"
     
     resultados = session.exec(text(query).params(**params)).mappings().all()
     return [EspacioFisicoRead(**dict(r)) for r in resultados]

@@ -50,18 +50,32 @@ def validar_disponibilidad_docente(
     hora_inicio: time, 
     hora_fin: time
 ):
-    statement = select(DisponibilidadDocente).where(
-        DisponibilidadDocente.id_doc == id_doc,
-        DisponibilidadDocente.id_dia == id_dia,
-        DisponibilidadDocente.estatus == "A",
-        DisponibilidadDocente.hora_inicio <= hora_inicio,
-        DisponibilidadDocente.hora_fin >= hora_fin
-    )
+    # 1. Verificar si el docente tiene ALGUNA disponibilidad registrada para ese día
+    tiene_disponibilidad = session.exec(
+        select(DisponibilidadDocente).where(
+            DisponibilidadDocente.id_doc == id_doc,
+            DisponibilidadDocente.id_dia == id_dia,
+            DisponibilidadDocente.estatus == "A"
+        )
+    ).first()
     
-    disponibilidad_valida = session.exec(statement).first()
     
-    if not disponibilidad_valida:
+    if not tiene_disponibilidad:
+        return
+    
+    # 2. Si SÍ tiene disponibilidad, verificar que el horario esté DENTRO de ella
+    disponible_en_horario = session.exec(
+        select(DisponibilidadDocente).where(
+            DisponibilidadDocente.id_doc == id_doc,
+            DisponibilidadDocente.id_dia == id_dia,
+            DisponibilidadDocente.estatus == "A",
+            DisponibilidadDocente.hora_inicio <= hora_inicio,
+            DisponibilidadDocente.hora_fin >= hora_fin
+        )
+    ).first()
+    
+    if not disponible_en_horario:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El docente no tiene disponibilidad registrada o el horario asignado excede su disponibilidad para este día."
+            detail=f"El docente no tiene disponibilidad en el horario {hora_inicio}-{hora_fin} para este día."
         )

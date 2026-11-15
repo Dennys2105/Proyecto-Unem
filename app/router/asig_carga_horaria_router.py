@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from sqlmodel import Session
+from sqlmodel import Session, text
 from app.config.db_conection import get_session
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaReplace,AsigCargaHorariaResponse,AsigCargaHorariaUpdate
 import app.service.asig_carga_hor_service as service
@@ -15,25 +15,45 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED)
-def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','CRE','TODO'))):
-    validar_conflictos_horarios(session,AsigCargaHorariaCreate)
-    validar_disponibilidad_docente(session, carga_in.id_doc, carga_in.id_dia, carga_in.hora_inicio, carga_in.hora_fin)
-    dia_id = service.existe_llave_foranea_dia(session,carga_in.id_dia)
-    doc_id = service.existe_llave_foranea_doc(session,carga_in.id_doc)
-    malla_id = service.existe_llave_foranea_malla(session,carga_in.id_malla)
-    per_id = service.existe_llave_foranea_per(session,carga_in.id_per)
-    esp_id = service.existe_llave_foranea_esp(session,carga_in.id_esp)
+def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('horarios','CRE','TODO'))):
+    validar_conflictos_horarios(session, carga_in)
+
+    dia_id = service.existe_llave_foranea_dia(session, carga_in.id_dia)
+    doc_id = service.existe_llave_foranea_doc(session, carga_in.id_doc)
+    esp_id = service.existe_llave_foranea_esp(session, carga_in.id_esp)
     if not dia_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dia no existe")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El día no existe")
     elif not doc_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El Docente no existe")
-    elif not malla_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Malla no existe")
-    elif not per_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Periodo no existe")
     elif not esp_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Espacio no existe")
-    
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El espacio no existe")
+
+    validar_disponibilidad_docente(
+        session, carga_in.id_doc, carga_in.id_dia, carga_in.hora_inicio, carga_in.hora_fin
+    )
+
+    if carga_in.tipo_actividad == "Carga Académica" and not carga_in.id_malla:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La carga académica requiere una malla curricular",
+        )
+    if carga_in.id_malla and not service.existe_llave_foranea_malla(session, carga_in.id_malla):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Malla no existe")
+    if carga_in.id_per and not service.existe_llave_foranea_per(session, carga_in.id_per):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Periodo no existe")
+
+    if carga_in.id_sec:
+        sec = session.exec(
+            text(
+                "SELECT 1 FROM academico.secciones "
+                "WHERE id_sec = :id AND estatus = 'A'"
+            ).params(id=carga_in.id_sec)
+        ).first()
+        if not sec:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="La sección no existe"
+            )
+
     return service.crear(session, carga_in)
 
 # --- READ ALL ---

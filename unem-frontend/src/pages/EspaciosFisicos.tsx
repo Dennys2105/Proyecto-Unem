@@ -1,66 +1,22 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/axios';
 import type { EspacioFisico } from '../types/models';
-import { MapPin, Search, Filter, Users, Clock, CheckCircle, Info, BookOpen } from 'lucide-react';
+import { MapPin, Search, Filter, Users, Clock, CheckCircle, XCircle, Info } from 'lucide-react';
 
 export const EspaciosFisicos = () => {
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<string>('');
-  const [filtroEstado, setFiltroEstado] = useState<string>(''); // 'libre' | 'en_uso' | 'todos'
-  const [horaActual, setHoraActual] = useState(new Date());
-
-  // Actualizar la hora cada minuto
-  useEffect(() => {
-    const interval = setInterval(() => setHoraActual(new Date()), 60000);
-    return () => clearInterval(interval);
-  }, []);
+  const [filtroEstado, setFiltroEstado] = useState<string>('');
 
   // Cargar espacios
   const { data: espacios, isLoading } = useQuery<EspacioFisico[]>({
     queryKey: ['espacios'],
     queryFn: async () => {
-      const res = await api.get('/espacios_fisicos');
+      const res = await api.get('/espacios_fisicos/');
       return res.data;
     },
   });
-
-  // Cargar asignaciones activas para calcular estado en tiempo real
-  const { data: asignaciones } = useQuery<any[]>({
-    queryKey: ['asignaciones'],
-    queryFn: async () => {
-      const res = await api.get('/asignaciones');
-      return res.data;
-    },
-  });
-
-  // Calcular qué aulas están en uso AHORA
-  const aulasEnUso = useMemo(() => {
-    if (!asignaciones) return new Set<number>();
-    
-    const diaActual = horaActual.getDay(); // 0=Domingo, 1=Lunes, ..., 6=Sábado
-    const horaActualMinutos = horaActual.getHours() * 60 + horaActual.getMinutes();
-    
-    // Mapear día de JS a id_dia de la BD (Lunes=1, ..., Sábado=6)
-    const idDiaBD = diaActual === 0 ? 7 : diaActual;
-    
-    const enUso = new Set<number>();
-    
-    asignaciones.forEach(asig => {
-      if (asig.id_dia === idDiaBD && asig.estatus === 'A') {
-        const [hIni, mIni] = asig.hora_inicio.split(':').map(Number);
-        const [hFin, mFin] = asig.hora_fin.split(':').map(Number);
-        const inicioMin = hIni * 60 + mIni;
-        const finMin = hFin * 60 + mFin;
-        
-        if (horaActualMinutos >= inicioMin && horaActualMinutos < finMin) {
-          enUso.add(asig.id_esp);
-        }
-      }
-    });
-    
-    return enUso;
-  }, [asignaciones, horaActual]);
 
   // Filtrar espacios
   const espaciosFiltrados = useMemo(() => {
@@ -76,13 +32,12 @@ export const EspaciosFisicos = () => {
       // Filtro por tipo
       if (filtroTipo && esp.tipo_espacio !== filtroTipo) return false;
       
-      // Filtro por estado en tiempo real
-      if (filtroEstado === 'libre' && aulasEnUso.has(esp.id_esp)) return false;
-      if (filtroEstado === 'en_uso' && !aulasEnUso.has(esp.id_esp)) return false;
+      // Filtro por disponibilidad (true/false)
+      if (filtroEstado !== '' && esp.disponibilidad.toString() !== filtroEstado) return false;
       
       return true;
     });
-  }, [espacios, busqueda, filtroTipo, filtroEstado, aulasEnUso]);
+  }, [espacios, busqueda, filtroTipo, filtroEstado]);
 
   // Agrupar por centro educativo
   const espaciosAgrupados = useMemo(() => {
@@ -100,10 +55,6 @@ export const EspaciosFisicos = () => {
     'Cancha': { color: 'bg-green-100 text-green-700 border-green-300', icon: '⚽' },
   };
 
-  const formatHora = (date: Date) => {
-    return date.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
-  };
-
   return (
     <div className="space-y-6">
       {/* Encabezado */}
@@ -111,15 +62,11 @@ export const EspaciosFisicos = () => {
         <div className="bg-indigo-100 p-3 rounded-xl">
           <MapPin className="text-indigo-600" size={32} />
         </div>
-        <div className="flex-1">
+        <div>
           <h1 className="text-3xl font-bold text-gray-900">Espacios Físicos</h1>
           <p className="text-gray-600 mt-1">
             Gestión de aulas, laboratorios y espacios de la universidad
           </p>
-          <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-            <Clock size={14} />
-            <span>Hora actual: <span className="font-semibold text-indigo-600">{formatHora(horaActual)}</span></span>
-          </div>
         </div>
       </div>
 
@@ -152,9 +99,9 @@ export const EspaciosFisicos = () => {
             onChange={(e) => setFiltroEstado(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="todos">Todos los espacios</option>
-            <option value="libre">🟢 Libres ahora</option>
-            <option value="en_uso">🔴 En uso ahora</option>
+            <option value="">Disponibilidad</option>
+            <option value="true">Disponibles</option>
+            <option value="false">No disponibles</option>
           </select>
           <div className="flex items-center text-sm text-gray-500 gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
             <Filter size={16} />
@@ -190,106 +137,110 @@ export const EspaciosFisicos = () => {
 
             {/* Grid de tarjetas */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {espaciosCentro.map((esp) => {
-                const tipoConfig = TIPO_CONFIG[esp.tipo_espacio] || TIPO_CONFIG['Aula'];
-                const estaEnUso = aulasEnUso.has(esp.id_esp);
-                const ocupacionPorcentaje = esp.horas_ocupadas > 0 
-                  ? Math.min((esp.horas_ocupadas / 40) * 100, 100) 
-                  : 0;
-                
-                return (
-                  <div
-                    key={esp.id_esp}
-                    className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition hover:shadow-md ${
-                      estaEnUso ? 'border-red-200' : 'border-green-200'
-                    }`}
-                  >
-                    {/* Header de la tarjeta */}
-                    <div className={`px-4 py-3 flex items-center justify-between ${
-                      estaEnUso ? 'bg-red-50' : 'bg-green-50'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">{tipoConfig.icon}</span>
-                        <h3 className="font-bold text-gray-900">{esp.ubicacion}</h3>
-                      </div>
-                      {estaEnUso ? (
-                        <span className="flex items-center gap-1 text-xs font-bold text-red-700 bg-red-200 px-2 py-1 rounded-full animate-pulse">
-                          <BookOpen size={12} /> En uso
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded-full">
-                          <CheckCircle size={12} /> Libre
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Contenido */}
-                    <div className="p-4 space-y-3">
-                      {/* Tipo y capacidad */}
-                      <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${tipoConfig.color}`}>
-                          {esp.tipo_espacio}
-                        </span>
-                        <span className="flex items-center gap-1 text-sm text-gray-600">
-                          <Users size={14} />
-                          <span className="font-semibold">{esp.capacidad}</span> personas
-                        </span>
+              {/* ✅ AQUÍ ESTÁ LA CORRECCIÓN: Ordenamiento nativo con tipos explícitos */}
+              {espaciosCentro
+                .sort((a: EspacioFisico, b: EspacioFisico) => 
+                  a.ubicacion.localeCompare(b.ubicacion, 'es', { numeric: true, sensitivity: 'base' })
+                )
+                .map((esp: EspacioFisico) => {
+                  const tipoConfig = TIPO_CONFIG[esp.tipo_espacio] || TIPO_CONFIG['Aula'];
+                  const ocupacionPorcentaje = esp.horas_ocupadas > 0 
+                    ? Math.min((esp.horas_ocupadas / 40) * 100, 100) 
+                    : 0;
+                  
+                  return (
+                    <div
+                      key={esp.id_esp}
+                      className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition hover:shadow-md ${
+                        esp.disponibilidad ? 'border-green-200' : 'border-red-200'
+                      }`}
+                    >
+                      {/* Header de la tarjeta */}
+                      <div className={`px-4 py-3 flex items-center justify-between ${
+                        esp.disponibilidad ? 'bg-green-50' : 'bg-red-50'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{tipoConfig.icon}</span>
+                          <h3 className="font-bold text-gray-900">{esp.ubicacion}</h3>
+                        </div>
+                        {esp.disponibilidad ? (
+                          <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded-full">
+                            <CheckCircle size={12} /> Disponible
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs font-bold text-red-700 bg-red-200 px-2 py-1 rounded-full">
+                            <XCircle size={12} /> Ocupado
+                          </span>
+                        )}
                       </div>
 
-                      {/* Municipio */}
-                      <div className="text-xs text-gray-500 flex items-center gap-1">
-                        <MapPin size={12} />
-                        {esp.municipio}
-                      </div>
+                      {/* Contenido */}
+                      <div className="p-4 space-y-3">
+                        {/* Tipo y capacidad */}
+                        <div className="flex items-center justify-between">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${tipoConfig.color}`}>
+                            {esp.tipo_espacio}
+                          </span>
+                          <span className="flex items-center gap-1 text-sm text-gray-600">
+                            <Users size={14} />
+                            <span className="font-semibold">{esp.capacidad}</span> personas
+                          </span>
+                        </div>
 
-                      {/* Equipamiento (tooltip) */}
-                      {esp.equipamiento && (
-                        <div className="relative group">
-                          <div className="flex items-center gap-1 text-xs text-indigo-600 cursor-help">
-                            <Info size={12} />
-                            <span className="underline">Ver equipamiento</span>
-                          </div>
-                          <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10 w-64">
-                            <div className="bg-gray-900 text-white text-xs rounded py-2 px-3 shadow-lg">
-                              {esp.equipamiento}
+                        {/* Municipio */}
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <MapPin size={12} />
+                          {esp.municipio}
+                        </div>
+
+                        {/* Equipamiento (tooltip) */}
+                        {esp.equipamiento && (
+                          <div className="relative group">
+                            <div className="flex items-center gap-1 text-xs text-indigo-600 cursor-help">
+                              <Info size={12} />
+                              <span className="underline">Ver equipamiento</span>
+                            </div>
+                            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10 w-64">
+                              <div className="bg-gray-900 text-white text-xs rounded py-2 px-3 shadow-lg">
+                                {esp.equipamiento}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Métricas de uso */}
-                      <div className="pt-2 border-t border-gray-100 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600 flex items-center gap-1">
-                            <Clock size={12} />
-                            Horas ocupadas (semana)
-                          </span>
-                          <span className="font-bold text-gray-900">
-                            {esp.horas_ocupadas.toFixed(1)}h / 40h
-                          </span>
-                        </div>
-                        
-                        {/* Barra de ocupación */}
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all ${
-                              ocupacionPorcentaje > 80 ? 'bg-red-500' :
-                              ocupacionPorcentaje > 50 ? 'bg-amber-500' :
-                              'bg-green-500'
-                            }`}
-                            style={{ width: `${ocupacionPorcentaje}%` }}
-                          ></div>
-                        </div>
+                        {/* Métricas de uso */}
+                        <div className="pt-2 border-t border-gray-100 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600 flex items-center gap-1">
+                              <Clock size={12} />
+                              Horas ocupadas (semana)
+                            </span>
+                            <span className="font-bold text-gray-900">
+                              {esp.horas_ocupadas.toFixed(1)}h / 40h
+                            </span>
+                          </div>
+                          
+                          {/* Barra de ocupación */}
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${
+                                ocupacionPorcentaje > 80 ? 'bg-red-500' :
+                                ocupacionPorcentaje > 50 ? 'bg-amber-500' :
+                                'bg-green-500'
+                              }`}
+                              style={{ width: `${ocupacionPorcentaje}%` }}
+                            ></div>
+                          </div>
 
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{esp.total_asignaciones} asignaciones activas</span>
-                          <span>{ocupacionPorcentaje.toFixed(0)}% ocupado</span>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>{esp.total_asignaciones} asignaciones activas</span>
+                            <span>{ocupacionPorcentaje.toFixed(0)}% ocupado</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </div>
         ))

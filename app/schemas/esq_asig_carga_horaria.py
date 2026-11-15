@@ -13,6 +13,7 @@ class AsigCargaHorariaBase(BaseModel):
     id_esp: Optional[int] = None
     id_malla: Optional[int] = None
     id_per: Optional[int] = None
+    id_sec: Optional[int] = None
     id_dia: int
     hora_inicio: time
     hora_fin: time
@@ -36,6 +37,7 @@ class AsigCargaHorariaUpdate(BaseModel):
     id_esp: Optional[int] = None
     id_malla: Optional[int] = None
     id_per: Optional[int] = None
+    id_sec: Optional[int] = None          
     id_dia: Optional[int] = None
     hora_inicio: Optional[time] = None
     hora_fin: Optional[time] = None
