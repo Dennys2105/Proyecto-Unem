@@ -5,50 +5,9 @@ from pydantic import BaseModel
 from app.dependencies.auth_deps import verificar_permiso
 from app.config.db_conection import get_session
 from app.models.model_read_only import VwPermisosEfectivosRead
+from app.schemas.esq_permisos import UsuarioSimple, ModuloCatalogo, PermisoCatalogo, CatalogosResponse, PermisosUsuarioUpdate, PermisoOverride
 
 router = APIRouter(prefix="/permisos", tags=["Gestión de Permisos"])
-
-
-# ==========================================
-# ESQUEMAS (Pydantic)
-# ==========================================
-class UsuarioSimple(BaseModel):
-    id_usu: int
-    username: str
-    id_rol: int
-    rol: str
-    estatus: str
-
-
-class ModuloCatalogo(BaseModel):
-    id_mod: int
-    codigo: str
-    nombre: str
-    descripcion: Optional[str] = None
-
-
-class PermisoCatalogo(BaseModel):
-    id_perm: int
-    codigo: str
-    nombre: str
-    descripcion: Optional[str] = None
-
-
-class CatalogosResponse(BaseModel):
-    modulos: List[ModuloCatalogo]
-    permisos: List[PermisoCatalogo]
-
-
-class PermisoOverride(BaseModel):
-    """Un permiso personalizado (override) que el admin asigna a un usuario."""
-    id_mod: int
-    id_perm: int
-    alcance: str  # TODO, SP, LIM, NAD
-
-
-class PermisosUsuarioUpdate(BaseModel):
-    """Cuerpo para guardar la matriz completa de permisos personalizados."""
-    permisos: List[PermisoOverride]
 
 
 # ==========================================
