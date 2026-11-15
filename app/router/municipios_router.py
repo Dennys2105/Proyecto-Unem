@@ -6,7 +6,7 @@ from app.models.unem_db_models import Municipio
 from app.schemas.esq_municipios import MunicipiosCreate,MunicipiosUpdate, MunicipiosResposive,MunicipiosRemplace
 import app.service.municipios_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual,recurso_propietario,verificar_permiso
+from app.dependencies.auth_deps import recurso_propietario,verificar_permiso
 
 router= APIRouter(
     prefix="/Municipio",

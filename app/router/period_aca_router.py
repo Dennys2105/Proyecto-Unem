@@ -4,7 +4,7 @@ from sqlmodel import Session
 from app.config.db_conection import get_session
 from app.schemas.esq_periodos_aca import PeriodoCreate,PeriodoUpdate, PeriodoResposive,PeriodoRemplace
 import app.service.period_aca_service as service
-from app.dependencies.auth_deps import recurso_propietario,requerir_rol,obtener_usuario_actual,verificar_permiso
+from app.dependencies.auth_deps import recurso_propietario,verificar_permiso
 
 router= APIRouter(
     prefix="/PeriodoAcademico",

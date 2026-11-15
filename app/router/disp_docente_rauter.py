@@ -5,7 +5,7 @@ from app.config.db_conection import get_session
 from app.dependencies.auth_deps import requerir_rol
 from app.schemas.esq_disp_docente import DisponibilidadDocenteCreate,DisponibilidadDocenteReplace,DisponibilidadDocenteResponse,DisponibilidadDocenteUpdate
 import app.service.disp_docente_service as service
-from app.dependencies.auth_deps import obtener_usuario_actual,requerir_rol,recurso_propietario,verificar_permiso
+from app.dependencies.auth_deps import recurso_propietario,verificar_permiso
 
 
 router= APIRouter(

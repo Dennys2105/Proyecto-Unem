@@ -2,17 +2,74 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, text
 from typing import Optional, List
 from pydantic import BaseModel
-from app.service.permisos_services import listar_usuarios_activos
 from app.dependencies.auth_deps import verificar_permiso
 from app.config.db_conection import get_session
 from app.models.model_read_only import VwPermisosEfectivosRead
-from app.schemas.esq_permisos import UsuarioSimple, ModuloCatalogo, PermisoCatalogo, CatalogosResponse, PermisosUsuarioUpdate, PermisoOverride
 
 router = APIRouter(prefix="/permisos", tags=["Gestión de Permisos"])
 
+
+# ==========================================
+# ESQUEMAS (Pydantic)
+# ==========================================
+class UsuarioSimple(BaseModel):
+    id_usu: int
+    username: str
+    id_rol: int
+    rol: str
+    estatus: str
+
+
+class ModuloCatalogo(BaseModel):
+    id_mod: int
+    codigo: str
+    nombre: str
+    descripcion: Optional[str] = None
+
+
+class PermisoCatalogo(BaseModel):
+    id_perm: int
+    codigo: str
+    nombre: str
+    descripcion: Optional[str] = None
+
+
+class CatalogosResponse(BaseModel):
+    modulos: List[ModuloCatalogo]
+    permisos: List[PermisoCatalogo]
+
+
+class PermisoOverride(BaseModel):
+    """Un permiso personalizado (override) que el admin asigna a un usuario."""
+    id_mod: int
+    id_perm: int
+    alcance: str  # TODO, SP, LIM, NAD
+
+
+class PermisosUsuarioUpdate(BaseModel):
+    """Cuerpo para guardar la matriz completa de permisos personalizados."""
+    permisos: List[PermisoOverride]
+
+
+# ==========================================
+# ENDPOINTS
+# ==========================================
+
 @router.get("/usuarios", response_model=List[UsuarioSimple])
-def listar_usuarios(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))):
-    return listar_usuarios_activos(session)
+def listar_usuarios(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+):
+    """Lista todos los usuarios con su rol asignado."""
+    query = text("""
+        SELECT u.id_usu, u.username, u.id_rol, r.rol, u.estatus
+        FROM general.usuarios u
+        JOIN general.roles r ON r.id_rol = u.id_rol
+        WHERE u.estatus = 'A'
+        ORDER BY u.username
+    """)
+    resultados = session.exec(query).mappings().all()
+    return [UsuarioSimple(**dict(r)) for r in resultados]
 
 
 @router.get("/catalogos", response_model=CatalogosResponse)

@@ -6,7 +6,7 @@ from app.config.db_conection import get_session
 from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,EstudianteResponse,EstudianteUpdate
 import app.service.estudiante_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual,verificar_permiso
+from app.dependencies.auth_deps import recurso_propietario,verificar_permiso
 
 router= APIRouter(
     prefix="/estudiantes",

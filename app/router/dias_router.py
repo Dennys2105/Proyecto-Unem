@@ -6,7 +6,7 @@ from app.models.unem_db_models import DiaLaboral
 from app.schemas.esq_dias_laborales import DiasCreate,DiasUpdate, DiasResposive,DiasRemplace
 import app.service.dias_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import obtener_usuario_actual,requerir_rol,recurso_propietario,verificar_permiso
+from app.dependencies.auth_deps import obtener_usuario_actual,verificar_permiso
 
 router= APIRouter(
     prefix="/DiasLaborales",

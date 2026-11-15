@@ -6,7 +6,7 @@ from app.models.unem_db_models import EjeFormativo
 from app.schemas.esq_eje_formativo import EjeCreate,EjeRemplace,EjeResposive,EjeUpdate
 import app.service.ejes_formativos_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual, recurso_propietario, verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso
 
 router= APIRouter(
     prefix="/EjesFormativos",

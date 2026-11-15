@@ -4,7 +4,7 @@ from sqlmodel import Session
 from app.config.db_conection import get_session
 from app.schemas.esq_roles import RolesCreate, RolesResposive, RolesUpdate
 import app.service.roles_service as service
-from app.dependencies.auth_deps import requerir_rol, verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso
 
 router = APIRouter(
     prefix="/roles",
