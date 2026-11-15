@@ -57,7 +57,6 @@ def consultar_auditoria_avanzada(
     fecha_inicio: Optional[date] = Query(None, description="Filtrar desde la fecha (YYYY-MM-DD)"),
     session: Session = Depends(get_session)
 ):
-    # Construcción dinámica y segura de la consulta con filtros opcionales
     query = """
         SELECT 
             id_aud, 

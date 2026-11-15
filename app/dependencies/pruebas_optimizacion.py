@@ -55,7 +55,6 @@ def validar_horas(hora_inicio, hora_fin):
                 detail="La hora de inicio no puede ser mayor o igual a la hora de fin."
             )
 
-
 CEDULA_REGEX = re.compile(r"^V-[0-9]{7,8}$")
 
 def validar_cedula_venezolana(cedula: str) -> str:

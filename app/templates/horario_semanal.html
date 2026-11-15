@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+    @page {
+        size: letter landscape; 
+        margin: 1cm;
+    }
+    body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 9pt;
+        color: #333;
+    }
+    .header {
+        text-align: center;
+        border-bottom: 2px solid #1F4E78;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+    }
+    .header h1 {
+        margin: 0;
+        font-size: 14pt;
+        color: #1F4E78;
+    }
+    .header p {
+        margin: 2px 0;
+        font-size: 9pt;
+        color: #555;
+    }
+    .info-docente {
+        width: 100%;
+        margin-bottom: 12px;
+        background-color: #f4f7fa;
+        border: 1px solid #d0d7de;
+        padding: 6px;
+    }
+    .info-docente td {
+        padding: 3px 8px;
+        font-size: 9pt;
+    }
+    table.horario {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+    table.horario th {
+        background-color: #1F4E78;
+        color: #ffffff;
+        padding: 6px;
+        font-size: 9pt;
+        border: 1px solid #1F4E78;
+        text-align: center;
+    }
+    table.horario td {
+        border: 1px solid #cbd5e1;
+        padding: 5px;
+        vertical-align: top;
+        height: 45px;
+    }
+    .col-hora {
+        width: 11%;
+        background-color: #f8fafc;
+        font-weight: bold;
+        text-align: center;
+        vertical-align: middle !important;
+        color: #1e293b;
+    }
+    .bloque-clase {
+        background-color: #e0f2fe;
+        border-left: 3px solid #0284c7;
+        padding: 4px;
+        margin-bottom: 4px;
+    }
+    .bloque-asesoria {
+        background-color: #fef3c7;
+        border-left: 3px solid #d97706;
+        padding: 4px;
+        margin-bottom: 4px;
+    }
+    .bloque-preparacion {
+        background-color: #dcfce7;
+        border-left: 3px solid #16a34a;
+        padding: 4px;
+        margin-bottom: 4px;
+    }
+    .materia-titulo {
+        font-weight: bold;
+        font-size: 8.5pt;
+        color: #0f172a;
+    }
+    .detalle-texto {
+        font-size: 7.5pt;
+        color: #334155;
+        margin-top: 2px;
+    }
+    .footer {
+        margin-top: 10px;
+        font-size: 7.5pt;
+        color: #64748b;
+        text-align: right;
+    }
+</style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>HORARIO ACADÉMICO SEMANAL</h1>
+        <p>Período Académico: <strong>{{ periodo }}</strong></p>
+    </div>
+
+    <table class="info-docente">
+        <tr>
+            <td><strong>Docente:</strong> {{ docente }}</td>
+            <td><strong>Cédula:</strong> {{ cedula }}</td>
+            <td><strong>Contrato:</strong> {{ contrato }}</td>
+        </tr>
+    </table>
+
+    <table class="horario">
+        <thead>
+            <tr>
+                <th class="col-hora">Horario</th>
+                {% for dia in dias %}
+                    <th>{{ dia }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for bloque, fila in matriz.items() %}
+            <tr>
+                <td class="col-hora">{{ bloque }}</td>
+                {% for dia in dias %}
+                    <td>
+                        {% for item in fila[dia] %}
+                            <div class="{% if item.tipo_actividad == 'Asesoría' %}bloque-asesoria{% elif item.tipo_actividad == 'Preparación' %}bloque-preparacion{% else %}bloque-clase{% endif %}">
+                                <div class="materia-titulo">{{ item.cod_materia }} - {{ item.materia }}</div>
+                                <div class="detalle-texto">
+                                    <strong>PNF:</strong> {{ item.cod_programa }} ({{ item.uc }} UC)<br>
+                                    <strong>Lugar:</strong> {{ item.nombre_centro }} - {{ item.espacio_fisico }}<br>
+                                    <strong>Actividad:</strong> {{ item.tipo_actividad }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        Leyenda: Azul = Carga Académica | Ámbar = Asesoría | Verde = Preparación
+    </div>
+
+</body>
+</html>

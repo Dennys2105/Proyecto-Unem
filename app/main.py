@@ -18,6 +18,7 @@ from app.router.estudiante_router import router as estudiante_router
 from app.router.malla_curic_router import router as malla_router
 from app.router.asig_carga_horaria_router import router as asig_router
 from app.router.analytics import router as analytics_router
+from app.router.analytics_rempl import router as analytics_routerP
 from app.router.notas_router import router as notas_router
 from app.router.permisos_router import router as permisos_router
 from app.router.exels_pdfs_router import router as exportar
@@ -62,7 +63,7 @@ app.include_router(seccion_router)
 app.include_router(estudiante_router)
 app.include_router(malla_router)
 app.include_router(asig_router)
-app.include_router(analytics_router)
+app.include_router(analytics_routerP)
 app.include_router(notas_router)
 app.include_router(permisos_router)
 app.include_router(exportar)

@@ -45,7 +45,6 @@ def actualizar_parcial_espacio(esp_id: int, dato_in: EspacioFisicoUpdate, sessio
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aula no encontrada")
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
-
 # --- DELETE LOGICO ---
 @router.delete("/{espacio_id}", status_code=status.HTTP_200_OK)
 def eliminar_espacio(esp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('infraestrutura','BOR','TODO'))):
