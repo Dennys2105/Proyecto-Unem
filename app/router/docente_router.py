@@ -43,14 +43,15 @@ def leer_docente_id(docente_id: int, session: Session = Depends(get_session), us
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{docente_id}", response_model=DocenteResponse)
 def actualizar_parcial_docente(
-    docente_id: int,
-    dato_in: DocenteUpdate,
-    session: Session = Depends(get_session),
+    docente_id: int, 
+    dato_in: DocenteUpdate, 
+    session: Session = Depends(get_session), 
     usuario_actual: dict = Depends(verificar_permiso('docentes', 'ACT', 'LIM'))
 ):
+    # ✅ Aquí se pasa 'docente_id', no 'id'
     db_dato = service.obtener_dato_por_id(docente_id, session)
     if not db_dato:
-        raise HTTPException(status_code=404, detail="Docente no encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Docente no encontrado")
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 

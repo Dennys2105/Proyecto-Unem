@@ -56,7 +56,7 @@ type SortKey = 'id_doc' | 'cedula';
 type SortDir = 'asc' | 'desc';
 
 export const DocentesPage = () => {
-  const { docentes, isLoading, createDocente, updateDocente, isCreating, isUpdating } = useDocentes();
+  const { docentes, isLoading, createDocente, updateDocente, isCreating, isUpdating, refetch } = useDocentes();
   const { municipios } = useMunicipios();
 
   const listaMunicipios: any[] = Array.isArray(municipios) ? municipios : [];
@@ -158,10 +158,17 @@ export const DocentesPage = () => {
     const actual = (doc as any).estatus ?? 'A';
     const nuevoEstatus = actual === 'A' ? 'I' : 'A';
     const accion = nuevoEstatus === 'A' ? 'reincorporado' : 'retirado';
+
     try {
-      await updateDocente({ id: doc.id_doc, data: { estatus: nuevoEstatus } as DocenteUpdate });
+      await updateDocente({
+        id: doc.id_doc,
+        data: { estatus: nuevoEstatus } as DocenteUpdate,
+      });
+      // ✅ Fuerza a React Query a traer los datos frescos
+      await refetch();
       toast.success(`${doc.nombre} ${doc.apellido} ${accion} correctamente`, {
-        icon: nuevoEstatus === 'A' ? '✅' : '📋', duration: 3000,
+        icon: nuevoEstatus === 'A' ? '✅' : '📋',
+        duration: 3000,
       });
     } catch {
       toast.error(`No se pudo ${accion} al docente`);

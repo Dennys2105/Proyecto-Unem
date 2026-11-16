@@ -5,7 +5,12 @@ import type { DocenteCreate, DocenteUpdate } from '../types/models';
 export const useDocentes = () => {
   const queryClient = useQueryClient();
 
-  const { data: docentes, isLoading } = useQuery({
+  // ✅ 1. Extraemos 'refetch' aquí para poder forzar la actualización si es necesario
+  const { 
+    data: docentes, 
+    isLoading, 
+    refetch 
+  } = useQuery({
     queryKey: ['docentes'],
     queryFn: docenteService.getAll,
   });
@@ -32,12 +37,14 @@ export const useDocentes = () => {
     },
   });
 
+  // ✅ 2. Devolvemos 'refetch' y usamos 'mutateAsync' para que el 'await' funcione
   return {
     docentes,
     isLoading,
-    createDocente: createMutation.mutate,
-    updateDocente: updateMutation.mutate,
-    deleteDocente: deleteMutation.mutate,
+    refetch, // <-- ESTO ES LO QUE FALTABA
+    createDocente: createMutation.mutateAsync,
+    updateDocente: updateMutation.mutateAsync,
+    deleteDocente: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
