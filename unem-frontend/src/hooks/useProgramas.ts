@@ -5,7 +5,7 @@ import type { ProgramaCreate, ProgramaUpdate } from '../types/models';
 export const useProgramas = () => {
   const queryClient = useQueryClient();
 
-  const { data: programas, isLoading } = useQuery({
+  const { data: programas, isLoading, refetch } = useQuery({
     queryKey: ['programas'],
     queryFn: programaService.getAll,
   });
@@ -35,9 +35,10 @@ export const useProgramas = () => {
   return {
     programas,
     isLoading,
-    createPrograma: createMutation.mutate,
-    updatePrograma: updateMutation.mutate,
-    deletePrograma: deleteMutation.mutate,
+    refetch,
+    createPrograma: createMutation.mutateAsync,   
+    updatePrograma: updateMutation.mutateAsync,   
+    deletePrograma: deleteMutation.mutateAsync,   
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

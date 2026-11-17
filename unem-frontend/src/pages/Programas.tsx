@@ -1,243 +1,341 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useProgramas } from '../hooks/useProgramas';
-import { DataTable } from '../components/DataTable';
-import { FormField } from '../components/FormField';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Programa, ProgramaCreate, ProgramaUpdate } from '../types/models';
+import {
+  BookOpen, Search, Plus, X, AlertCircle, Info,
+  Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+
+interface ColumnDef {
+  key: string;
+  label: string;
+  render?: (value: any, row: Programa) => ReactNode;
+  sortable?: boolean;
+}
 
 const programaSchema = z.object({
-  codigo: z.string().min(1, 'El código es obligatorio').max(10, 'Máximo 10 caracteres'),
-  nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres').max(100, 'Máximo 100 caracteres'),
-  tipo_sistema: z.enum(['Trimestral', 'Semestral'], {
-    message: 'Seleccione un tipo de sistema válido',
-  }),
-  total_trayectos: z.string().optional(),
-  total_uc: z.string().optional(),
+  codigo: z.string()
+    .min(2, 'Mínimo 2 caracteres')
+    .max(10, 'Máximo 10 caracteres')
+    .regex(/^[A-Z0-9\-]+$/, 'Solo letras mayúsculas, números y guiones'),
+  nombre: z.string()
+    .min(3, 'Mínimo 3 caracteres')
+    .max(100, 'Máximo 100 caracteres')
+    .regex(/^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s\-]+$/, 'Caracteres no permitidos'),
+  tipo_sistema: z.enum(['Trimestral', 'Semestral'], { message: 'Seleccione un tipo válido' }),
+  total_trayectos: z.string()
+    .regex(/^[1-9][0-9]?$/, 'Debe ser un número entre 1 y 99')
+    .optional()
+    .or(z.literal('')),
+  total_uc: z.string()
+    .regex(/^[1-9][0-9]?$/, 'Debe ser un número entre 1 y 99')
+    .optional()
+    .or(z.literal('')),
 });
 
 type ProgramaFormData = z.infer<typeof programaSchema>;
+type SortKey = 'id_pro' | 'codigo' | 'nombre';
+type SortDir = 'asc' | 'desc';
 
 export const Programas = () => {
-  const { programas, isLoading, createPrograma, updatePrograma, deletePrograma, isCreating, isUpdating } = useProgramas();
+  const { programas, isLoading, createPrograma, updatePrograma, isCreating, isUpdating, refetch } = useProgramas();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPrograma, setEditingPrograma] = useState<Programa | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<Programa | null>(null);
+  const [filtroTipo, setFiltroTipo] = useState<string>('');
+  const [filtroEstado, setFiltroEstado] = useState<string>('A');
+  const [busqueda, setBusqueda] = useState<string>('');
+  const [sortKey, setSortKey] = useState<SortKey>('id_pro');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<ProgramaFormData>({
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<ProgramaFormData>({
     resolver: zodResolver(programaSchema),
+    mode: 'onChange',
+    defaultValues: { tipo_sistema: 'Trimestral' },
   });
+
+  const codigoWatch = watch('codigo');
+
+  useEffect(() => {
+    if (codigoWatch) {
+      setValue('codigo', codigoWatch.toUpperCase(), { shouldValidate: true });
+    }
+  }, [codigoWatch, setValue]);
 
   const openCreateModal = () => {
     setEditingPrograma(null);
-    reset({ 
-      codigo: '', 
-      nombre: '', 
-      tipo_sistema: 'Trimestral', 
-      total_trayectos: '', 
-      total_uc: '' 
-    });
+    reset({ codigo: '', nombre: '', tipo_sistema: 'Trimestral', total_trayectos: '', total_uc: '' });
     setIsModalOpen(true);
   };
 
-  const openEditModal = (programa: Programa) => {
-    setEditingPrograma(programa);
+  const openEditModal = (prog: Programa) => {
+    setEditingPrograma(prog);
     reset({
-      codigo: programa.codigo,
-      nombre: programa.nombre,
-      tipo_sistema: programa.tipo_sistema,
-      total_trayectos: programa.total_trayectos?.toString() || '',
-      total_uc: programa.total_uc?.toString() || '',
+      codigo: prog.codigo ?? '',
+      nombre: prog.nombre ?? '',
+      tipo_sistema: prog.tipo_sistema === 'Semestral' ? 'Semestral' : 'Trimestral',
+      total_trayectos: prog.total_trayectos?.toString() ?? '',
+      total_uc: prog.total_uc?.toString() ?? '',
     });
     setIsModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingPrograma(null);
-    reset();
-  };
+  const closeModal = () => { setIsModalOpen(false); setEditingPrograma(null); reset(); };
 
-  const onSubmit = (data: ProgramaFormData) => {
-    const payload: any = {
-      codigo: data.codigo,
-      nombre: data.nombre,
+  const onSubmit = async (data: ProgramaFormData) => {
+    const payload = {
+      codigo: data.codigo.trim().toUpperCase(),
+      nombre: data.nombre.trim().toUpperCase(),
       tipo_sistema: data.tipo_sistema,
-      total_trayectos: data.total_trayectos ? parseInt(data.total_trayectos) : undefined,
-      total_uc: data.total_uc ? parseInt(data.total_uc) : undefined,
+      total_trayectos: data.total_trayectos ? parseInt(data.total_trayectos, 10) : undefined,
+      total_uc: data.total_uc ? parseInt(data.total_uc, 10) : undefined,
     };
 
-    // Workaround para el bug del backend: enviar fecha actual si es creación
-    if (!editingPrograma) {
-      payload.actualizar = new Date().toISOString();
-    }
-    
-    if (editingPrograma) {
-      updatePrograma({ id: editingPrograma.id_pro, data: payload as ProgramaUpdate });
-    } else {
-      createPrograma(payload as ProgramaCreate);
-    }
-    closeModal();
-  };
-
-  const handleDelete = (programa: Programa) => {
-    setDeleteConfirm(programa);
-  };
-
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      deletePrograma(deleteConfirm.id_pro);
-      setDeleteConfirm(null);
+    try {
+      if (editingPrograma) {
+        await updatePrograma({ id: editingPrograma.id_pro, data: payload as ProgramaUpdate });
+        toast.success(`Programa "${data.nombre}" actualizado correctamente`);
+      } else {
+        await createPrograma(payload as ProgramaCreate);
+        toast.success(`Programa "${data.nombre}" registrado exitosamente`);
+      }
+      closeModal();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Error al guardar el programa');
     }
   };
 
-  const columns = [
-    { key: 'id_pro', label: 'ID' },
-    { key: 'codigo', label: 'Código' },
-    { key: 'nombre', label: 'Nombre' },
+  // ✅ Toggle Activar/Desactivar (lógica de borrado lógico)
+  const toggleActivacion = async (prog: Programa) => {
+    const actual = prog.estatus ?? 'A';
+    const nuevoEstatus = actual === 'A' ? 'I' : 'A';
+    const accion = nuevoEstatus === 'A' ? 'activado' : 'desactivado';
+    try {
+      await updatePrograma({ id: prog.id_pro, data: { estatus: nuevoEstatus } as ProgramaUpdate });
+      await refetch();
+      toast.success(`"${prog.nombre}" ${accion} correctamente`, {
+        icon: nuevoEstatus === 'A' ? '✅' : '⚠️',
+      });
+    } catch {
+      toast.error(`No se pudo ${accion} el programa`);
+    }
+  };
+
+  const programasFiltrados = useMemo(() => {
+    if (!programas) return [];
+    const filtrados = programas.filter(p => {
+      const estatus = p.estatus ?? 'A';
+      if (filtroTipo && p.tipo_sistema !== filtroTipo) return false;
+      if (filtroEstado && estatus !== filtroEstado) return false;
+      if (busqueda) {
+        const texto = `${p.codigo} ${p.nombre}`.toLowerCase();
+        if (!texto.includes(busqueda.toLowerCase())) return false;
+      }
+      return true;
+    });
+    return [...filtrados].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'id_pro') cmp = (a.id_pro ?? 0) - (b.id_pro ?? 0);
+      else if (sortKey === 'codigo') cmp = (a.codigo ?? '').localeCompare(b.codigo ?? '');
+      else cmp = (a.nombre ?? '').localeCompare(b.nombre ?? '');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [programas, filtroTipo, filtroEstado, busqueda, sortKey, sortDir]);
+
+  const SortIcon = ({ colKey }: { colKey: SortKey }) => {
+    if (sortKey !== colKey) return <ArrowUpDown size={12} className="text-gray-400" />;
+    return sortDir === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />;
+  };
+
+  const columns: ColumnDef[] = [
+    { key: 'id_pro', label: 'ID', sortable: true },
+    { key: 'codigo', label: 'Código', sortable: true, render: (v: any) => <span className="font-mono font-semibold text-gray-900 text-sm">{v}</span> },
+    { key: 'nombre', label: 'Nombre', sortable: true, render: (v: any) => <span className="text-sm font-medium text-gray-900">{v}</span> },
     {
-      key: 'tipo_sistema',
-      label: 'Tipo Sistema',
-      render: (value: string) => (
-        <span className={`px-2 py-1 rounded text-xs font-medium ${value === 'Trimestral' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
-          {value}
-        </span>
+      key: 'tipo_sistema', label: 'Tipo',
+      render: (v: any) => (
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+          v === 'Trimestral' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-purple-100 text-purple-700 border border-purple-200'
+        }`}>{v}</span>
       ),
     },
-    { key: 'total_trayectos', label: 'Trayectos' },
-    { key: 'total_uc', label: 'UC' },
+    { key: 'total_trayectos', label: 'Trayectos', render: (v: any) => <span className="text-sm text-gray-700">{v ?? '—'}</span> },
+    { key: 'total_uc', label: 'UC', render: (v: any) => <span className="text-sm text-gray-700">{v ?? '—'}</span> },
     {
-      key: 'estatus',
-      label: 'Estado',
-      render: (value: string) => (
-        <span className={`px-2 py-1 rounded text-xs font-medium ${value === 'A' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-          {value === 'A' ? 'Activo' : 'Inactivo'}
-        </span>
-      ),
+      key: 'estatus', label: 'Estado',
+      render: (value: any) => {
+        const est = value ?? 'A';
+        return (
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+            est === 'A' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
+          }`}>
+            {est === 'A' ? <><UserCheck size={12} /> Activo</> : <><UserX size={12} /> Desactivado</>}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'acciones', label: 'Acciones',
+      render: (_: any, row: Programa) => {
+        const esActivo = (row.estatus ?? 'A') === 'A';
+        return (
+          <div className="flex gap-2">
+            <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+              <Edit size={14} /> Editar
+            </button>
+            <button onClick={() => toggleActivacion(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+              esActivo ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+            }`}>
+              {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
+              {esActivo ? 'Desactivar' : 'Activar'}
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Programas</h1>
-        <button
-          onClick={openCreateModal}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Nuevo Programa
-        </button>
+    <div className="space-y-6">
+      <div className="flex items-start gap-4">
+        <div className="bg-indigo-100 p-3 rounded-xl"><BookOpen className="text-indigo-600" size={32} /></div>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-gray-900">Programas Académicos</h1>
+          <p className="text-gray-600 mt-1 max-w-3xl">
+            Gestión de Programas Nacionales de Formación (PNF) y licenciaturas. 
+            Los programas desactivados no aparecen en listados de secciones pero pueden reactivarse.
+          </p>
+        </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={programas || []}
-        isLoading={isLoading}
-        onEdit={openEditModal}
-        onDelete={handleDelete}
-        rowKey={(row) => row.id_pro}
-      />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input type="text" placeholder="Buscar por código o nombre..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">Todos los tipos</option>
+            <option value="Trimestral">Trimestral</option>
+            <option value="Semestral">Semestral</option>
+          </select>
+          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="A">Solo activos</option>
+            <option value="I">Solo desactivados</option>
+            <option value="">Todos los estados</option>
+          </select>
+          <button onClick={openCreateModal} className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap">
+            <Plus size={16} /> Nuevo Programa
+          </button>
+        </div>
+      </div>
 
-      {/* Modal Crear/Editar */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {isLoading ? (
+          <div className="p-12 text-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div><p className="text-gray-500 mt-4">Cargando programas...</p></div>
+        ) : programasFiltrados.length === 0 ? (
+          <div className="p-12 text-center"><BookOpen className="mx-auto text-gray-300 mb-3" size={48} /><p className="text-gray-500 font-medium">No se encontraron programas</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>{columns.map(col => (
+                  <th key={col.key} className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">
+                    {col.sortable ? (
+                      <button onClick={() => toggleSort(col.key as SortKey)} className="inline-flex items-center gap-1 hover:text-indigo-700 transition uppercase">
+                        {col.label}<SortIcon colKey={col.key as SortKey} />
+                      </button>
+                    ) : col.label}
+                  </th>
+                ))}</tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {programasFiltrados.map(prog => (
+                  <tr key={prog.id_pro} className="hover:bg-gray-50 transition">
+                    {columns.map(col => (
+                      <td key={col.key} className="px-4 py-3 text-sm text-gray-700">
+                        {col.render ? col.render((prog as any)[col.key], prog) : (prog as any)[col.key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-gray-500 text-center">
+        Mostrando {programasFiltrados.length} de {programas?.length || 0} programas registrados
+        {' · '}Ordenado por <span className="font-semibold">{sortKey === 'id_pro' ? 'ID' : sortKey === 'codigo' ? 'Código' : 'Nombre'}</span> ({sortDir === 'asc' ? 'ascendente' : 'descendente'})
+      </p>
+
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {editingPrograma ? 'Editar Programa' : 'Nuevo Programa'}
-            </h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                label="Código"
-                name="codigo"
-                register={register}
-                errors={errors}
-                placeholder="Ej: INF-001"
-              />
-              <FormField
-                label="Nombre"
-                name="nombre"
-                register={register}
-                errors={errors}
-                placeholder="Nombre del programa"
-              />
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Tipo de Sistema</label>
-                <select
-                  {...register('tipo_sistema')}
-                  className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="Trimestral">Trimestral</option>
-                  <option value="Semestral">Semestral</option>
-                </select>
-                {errors.tipo_sistema && (
-                  <p className="text-sm text-red-600">{errors.tipo_sistema.message}</p>
-                )}
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">{editingPrograma ? 'Editar Programa' : 'Nuevo Programa'}</h2>
+              <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition"><X size={24} /></button>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+              <div className="flex gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                <Info size={18} className="shrink-0 mt-0.5" />
+                <p>El código debe ser único, en mayúsculas y sin espacios (Ej: <strong>LPRI</strong>, <strong>LESP</strong>).</p>
               </div>
-              <FormField
-                label="Total Trayectos"
-                name="total_trayectos"
-                type="text"
-                register={register}
-                errors={errors}
-                placeholder="Ej: 4"
-              />
-              <FormField
-                label="Total UC"
-                name="total_uc"
-                type="text"
-                register={register}
-                errors={errors}
-                placeholder="Ej: 20"
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isCreating || isUpdating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar'}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Código *</label>
+                  <input type="text" {...register('codigo')} placeholder="Ej: LPRI" maxLength={10} className={`block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 font-mono uppercase ${errors.codigo ? 'border-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`} />
+                  {errors.codigo && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.codigo.message}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Tipo de Sistema *</label>
+                  <select {...register('tipo_sistema')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="Trimestral">Trimestral</option>
+                    <option value="Semestral">Semestral</option>
+                  </select>
+                  {errors.tipo_sistema && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.tipo_sistema.message}</p>}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Nombre del Programa *</label>
+                <input type="text" {...register('nombre')} placeholder="Ej: PNF en Educación Primaria" className={`block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.nombre ? 'border-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`} />
+                {errors.nombre && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.nombre.message}</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Total Trayectos</label>
+                  <input type="text" inputMode="numeric" {...register('total_trayectos')} placeholder="Ej: 4" maxLength={2} className={`block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 font-mono ${errors.total_trayectos ? 'border-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`} />
+                  {errors.total_trayectos && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.total_trayectos.message}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Total Unidades Crédito (UC)</label>
+                  <input type="text" inputMode="numeric" {...register('total_uc')} placeholder="Ej: 200" maxLength={3} className={`block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 font-mono ${errors.total_uc ? 'border-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`} />
+                  {errors.total_uc && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.total_uc.message}</p>}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button type="button" onClick={closeModal} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancelar</button>
+                <button type="submit" disabled={isCreating || isUpdating} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm font-medium flex items-center gap-2">
+                  {isCreating || isUpdating ? 'Guardando...' : 'Guardar Programa'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Confirmar Eliminación */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-4 text-red-600">Confirmar Eliminación</h2>
-            <p className="text-gray-700 mb-6">
-              ¿Está seguro de eliminar el programa <strong>{deleteConfirm.nombre}</strong>?
-            </p>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Eliminar
-              </button>
-            </div>
           </div>
         </div>
       )}

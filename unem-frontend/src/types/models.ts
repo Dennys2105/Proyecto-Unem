@@ -31,9 +31,9 @@ export interface Programa {
   tipo_sistema: 'Trimestral' | 'Semestral';
   total_trayectos: number | null;
   total_uc: number | null;
+  estatus: string; 
   creado: string;
   actualizar: string;
-  estatus: string;
 }
 
 export interface ProgramaCreate {
@@ -42,13 +42,15 @@ export interface ProgramaCreate {
   tipo_sistema: 'Trimestral' | 'Semestral';
   total_trayectos?: number;
   total_uc?: number;
-  actualizar?: string;
 }
 
 export interface ProgramaUpdate {
   codigo?: string;
   nombre?: string;
   tipo_sistema?: 'Trimestral' | 'Semestral';
+  total_trayectos?: number;
+  total_uc?: number;
+  estatus?: string; 
 }
 
 // Docentes

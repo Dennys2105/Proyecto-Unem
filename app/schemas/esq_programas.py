@@ -1,7 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
-from sqlmodel import Field
 
 class TipoSistemaEnum(str, Enum):
     TRIMESTRAL = "Trimestral"
@@ -13,20 +12,25 @@ class BaseProgramas(BaseModel):
     tipo_sistema: TipoSistemaEnum
     total_trayectos: int | None = None
     total_uc: int | None = None
-    actualizar: datetime | None = None
 
 class ProgramasCreate(BaseProgramas):
     pass
 
-class ProgramasUpdate(BaseProgramas):
-    codigo: str | None = Field(..., max_length=10, description="El código no puede superar los 10 caracteres")
+class ProgramasRemplace(BaseProgramas):
+    pass
+
+class ProgramasUpdate(BaseModel):
+    codigo: str | None = Field(None, max_length=10, description="El código no puede superar los 10 caracteres")
     nombre: str | None = None
     tipo_sistema: TipoSistemaEnum | None = None
+    total_trayectos: int | None = None
+    total_uc: int | None = None
+    estatus: str | None = None  
 
 class ProgramasResposive(BaseProgramas):
     id_pro: int
     creado: datetime
     estatus: str
 
-class ProgramasRemplace(BaseProgramas):
-    pass
+    class Config:
+        from_attributes = True
