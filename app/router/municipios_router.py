@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.models.unem_db_models import Municipio
 from app.schemas.esq_municipios import MunicipiosCreate,MunicipiosUpdate, MunicipiosResposive,MunicipiosRemplace
 import app.service.municipios_service as service

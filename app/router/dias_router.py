@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session, select  # ✅ Aquí se agrega 'select'
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.models.unem_db_models import DiaLaboral
 from app.schemas.esq_dias_laborales import DiasCreate, DiasUpdate, DiasResposive, DiasRemplace
 import app.service.dias_service as service

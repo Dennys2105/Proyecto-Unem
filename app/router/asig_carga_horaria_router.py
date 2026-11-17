@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session, text
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaReplace,AsigCargaHorariaResponse,AsigCargaHorariaUpdate
 import app.service.asig_carga_hor_service as service
 from app.dependencies.auth_deps import recurso_propietario, verificar_permiso

@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from typing import Type,Union,Annotated,Optional
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 import re
 
 def validar_unicidad(modelo_db: Type, campos: Union[str, list[str]], nombre_id: str = "id"):

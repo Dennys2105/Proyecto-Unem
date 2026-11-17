@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.dependencies.auth_deps import requerir_rol
 from app.schemas.esq_disp_docente import DisponibilidadDocenteCreate,DisponibilidadDocenteReplace,DisponibilidadDocenteResponse,DisponibilidadDocenteUpdate
 import app.service.disp_docente_service as service

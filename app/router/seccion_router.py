@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session, select
 from app.models.unem_db_models import Seccion
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_seccion import SeccionCreate,SeccionReplace,SeccionResponse,SeccionUpdate
 import app.service.seccion_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad

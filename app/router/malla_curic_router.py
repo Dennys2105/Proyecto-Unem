@@ -3,7 +3,7 @@ from sqlmodel import Session, text
 from typing import Optional, List
 from pydantic import BaseModel
 from app.dependencies.auth_deps import verificar_permiso
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 
 router = APIRouter(prefix="/mallas", tags=["Malla Curricular"])
 

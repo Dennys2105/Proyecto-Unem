@@ -13,7 +13,7 @@ from xhtml2pdf import pisa
 from datetime import datetime
 
 
-from app.config.db_conection import get_session 
+from app.config.db_conection import get_session
 from app.dependencies.auth_deps import verificar_permiso
 
 

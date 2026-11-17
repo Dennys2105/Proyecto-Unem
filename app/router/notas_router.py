@@ -3,7 +3,7 @@ from sqlmodel import Session
 from typing import List, Optional, Any
 from app.models.unem_db_models import Nota
 from app.dependencies.auth_deps import verificar_permiso
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_notas import (
     NotasCreate, NotasResponcive, NotasUpdate,
     ActaCreate, ResumenActa, TiposEvaluacion,

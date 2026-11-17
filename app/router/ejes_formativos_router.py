@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.models.unem_db_models import EjeFormativo
 from app.schemas.esq_eje_formativo import EjeCreate,EjeRemplace,EjeResposive,EjeUpdate
 import app.service.ejes_formativos_service as service

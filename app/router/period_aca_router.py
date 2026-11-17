@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session, select, update
 from app.models.unem_db_models import PeriodoAcademico
-from app.config.db_conection import get_session
+from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_periodos_aca import PeriodoCreate, PeriodoUpdate, PeriodoResponse
 import app.service.period_aca_service as service
 from app.dependencies.auth_deps import verificar_permiso
