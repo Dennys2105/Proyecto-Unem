@@ -1,5 +1,8 @@
 import api from '../lib/axios';
 
+/* ============================================================
+   MÉTRICAS OPERATIVAS
+   ============================================================ */
 export interface ResumenEstadistico {
   total_docentes_activos: number;
   total_estudiantes_activos: number;
@@ -63,6 +66,65 @@ export interface CoberturaNotas {
   porcentaje_cobertura: number;
 }
 
+/* ============================================================
+   RENDIMIENTO ACADÉMICO
+   ============================================================ */
+export interface ResumenAcademico {
+  total_evaluaciones: number;
+  estudiantes_evaluados: number;
+  promedio_general: number;
+  desviacion_estandar: number;
+  nota_minima: number;
+  nota_maxima: number;
+  aprobados: number;
+  reprobados: number;
+  porcentaje_aprobacion: number;
+}
+
+export interface RangoNota {
+  rango: string;
+  cantidad: number;
+  color: string;
+}
+
+export interface CoberturaAcademica {
+  estudiantes_activos: number;
+  estudiantes_evaluados: number;
+  notas_registradas: number;
+  porcentaje_cobertura: number;
+}
+
+export interface DesempenoPrograma {
+  codigo: string;
+  nombre: string;
+  evaluaciones: number;
+  estudiantes: number;
+  promedio: number;
+  aprobados: number;
+  porcentaje_aprobacion: number;
+}
+
+export interface MateriaRiesgo {
+  cod_programa: string;
+  materia: string;
+  trayecto: number;
+  periodo: number;
+  periodo_academico: string;
+  evaluados: number;
+  promedio: number;
+  aprobados: number;
+  reprobados: number;
+  porcentaje_aprobacion: number;
+}
+
+export interface RendimientoAcademicoData {
+  resumen: ResumenAcademico;
+  distribucion: RangoNota[];
+  cobertura: CoberturaAcademica;
+  por_programa: DesempenoPrograma[];
+  materias_riesgo: MateriaRiesgo[];
+}
+
 export const analyticsService = {
   getResumen: async (): Promise<ResumenEstadistico> => {
     const response = await api.get('/analytics/resumen');
@@ -96,6 +158,13 @@ export const analyticsService = {
 
   getCoberturaNotas: async (): Promise<CoberturaNotas> => {
     const response = await api.get('/analytics/cobertura-notas');
+    return response.data;
+  },
+
+  getRendimientoAcademico: async (idPer?: number): Promise<RendimientoAcademicoData> => {
+    const response = await api.get('/analytics/rendimiento-academico', {
+      params: idPer ? { id_per: idPer } : {},
+    });
     return response.data;
   },
 };

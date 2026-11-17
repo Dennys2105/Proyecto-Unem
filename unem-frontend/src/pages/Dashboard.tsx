@@ -4,14 +4,14 @@ import { useAnalytics } from '../hooks/useAnalytics';
 import {
   Users, UserCheck, Calendar, BookOpen, Clock, GraduationCap, DoorOpen,
   BarChart3, PieChart as PieIcon, Building2, Star, RefreshCw,
-  AlertCircle, ClipboardList, TrendingUp, Info
-} from 'lucide-react';
+  AlertCircle, ClipboardList, } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Cell, PieChart, Pie, Legend
 } from 'recharts';
 import toast from 'react-hot-toast';
 import type { CargaPorDia, OcupacionEspacio } from '../services/analyticsService';
+import { RendimientoAcademico } from '../components/RendimientoAcademico';
 
 const COLORES_CONTRATO = ['#2563eb', '#7c3aed', '#059669', '#d97706'];
 
@@ -387,44 +387,7 @@ export const Dashboard = () => {
       </div>
 
       {/* MÓDULO DE NOTAS: ESTADO HONESTO */}
-      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 ${claseAtenuada}`}>
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <TrendingUp className="text-amber-600" size={22} />
-          <h2 className="text-xl font-bold text-gray-900">Rendimiento Académico</h2>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
-            Módulo en desarrollo
-          </span>
-        </div>
-        <p className="text-sm text-gray-500 mb-5">
-          Los indicadores de promedio y aprobación se habilitarán al completar la carga de calificaciones.
-          Actualmente se muestra el avance real de registro.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-          <MiniStat label="Notas registradas" valor={coberturaNotas?.notas_registradas ?? 0} />
-          <MiniStat label="Estudiantes evaluados" valor={`${coberturaNotas?.estudiantes_evaluados ?? 0} / ${coberturaNotas?.estudiantes_activos ?? 0}`} />
-          <MiniStat label="Materias en malla" valor={coberturaNotas?.materias_en_malla ?? 0} />
-        </div>
-
-        <div className="w-full bg-gray-100 rounded-full h-3">
-          <div
-            className="bg-amber-500 h-3 rounded-full transition-all"
-            style={{ width: `${Math.max(coberturaNotas?.porcentaje_cobertura ?? 0, 1)}%` }}
-          />
-        </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Cobertura de evaluación: <b>{coberturaNotas?.porcentaje_cobertura ?? 0}%</b> de los estudiantes activos
-        </p>
-
-        <div className="flex gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 mt-5">
-          <Info size={18} className="shrink-0 mt-0.5" />
-          <p>
-            No se calculan promedios ni porcentajes de aprobación sobre datos incompletos para evitar
-            conclusiones estadísticamente inválidas. La vista <code className="font-mono text-xs">vw_analisis_notas</code> ya
-            está disponible en la base de datos y se conectará al finalizar el módulo.
-          </p>
-        </div>
-      </div>
+      <RendimientoAcademico />
     </div>
   );
 };
@@ -434,12 +397,5 @@ const EmptyState = ({ texto }: { texto: string }): ReactNode => (
   <div className="py-10 text-center">
     <AlertCircle className="mx-auto text-gray-300 mb-2" size={36} />
     <p className="text-gray-500 text-sm">{texto}</p>
-  </div>
-);
-
-const MiniStat = ({ label, valor }: { label: string; valor: number | string }): ReactNode => (
-  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
-    <p className="text-2xl font-bold text-gray-900 mt-1">{valor}</p>
   </div>
 );

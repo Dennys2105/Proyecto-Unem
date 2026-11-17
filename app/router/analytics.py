@@ -394,3 +394,149 @@ def cobertura_notas(
         "materias_en_malla": int(r["materias_en_malla"] or 0),
         "porcentaje_cobertura": round((evaluados / total_est * 100), 2) if total_est > 0 else 0.0,
     }
+
+# ============================================================
+# RENDIMIENTO ACADÉMICO CONSOLIDADO (v4.6)
+# Solo notas OFICIALES: Final o Recuperación (esta prevalece).
+# ============================================================
+
+@router.get("/rendimiento-academico")
+def rendimiento_academico(
+    id_per: Optional[int] = Query(None, description="Filtrar por período académico"),
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+):
+    """
+    KPIs académicos institucionales calculados en el motor de BD.
+    DISTINCT ON garantiza una sola nota oficial por estudiante-materia-período.
+    """
+    filtro = " AND n.id_per = :id_per" if id_per else ""
+    params = {"id_per": id_per} if id_per else {}
+
+    cte = f"""
+        WITH definitivas AS (
+            SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
+                   n.id_est, n.id_malla, n.id_per, n.nota
+            FROM academico.notas n
+            WHERE n.estatus = 'A'
+              AND n.tipo_evaluacion IN ('Final', 'Recuperación')
+              {filtro}
+            ORDER BY n.id_est, n.id_malla, n.id_per,
+                     CASE n.tipo_evaluacion WHEN 'Recuperación' THEN 1 ELSE 2 END
+        )
+    """
+
+    # --- 1. Resumen institucional + distribución por rangos ---
+    row = session.exec(text(cte + """
+        SELECT
+            count(*)                                                   AS total_evaluaciones,
+            count(DISTINCT id_est)                                     AS estudiantes_evaluados,
+            COALESCE(round(avg(nota), 2), 0)                           AS promedio_general,
+            COALESCE(round(stddev(nota), 2), 0)                        AS desviacion_estandar,
+            COALESCE(min(nota), 0)                                     AS nota_minima,
+            COALESCE(max(nota), 0)                                     AS nota_maxima,
+            count(CASE WHEN nota >= 10 THEN 1 END)                     AS aprobados,
+            count(CASE WHEN nota <  10 THEN 1 END)                     AS reprobados,
+            COALESCE(round(count(CASE WHEN nota >= 10 THEN 1 END)::numeric
+                     / NULLIF(count(*), 0) * 100, 2), 0)               AS porcentaje_aprobacion,
+            count(CASE WHEN nota >= 18 THEN 1 END)                     AS r_excelencia,
+            count(CASE WHEN nota >= 15 AND nota < 18 THEN 1 END)       AS r_notable,
+            count(CASE WHEN nota >= 10 AND nota < 15 THEN 1 END)       AS r_aprobado,
+            count(CASE WHEN nota >=  5 AND nota < 10 THEN 1 END)       AS r_reprobado,
+            count(CASE WHEN nota <   5 THEN 1 END)                     AS r_critico
+        FROM definitivas
+    """).params(**params)).mappings().first()
+
+    resumen = {
+        "total_evaluaciones": int(row["total_evaluaciones"] or 0),
+        "estudiantes_evaluados": int(row["estudiantes_evaluados"] or 0),
+        "promedio_general": float(row["promedio_general"] or 0),
+        "desviacion_estandar": float(row["desviacion_estandar"] or 0),
+        "nota_minima": float(row["nota_minima"] or 0),
+        "nota_maxima": float(row["nota_maxima"] or 0),
+        "aprobados": int(row["aprobados"] or 0),
+        "reprobados": int(row["reprobados"] or 0),
+        "porcentaje_aprobacion": float(row["porcentaje_aprobacion"] or 0),
+    }
+
+    distribucion = [
+        {"rango": "Excelencia (18-20)", "cantidad": int(row["r_excelencia"] or 0), "color": "#059669"},
+        {"rango": "Notable (15-17)",    "cantidad": int(row["r_notable"] or 0),    "color": "#2563eb"},
+        {"rango": "Aprobado (10-14)",   "cantidad": int(row["r_aprobado"] or 0),   "color": "#7c3aed"},
+        {"rango": "Reprobado (5-9)",    "cantidad": int(row["r_reprobado"] or 0),  "color": "#d97706"},
+        {"rango": "Crítico (0-4)",      "cantidad": int(row["r_critico"] or 0),    "color": "#dc2626"},
+    ]
+
+    # --- 2. Cobertura de evaluación ---
+    cob = session.exec(text("""
+        SELECT
+            (SELECT count(*) FROM personas.estudiantes WHERE estatus = 'A') AS activos,
+            (SELECT count(*) FROM academico.notas WHERE estatus = 'A')      AS notas_registradas
+    """)).mappings().first()
+    activos = int(cob["activos"] or 0)
+    evaluados = resumen["estudiantes_evaluados"]
+    cobertura = {
+        "estudiantes_activos": activos,
+        "estudiantes_evaluados": evaluados,
+        "notas_registradas": int(cob["notas_registradas"] or 0),
+        "porcentaje_cobertura": round(evaluados / activos * 100, 2) if activos else 0.0,
+    }
+
+    # --- 3. Desempeño por programa ---
+    rows_prog = session.exec(text(cte + """
+        SELECT p.codigo, p.nombre,
+               count(*)                        AS evaluaciones,
+               count(DISTINCT d.id_est)        AS estudiantes,
+               round(avg(d.nota), 2)           AS promedio,
+               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+                     / NULLIF(count(*), 0) * 100, 2)    AS porcentaje_aprobacion
+        FROM definitivas d
+        JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
+        JOIN academico.programas p         ON p.id_pro  = mc.id_pro
+        GROUP BY p.codigo, p.nombre
+        ORDER BY p.codigo
+    """).params(**params)).mappings().all()
+
+    por_programa = [
+        {
+            "codigo": r["codigo"], "nombre": r["nombre"],
+            "evaluaciones": int(r["evaluaciones"]), "estudiantes": int(r["estudiantes"]),
+            "promedio": float(r["promedio"] or 0), "aprobados": int(r["aprobados"]),
+            "porcentaje_aprobacion": float(r["porcentaje_aprobacion"] or 0),
+        } for r in rows_prog
+    ]
+
+    # --- 4. Materias en riesgo académico (menor % de aprobación) ---
+    q_riesgo = """
+        SELECT cod_programa, materia, trayecto, periodo, periodo_academico,
+               total_estudiantes_evaluados, promedio, aprobados, reprobados, porcentaje_aprobacion
+        FROM academico.vw_analisis_notas
+        WHERE reprobados > 0
+    """
+    p_riesgo = {}
+    if id_per:
+        q_riesgo += " AND periodo_academico = (SELECT nombre FROM academico.periodos_academicos WHERE id_per = :id_per)"
+        p_riesgo["id_per"] = id_per
+    q_riesgo += " ORDER BY porcentaje_aprobacion ASC, reprobados DESC LIMIT 6"
+
+    rows_riesgo = session.exec(text(q_riesgo).params(**p_riesgo)).mappings().all()
+    materias_riesgo = [
+        {
+            "cod_programa": r["cod_programa"], "materia": r["materia"],
+            "trayecto": int(r["trayecto"]), "periodo": int(r["periodo"]),
+            "periodo_academico": r["periodo_academico"],
+            "evaluados": int(r["total_estudiantes_evaluados"]),
+            "promedio": float(r["promedio"] or 0),
+            "aprobados": int(r["aprobados"]), "reprobados": int(r["reprobados"]),
+            "porcentaje_aprobacion": float(r["porcentaje_aprobacion"] or 0),
+        } for r in rows_riesgo
+    ]
+
+    return {
+        "resumen": resumen,
+        "distribucion": distribucion,
+        "cobertura": cobertura,
+        "por_programa": por_programa,
+        "materias_riesgo": materias_riesgo,
+    }
