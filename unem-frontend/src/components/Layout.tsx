@@ -1,115 +1,280 @@
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import type { ReactNode, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Building2, BookOpen, Users, UserCheck,
-  Layers, MapPin, LogOut, Menu, X, Book,
-  CalendarDays, Shield, ShieldAlert, Network, ClipboardList,
-  Award
+  LayoutDashboard, MapPin, BookOpen, Layers, CalendarDays, Users, UserCheck,
+  Boxes, DoorOpen, Library, CalendarRange, ShieldCheck, Network, ClipboardList,
+  ShieldAlert, Award, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, Search,
+  ChevronRight, Command, CornerDownLeft, Clock3,
 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import toast from 'react-hot-toast';
 
-// Tipo explícito para evitar conflictos de inferencia
-interface NavItem {
-  path: string;
-  label: string;
-  icon: any;
-  adminOnly?: boolean;
-}
+interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; hint: string }
+interface NavGroup { title: string; items: NavItem[] }
 
-const navItems: NavItem[] = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/municipios', label: 'Municipios', icon: Building2 },
-  { path: '/programas', label: 'Programas', icon: BookOpen },
-  { path: '/ejes', label: 'Ejes Formativos', icon: Book },
-  { path: '/periodos', label: 'Periodos Académicos', icon: CalendarDays },
-  { path: '/docentes', label: 'Docentes', icon: Users },
-  { path: '/estudiantes', label: 'Estudiantes', icon: UserCheck },
-  { path: '/secciones', label: 'Secciones', icon: Layers },
-  { path: '/espacios', label: 'Espacios Físicos', icon: MapPin },
-  { path: '/materias', label: 'Materias', icon: BookOpen },
-  { path: '/dias', label: 'Días Laborales', icon: CalendarDays },
-  { path: '/roles', label: 'Roles', icon: Shield, adminOnly: true },
-  { path: '/malla', label: 'Malla Curricular', icon: Network },
-  { path: '/asignacion-carga', label: 'Asignación de Carga', icon: ClipboardList },
-  { path: '/auditoria', label: 'Auditoría', icon: ShieldAlert, adminOnly: true },
-  { path: '/notas', label: 'Notas', icon: Award },
+const NAV: NavGroup[] = [
+  { title: 'Panel', items: [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: 'Métricas operativas y académicas' },
+  ]},
+  { title: 'Académico', items: [
+    { to: '/programas', label: 'Programas', icon: BookOpen, hint: 'PNF y licenciaturas' },
+    { to: '/ejes', label: 'Ejes Formativos', icon: Layers, hint: 'Ejes transversales del currículo' },
+    { to: '/materias', label: 'Materias', icon: Library, hint: 'Unidades curriculares' },
+    { to: '/malla', label: 'Malla Curricular', icon: Network, hint: 'Pensum por trayecto y período' },
+    { to: '/periodos', label: 'Períodos Académicos', icon: CalendarDays, hint: 'Trimestres y semestres' },
+    { to: '/secciones', label: 'Secciones', icon: Boxes, hint: 'Grupos de clase' },
+  ]},
+  { title: 'Personas', items: [
+    { to: '/docentes', label: 'Docentes', icon: Users, hint: 'Personal y capacidad horaria' },
+    { to: '/estudiantes', label: 'Estudiantes', icon: UserCheck, hint: 'Matrícula estudiantil' },
+  ]},
+  { title: 'Operación', items: [
+    { to: '/asignaciones', label: 'Asignación de Carga', icon: ClipboardList, hint: 'Docente · materia · aula · hora' },
+    { to: '/espacios', label: 'Espacios Físicos', icon: DoorOpen, hint: 'Aulas de Escuela Bustamante' },
+    { to: '/dias', label: 'Días Laborales', icon: CalendarRange, hint: 'Calendario semanal' },
+    { to: '/notas', label: 'Notas', icon: Award, hint: 'Actas de calificaciones' },
+  ]},
+  { title: 'Sistema', items: [
+    { to: '/municipios', label: 'Municipios', icon: MapPin, hint: 'Catálogo del estado Táchira' },
+    { to: '/roles', label: 'Roles', icon: ShieldCheck, hint: 'Perfiles y matriz de permisos' },
+    { to: '/auditoria', label: 'Auditoría', icon: ShieldAlert, hint: 'Bitácora forense de cambios' },
+  ]},
 ];
 
-export const Layout = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { esAdmin } = useAuth();
+const FLAT: NavItem[] = NAV.flatMap((g: NavGroup): NavItem[] => g.items);
 
-  // Filtrar ítems según permisos
-  const navItemsFiltrados = navItems.filter(item => 
-    !item.adminOnly || esAdmin
+const readLS = (k: string, f: string): string => {
+  try { return window.localStorage.getItem(k) ?? f; } catch { return f; }
+};
+const writeLS = (k: string, v: string): void => {
+  try { window.localStorage.setItem(k, v); } catch { /* noop */ }
+};
+
+const Reloj = (): ReactNode => {
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <span className="unem-clock">
+      {now.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+    </span>
   );
+};
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('unem_token');
-    navigate('/login', { replace: true });
+const Palette = ({ onClose }: { onClose: () => void }): ReactNode => {
+  const [q, setQ] = useState<string>('');
+  const [sel, setSel] = useState<number>(0);
+  const nav = useNavigate();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const results: NavItem[] = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return FLAT;
+    return FLAT.filter((i: NavItem) => `${i.label} ${i.hint} ${i.to}`.toLowerCase().includes(t));
+  }, [q]);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { setSel(0); }, [q]);
+
+  const go = useCallback((item: NavItem | undefined): void => {
+    if (!item) return;
+    nav(item.to);
+    onClose();
+    toast.success(item.label, { icon: '→', duration: 1400 });
+  }, [nav, onClose]);
+
+  const onKey = (e: ReactKeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s: number) => Math.min(s + 1, results.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s: number) => Math.max(s - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); go(results[sel]); }
+    else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-white transition-all duration-300 flex flex-col`}>
-        <div className="p-4 flex items-center justify-between">
-          {sidebarOpen && <h1 className="text-xl font-bold">UNEM</h1>}
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-800 rounded">
-            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+    <div className="unem-cmdk-scrim" onClick={onClose} role="presentation">
+      <div className="unem-cmdk" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Buscar módulo">
+        <div className="unem-cmdk-head">
+          <Search size={18} style={{ color: 'var(--tx-3)' }} />
+          <input ref={inputRef} className="unem-cmdk-input"
+            placeholder="Ir a un módulo… (docentes, notas, auditoría)"
+            value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} />
+          <button className="unem-icon-btn" onClick={onClose} aria-label="Cerrar"><X size={16} /></button>
         </div>
-        <nav className="flex-1 px-2 space-y-1">
-          {navItemsFiltrados.map((item) => {
+
+        <div className="unem-cmdk-list unem-scroll">
+          {results.length === 0 ? (
+            <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--tx-3)', fontSize: 13 }}>
+              Sin coincidencias para «{q}»
+            </div>
+          ) : results.map((item: NavItem, i: number) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
             return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center ${sidebarOpen ? 'px-4' : 'justify-center'} py-3 rounded-lg transition-colors ${
-                  isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-slate-800'
-                }`}
-              >
-                <Icon size={20} />
-                {sidebarOpen && <span className="ml-3">{item.label}</span>}
+              <button key={item.to} className="unem-cmdk-item" data-sel={i === sel}
+                onMouseEnter={() => setSel(i)} onClick={() => go(item)}>
+                <span className="unem-cmdk-ico"><Icon size={16} /></span>
+                <span className="unem-cmdk-t"><b>{item.label}</b><span>{item.hint}</span></span>
+                {i === sel && <CornerDownLeft size={14} style={{ color: 'var(--indigo)' }} />}
               </button>
             );
           })}
-        </nav>
-        <div className="p-4 border-t border-slate-800">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center px-4 py-2 text-red-400 hover:bg-slate-800 rounded-lg"
-          >
-            <LogOut size={20} />
-            {sidebarOpen && <span className="ml-3">Cerrar Sesión</span>}
-          </button>
         </div>
-      </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Navbar */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">
-            {navItemsFiltrados.find(item => item.path === location.pathname)?.label || 'Dashboard'}
-          </h2>
-          <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-600">Administrador</span>
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-              A
-            </div>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
-        </main>
+        <div className="unem-cmdk-foot">
+          <span>↑ ↓ navegar</span><span>↵ abrir</span><span>esc cerrar</span>
+          <span style={{ marginLeft: 'auto' }}>{results.length} módulo(s)</span>
+        </div>
       </div>
     </div>
   );
 };
+
+export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
+  const loc = useLocation();
+  const nav = useNavigate();
+
+  const [mini, setMini] = useState<boolean>(() => readLS('unem_sidebar_mini', '0') === '1');
+  const [drawer, setDrawer] = useState<boolean>(false);
+  const [palette, setPalette] = useState<boolean>(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  const current: NavItem | undefined = useMemo(
+    () => FLAT.find((i: NavItem) => loc.pathname.startsWith(i.to)),
+    [loc.pathname]
+  );
+
+  useEffect(() => {
+    setDrawer(false);
+    contentRef.current?.scrollTo({ top: 0 });
+  }, [loc.pathname]);
+
+  useEffect(() => {
+    const lock = drawer || palette;
+    document.body.classList.toggle('unem-locked', lock);
+    return () => document.body.classList.remove('unem-locked');
+  }, [drawer, palette]);
+
+  const toggleMini = useCallback((): void => {
+    setMini((v: boolean) => { writeLS('unem_sidebar_mini', !v ? '1' : '0'); return !v; });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (meta && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((v: boolean) => !v); }
+      else if (meta && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleMini(); }
+      else if (e.key === 'Escape') { setPalette(false); setDrawer(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleMini]);
+
+  const salir = (): void => {
+    try { window.sessionStorage.removeItem('unem_token'); } catch { /* noop */ }
+    toast.success('Sesión cerrada correctamente', { icon: '👋' });
+    nav('/login');
+  };
+
+  return (
+    <>
+      <div className="unem-shell" data-mini={mini} data-drawer={drawer}>
+        <aside className="unem-sidebar" aria-label="Navegación principal">
+          <div className="unem-brand">
+            <span className="unem-mark">U</span>
+            <span className="unem-brand-txt"><b>UNEM</b><span>Táchira</span></span>
+            <button className="unem-icon-btn unem-burger"
+              style={{ marginLeft: 'auto', background: 'rgba(255,255,255,.1)', borderColor: 'rgba(255,255,255,.2)', color: '#fff' }}
+              onClick={() => setDrawer(false)} aria-label="Cerrar menú">
+              <X size={16} />
+            </button>
+          </div>
+
+          <nav className="unem-nav unem-scroll-dark">
+            {NAV.map((g: NavGroup) => (
+              <div className="unem-nav-group" key={g.title}>
+                <div className="unem-nav-label">{mini ? '•••' : g.title}</div>
+                {g.items.map((item: NavItem) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink key={item.to} to={item.to} className="unem-link"
+                      title={mini ? item.label : undefined}
+                      data-active={loc.pathname.startsWith(item.to)}>
+                      <Icon size={17} /><span>{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+
+          <div className="unem-side-foot">
+            <button className="unem-logout" onClick={salir} title="Cerrar sesión">
+              <LogOut size={16} /><span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </aside>
+
+        <div className="unem-main">
+          <header className="unem-topbar">
+            <button className="unem-icon-btn unem-burger" onClick={() => setDrawer(true)} aria-label="Abrir menú">
+              <Menu size={18} />
+            </button>
+            <button className="unem-icon-btn unem-mini-toggle" onClick={toggleMini}
+              title={mini ? 'Expandir menú (Ctrl+B)' : 'Colapsar menú (Ctrl+B)'} aria-label="Alternar ancho del menú">
+              {mini ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+            </button>
+
+            <div className="unem-crumb">
+              <span className="unem-crumb-i">UNEM</span>
+              <ChevronRight size={13} style={{ color: 'var(--tx-3)', flex: '0 0 auto' }} />
+              <span className="unem-crumb-c">{current?.label ?? 'Panel'}</span>
+            </div>
+
+            <button className="unem-search" onClick={() => setPalette(true)} aria-label="Buscar módulo">
+              <Search size={14} />
+              <em style={{ fontStyle: 'normal' }}>Buscar módulo…</em>
+              <span className="unem-kbd">⌘K</span>
+            </button>
+
+            <span className="unem-live">
+              <span className="unem-pulse"><i /><b /></span> En vivo
+            </span>
+
+            <Reloj />
+
+            <div className="unem-user">
+              <span className="unem-avatar">A</span>
+              <span className="unem-user-txt"><b>Administrador</b><span>Admin</span></span>
+            </div>
+          </header>
+
+          <main className="unem-content unem-scroll" ref={contentRef}>
+            {children ?? <Outlet />}
+          </main>
+
+          <footer className="unem-statusbar">
+            <span className="unem-dot" />
+            <span>API conectada</span><span>·</span>
+            <span>PostgreSQL <b>18.4</b></span><span>·</span>
+            <span><b>5</b> esquemas · <b>20</b> tablas</span>
+            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Command size={11} /> K para navegar
+            </span>
+            <span>·</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock3 size={11} /> v5.0</span>
+          </footer>
+        </div>
+      </div>
+
+      {drawer && <button className="unem-scrim" onClick={() => setDrawer(false)} aria-label="Cerrar menú" />}
+      {palette && <Palette onClose={() => setPalette(false)} />}
+    </>
+  );
+};
+
+export const AppShell = Layout;
+export const MainLayout = Layout;
+export const DashboardLayout = Layout;
+export const LayoutPage = Layout;
+export default Layout;
