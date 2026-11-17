@@ -1,54 +1,39 @@
-from pydantic import BaseModel, model_validator
-from datetime import date, datetime
+from pydantic import BaseModel, Field
+from datetime import datetime, date
+from typing import Optional
 from enum import Enum
 
-class TipoPeriodoEnum(str, Enum):
-    TRIMESTRAL = "Trimestre"
-    SEMESTRAL = "Semestre"
+class TipoPeriodo(str, Enum):
+    TRIMESTRE = "Trimestre"
+    SEMESTRE = "Semestre"
 
-class BasePeriodos(BaseModel): 
-    nombre: str
-    anio: int
-    numero_periodo: int
-    tipo: TipoPeriodoEnum
+class PeriodoBase(BaseModel):
+    nombre: str = Field(..., max_length=50)
+    anio: int = Field(..., ge=2000, le=2100)
+    numero_periodo: int = Field(..., gt=0, le=12)
+    tipo: TipoPeriodo
     fecha_inicio: date
     fecha_fin: date
+
+class PeriodoCreate(PeriodoBase):
+    activo: bool = False  # Por defecto NO es vigente, se activa explícitamente
+
+class PeriodoUpdate(BaseModel):
+    nombre: Optional[str] = Field(None, max_length=50)
+    anio: Optional[int] = Field(None, ge=2000, le=2100)
+    numero_periodo: Optional[int] = Field(None, gt=0, le=12)
+    tipo: Optional[TipoPeriodo] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    activo: Optional[bool] = None
+    estatus: Optional[str] = None  # Para el toggle Retirar/Reincorporar
+
+class PeriodoResponse(PeriodoBase):
+    id_per: int
     activo: bool
+    estatus: str = "A"
+    creado: datetime
     actualizar: datetime
 
-    @model_validator(mode="after")
-    def validar_fechas(self):
-        if self.fecha_fin <= self.fecha_inicio:
-            raise ValueError("La fecha de fin debe ser posterior a la fecha de inicio.")
-        return self
-    
-    @model_validator(mode="after")
-    def validar_numero_periodo(self):
-        if self.tipo == TipoPeriodoEnum.TRIMESTRAL and self.numero_periodo not in [1,2,3,4,5,6,7,8,9,10,11,12]:
-            raise ValueError("Para periodos trimestrales, el número de periodo debe ser del 1 al 12.")
-        elif self.tipo == TipoPeriodoEnum.SEMESTRAL and self.numero_periodo not in [1,2,3,4,5,6,7,8]:
-            raise ValueError("Para periodos semestrales, el número de periodo debe ser del 1 al 8.")
-        return self
-
-class PeriodoCreate(BasePeriodos):
-    pass
-
-class PeriodoUpdate(BasePeriodos):
-    nombre: str | None= None
-    anio: int | None = None
-    numero_periodo: int | None = None
-    tipo: TipoPeriodoEnum | None = None
-    fecha_inicio: date | None = None
-    fecha_fin: date | None = None
-    activo: bool | None = None
-    actualizar: date | None = None
-
-class PeriodoResposive(BasePeriodos):
-    id_per: int
-    fecha_inicio: date
-    creado: datetime
-    estatus: str
-
-class PeriodoRemplace(BasePeriodos):
-    pass
-
+    class Config:
+        from_attributes = True

@@ -9,7 +9,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Municipios } from './pages/Municipios';
 import { Programas } from './pages/Programas';
 import { EjesFormativos } from './pages/EjesFormativos';
-import { PeriodosAcademicos } from './pages/PeriodosAcademicos';
+import { Periodos } from './pages/PeriodosAcademicos';
 import { DocentesPage } from './pages/Docentes';
 import { Estudiantes } from './pages/Estudiantes';
 import { Secciones } from './pages/Secciones';
@@ -34,7 +34,7 @@ function App() {
               <Route path="/municipios" element={<Municipios />} />
               <Route path="/programas" element={<Programas />} />
               <Route path="/ejes" element={<EjesFormativos />} />
-              <Route path="/periodos" element={<PeriodosAcademicos />} />
+              <Route path="/periodos" element={<Periodos />} />
               <Route path="/docentes" element={<DocentesPage />} />
               <Route path="/estudiantes" element={<Estudiantes />} />
               <Route path="/secciones" element={<Secciones />} />

@@ -297,8 +297,9 @@ export interface PeriodoAcademico {
   fecha_inicio: string;
   fecha_fin: string;
   activo: boolean;
-  creado: string;
   estatus: string;
+  creado: string;
+  actualizar: string;
 }
 
 export interface PeriodoCreate {
@@ -308,8 +309,7 @@ export interface PeriodoCreate {
   tipo: 'Trimestre' | 'Semestre';
   fecha_inicio: string;
   fecha_fin: string;
-  activo: boolean;
-  actualizar: string;
+  activo?: boolean;
 }
 
 export interface PeriodoUpdate {
@@ -320,7 +320,7 @@ export interface PeriodoUpdate {
   fecha_inicio?: string;
   fecha_fin?: string;
   activo?: boolean;
-  actualizar?: string;
+  estatus?: string;
 }
 
 // Malla Curricular (pensum)

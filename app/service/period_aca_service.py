@@ -1,26 +1,32 @@
-from sqlmodel import Session
-from typing import Optional
+from sqlmodel import Session, select, update
 from app.models.unem_db_models import PeriodoAcademico
-from app.schemas.esq_periodos_aca import PeriodoCreate,PeriodoUpdate,PeriodoResposive
-from app.service.base_services import (
-    crear_registro,
-    obtener_todos_activos,
-    obtener_por_id,
-    actualizar_registro,
-    eliminar_logico
-)
 
-def crear(session: Session, datos_in: PeriodoCreate) -> PeriodoAcademico:
-    return crear_registro(db=session,modelo=PeriodoAcademico,datos_in=datos_in)
+def obtener_todos(session: Session):
+    statement = select(PeriodoAcademico).order_by(PeriodoAcademico.anio.desc(), PeriodoAcademico.numero_periodo)
+    return session.exec(statement).all()
 
-def leer_todos(session: Session) -> list[PeriodoAcademico]:
-    return obtener_todos_activos(db=session,modelo=PeriodoAcademico)
+def obtener_dato_por_id(periodo_id: int, session: Session):
+    return session.get(PeriodoAcademico, periodo_id)
 
-def obtener_dato_por_id(dato_id: int, session:Session) -> Optional[PeriodoAcademico]:
-    return obtener_por_id(db=session,modelo=PeriodoAcademico,id=dato_id)
+def crear(session: Session, dato_in):
+    db_obj = PeriodoAcademico(**dato_in.model_dump())
+    session.add(db_obj)
+    session.commit()
+    session.refresh(db_obj)
+    return db_obj
 
-def actualizar(session: Session, db_dato: PeriodoAcademico, dato_in: PeriodoUpdate, parcial: bool = True) -> PeriodoAcademico:
-    return actualizar_registro(db=session, db_obj=db_dato, datos_in=dato_in, parcial=parcial)
+def actualizar(session: Session, db_dato, dato_in, parcial: bool = False):
+    datos_dict = dato_in.model_dump(exclude_unset=True) if parcial else dato_in.model_dump()
+    for key, value in datos_dict.items():
+        setattr(db_dato, key, value)
+    session.add(db_dato)
+    session.commit()
+    session.refresh(db_dato)
+    return db_dato
 
-def eliminar(session: Session, db_dato: PeriodoAcademico) -> None:
-    eliminar_logico(db=session, db_obj=db_dato)
+def eliminar(session: Session, db_dato):
+    db_dato.estatus = 'I'
+    session.add(db_dato)
+    session.commit()
+    session.refresh(db_dato)
+    return db_dato
