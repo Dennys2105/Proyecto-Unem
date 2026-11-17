@@ -59,7 +59,7 @@ export interface Docente {
   nombre: string;
   apellido: string;
   id_mun: number;
-  especialidad: string;          // ✅ TEXTO (no id_pro)
+  especialidad: string;          
   tipo_contrato: string;
   horas_max_sem: number;
   horas_asignadas?: number;
@@ -78,7 +78,7 @@ export interface DocenteCreate {
   nombre: string;
   apellido: string;
   id_mun: number;
-  especialidad: string;          // ✅ Obligatorio (NOT NULL en BD)
+  especialidad: string;          
   tipo_contrato: string;
   horas_max_sem: number;
   telefono?: string;
@@ -95,7 +95,7 @@ export interface DocenteUpdate {
   horas_max_sem?: number;
   telefono?: string;
   observaciones?: string;
-  estatus?: string;              // ✅ Toggle Retirar/Reincorporar
+  estatus?: string;              
 }
 
 // Estudiantes
@@ -136,7 +136,7 @@ export interface EstudianteUpdate {
 // Días Laborales
 export interface Dia {
   id_dia: number;
-  dia: string; // Cambiado de 'nombre' a 'dia'
+  dia: string; 
   orden: number;
   estatus: string;
 }
@@ -155,7 +155,7 @@ export interface DiaUpdate {
 // Roles
 export interface Rol {
   id_rol: number;
-  rol: string; // Cambiado de 'nombre' a 'rol'
+  rol: string; 
   descripcion?: string;
   estatus: string;
 }
@@ -245,7 +245,6 @@ export interface Materia {
   eje_nombre?: string;
   descripcion?: string;
   estatus: string;
-  // Nuevos campos para saber dónde se usa
   programas_count: number;
   programas_nombres?: string;
 }
@@ -272,7 +271,7 @@ export interface EjeFormativo {
   codigo: string;
   nombre: string;
   descripcion: string;
-  estatus: string;
+  estatus: string; 
 }
 
 export interface EjeCreate {
@@ -285,6 +284,7 @@ export interface EjeUpdate {
   codigo?: string;
   nombre?: string;
   descripcion?: string;
+  estatus?: string; 
 }
 
 // Periodo Académico

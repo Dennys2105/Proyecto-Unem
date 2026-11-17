@@ -4,7 +4,11 @@ import type { EjeCreate, EjeUpdate } from '../types/models';
 
 export const useEjes = () => {
   const queryClient = useQueryClient();
-  const { data: ejes, isLoading } = useQuery({ queryKey: ['ejes'], queryFn: ejeService.getAll });
+
+  const { data: ejes, isLoading, refetch } = useQuery({
+    queryKey: ['ejes'],
+    queryFn: ejeService.getAll,
+  });
 
   const createMutation = useMutation({
     mutationFn: (data: EjeCreate) => ejeService.create(data),
@@ -22,10 +26,12 @@ export const useEjes = () => {
   });
 
   return {
-    ejes, isLoading,
-    createEje: createMutation.mutate,
-    updateEje: updateMutation.mutate,
-    deleteEje: deleteMutation.mutate,
+    ejes,
+    isLoading,
+    refetch,
+    createEje: createMutation.mutateAsync,   // ✅ mutateAsync para reactividad
+    updateEje: updateMutation.mutateAsync,   // ✅ mutateAsync para reactividad
+    deleteEje: deleteMutation.mutateAsync,   // ✅ mutateAsync para reactividad
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
