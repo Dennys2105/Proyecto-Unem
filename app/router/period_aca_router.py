@@ -62,6 +62,7 @@ def activar_periodo_vigente(
     session.exec(
         update(PeriodoAcademico)
         .where(PeriodoAcademico.id_per != periodo_id)
+        .where(PeriodoAcademico.tipo == db_dato.tipo)   # ✅ AGREGAR esta línea
         .where(PeriodoAcademico.activo == True)
         .values(activo=False)
     )

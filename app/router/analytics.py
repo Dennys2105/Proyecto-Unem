@@ -20,19 +20,16 @@ def obtener_resumen_dashboard(session: Session = Depends(get_session), usuario_a
         
     return VwResumenEstadisticoRead(**resultado)
 
-@router.get("/analisis_notas", response_model=VwAnalisisNotas)
+@router.get("/analisis_notas")
 def obtner_analisis_notas(
-    cod_programa: Optional[str] = Query(None, description="Filtrar por Codigo de materia"),
-    session: Session = Depends(get_session), 
-    usuario_actual: dict = Depends(verificar_permiso("estudiantes", "LEC", "LIM"))):
-
-    statement = text("SELECT * FROM academico.vw_analisis_notas WHERE cod_programa = :cod_programa").params(cod_programa=cod_programa)
-    resultados = session.exec(statement).mappings().all()
-    
-    if not resultados:
-        raise HTTPException(status_code=404, detail="No se encontraron datos para analisar")
-        
-    return [VwAnalisisNotas(**row) for row in resultados]
+    cod_programa: Optional[str] = Query(None, description="Filtrar por código de programa (ej: LPRI)"),
+    id_per: Optional[int] = Query(None, description="Filtrar por período académico"),
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("estudiantes", "LEC", "LIM"))
+):
+    """Análisis estadístico de notas por materia. Sin filtros devuelve todo."""
+    import app.service.notas_service as notas_service
+    return notas_service.analisis_notas(session, cod_programa, id_per)
 
 @router.get("/permisos", response_model=list[VwPermisosEfectivosRead])
 def obtener_permiso_usuarios(usuario_id: int, session: Session = Depends(get_session)):

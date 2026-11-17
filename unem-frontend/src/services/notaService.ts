@@ -1,20 +1,43 @@
 import api from '../lib/axios';
-import type { Nota, NotaCreate, NotaUpdate } from '../types/models';
+import type { Nota, NotaCreate, NotaUpdate, FilaActa, ActaCreate, ResumenActa, AnalisisNota } from '../types/models';
 
 export const notaService = {
-  getAll: async (): Promise<Nota[]> => {    
-    const response = await api.get('/notas');
+  getAll: async (): Promise<Nota[]> => {
+    const response = await api.get('/notas/');
     return response.data;
   },
+
   create: async (data: NotaCreate): Promise<Nota> => {
-    const response = await api.post('/notas', data);
+    const response = await api.post('/notas/', data);
     return response.data;
   },
+
   update: async (id: number, data: NotaUpdate): Promise<Nota> => {
     const response = await api.patch(`/notas/${id}`, data);
     return response.data;
   },
+
   delete: async (id: number): Promise<void> => {
     await api.delete(`/notas/${id}`);
-  }
+  },
+
+  // ✅ Acta: estudiantes de la sección con su nota actual
+  getActa: async (params: {
+    id_sec: number; id_malla: number; id_per: number; tipo_evaluacion: string;
+  }): Promise<FilaActa[]> => {
+    const response = await api.get('/notas/acta', { params });
+    return response.data;
+  },
+
+  // ✅ Guardado masivo
+  guardarActa: async (data: ActaCreate): Promise<ResumenActa> => {
+    const response = await api.post('/notas/acta', data);
+    return response.data;
+  },
+
+  // ✅ Análisis estadístico
+  getAnalisis: async (params?: { cod_programa?: string; id_per?: number }): Promise<AnalisisNota[]> => {
+    const response = await api.get('/notas/analisis', { params });
+    return response.data;
+  },
 };

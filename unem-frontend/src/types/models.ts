@@ -423,17 +423,28 @@ export interface AsignacionUpdate {
 
 // Notas
 export interface Nota {
-  id_nota?: number;
+  id_nota: number;
   id_est: number;
   id_malla: number;
   id_per: number;
   nota: number;
   tipo_evaluacion: string;
-  observaciones: string;
-  fecha_registro: string;
-  estudiante?: any;
-  malla?: any;
-  periodo?: any;
+  observaciones?: string | null;
+  fecha_registro?: string;
+  estatus: string;
+  creado?: string;
+  actualizar?: string;
+  // Enriquecidos por el backend
+  cedula?: string;
+  estudiante?: string;
+  cod_materia?: string;
+  materia?: string;
+  cod_programa?: string;
+  programa?: string;
+  trayecto?: number;
+  periodo?: number;
+  periodo_academico?: string;
+  cod_seccion?: string;
 }
 
 export interface NotaCreate {
@@ -442,8 +453,7 @@ export interface NotaCreate {
   id_per: number;
   nota: number;
   tipo_evaluacion: string;
-  observaciones: string;
-  fecha_registro?: string;
+  observaciones?: string;
 }
 
 export interface NotaUpdate {
@@ -453,7 +463,55 @@ export interface NotaUpdate {
   nota?: number;
   tipo_evaluacion?: string;
   observaciones?: string;
-  fecha_registro?: string;
+  estatus?: string;
+}
+
+// Acta de calificaciones (carga masiva)
+export interface FilaActa {
+  id_est: number;
+  cedula: string;
+  nombre: string;
+  apellido: string;
+  id_nota: number | null;
+  nota: number | null;
+  observaciones: string | null;
+  estado_nota: string; // 'S' = sin cargar, 'A', 'I'
+}
+
+export interface ActaCreate {
+  id_malla: number;
+  id_per: number;
+  tipo_evaluacion: string;
+  filas: { id_est: number; nota: number | null; observaciones?: string }[];
+}
+
+export interface ResumenActa {
+  creadas: number;
+  actualizadas: number;
+  omitidas: number;
+  total_procesadas: number;
+  mensaje: string;
+}
+
+// Análisis estadístico
+export interface AnalisisNota {
+  cod_programa: string;
+  programa: string;
+  trayecto: number;
+  periodo: number;
+  periodo_academico: string;
+  cod_materia: string;
+  materia: string;
+  cod_eje: string;
+  eje_formativo: string;
+  total_estudiantes_evaluados: number;
+  promedio: number | null;
+  nota_minima: number | null;
+  nota_maxima: number | null;
+  desviacion_estandar: number | null;
+  aprobados: number;
+  reprobados: number;
+  porcentaje_aprobacion: number | null;
 }
 
 // Auditoría (coincide con la respuesta del endpoint /api/v1/analytics/auditoria/movimientos)
