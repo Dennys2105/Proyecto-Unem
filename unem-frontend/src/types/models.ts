@@ -12,7 +12,7 @@ export interface Usuario {
 export interface Municipio {
   id_mun: number;
   nombre: string;
-  estatus: string;
+  estatus: string; 
 }
 
 export interface MunicipioCreate {
@@ -21,6 +21,7 @@ export interface MunicipioCreate {
 
 export interface MunicipioUpdate {
   nombre?: string;
+  estatus?: string; 
 }
 
 // Programas

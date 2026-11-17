@@ -5,7 +5,7 @@ import type { MunicipioCreate, MunicipioUpdate } from '../types/models';
 export const useMunicipios = () => {
   const queryClient = useQueryClient();
 
-  const { data: municipios, isLoading } = useQuery({
+  const { data: municipios, isLoading, refetch } = useQuery({
     queryKey: ['municipios'],
     queryFn: municipioService.getAll,
   });
@@ -35,9 +35,10 @@ export const useMunicipios = () => {
   return {
     municipios,
     isLoading,
-    createMunicipio: createMutation.mutate,
-    updateMunicipio: updateMutation.mutate,
-    deleteMunicipio: deleteMutation.mutate,
+    refetch,
+    createMunicipio: createMutation.mutateAsync,   // ✅ mutateAsync
+    updateMunicipio: updateMutation.mutateAsync,   // ✅ mutateAsync
+    deleteMunicipio: deleteMutation.mutateAsync,   // ✅ mutateAsync
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
