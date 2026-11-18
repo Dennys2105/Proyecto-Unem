@@ -1,6 +1,74 @@
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════════
+   TEMA INSTITUCIONAL UNEM · v5.2
+   Paleta derivada de los arcos concéntricos del isotipo oficial:
+   cian exterior → azul medio → índigo profundo del wordmark.
+   Al redefinir las escalas por defecto de Tailwind v4, TODAS las
+   utilidades existentes (bg-blue-600, text-indigo-700, …) en las
+   16 páginas pasan a la identidad institucional sin reescribirlas.
+   ══════════════════════════════════════════════════════════════ */
+@theme {
+  /* ── Azul institucional · arco medio (#1E88E5) ── */
+  --color-blue-50: #eaf4fc;
+  --color-blue-100: #d3e9f8;
+  --color-blue-200: #a8d2f0;
+  --color-blue-300: #7cbbe8;
+  --color-blue-400: #4fa3e0;
+  --color-blue-500: #1e88e5;
+  --color-blue-600: #1876cc;
+  --color-blue-700: #135fb0;
+  --color-blue-800: #0e4a8a;
+  --color-blue-900: #0a3866;
+  --color-blue-950: #062341;
+
+  /* ── Índigo profundo · wordmark "UNEM" (#2E3192) ── */
+  --color-indigo-50: #ececf7;
+  --color-indigo-100: #d9daee;
+  --color-indigo-200: #b4b6de;
+  --color-indigo-300: #8e92cd;
+  --color-indigo-400: #696ebc;
+  --color-indigo-500: #4c50ab;
+  --color-indigo-600: #3b3f9e;
+  --color-indigo-700: #2e3192;
+  --color-indigo-800: #262979;
+  --color-indigo-900: #1e2160;
+  --color-indigo-950: #131540;
+
+  /* ── Cian · arco exterior del isotipo (#00B8D4) ── */
+  --color-violet-50: #e6f7fb;
+  --color-violet-100: #ccf0f7;
+  --color-violet-200: #99e2ef;
+  --color-violet-300: #66d4e7;
+  --color-violet-400: #33c6df;
+  --color-violet-500: #00b8d4;
+  --color-violet-600: #00acc1;
+  --color-violet-700: #0097a7;
+  --color-violet-800: #00838f;
+  --color-violet-900: #006064;
+  --color-violet-950: #00434a;
+
+  /* ── Verde azulado · acento secundario institucional ── */
+  --color-purple-50: #e4f5f4;
+  --color-purple-100: #c9ebe9;
+  --color-purple-200: #98d8d3;
+  --color-purple-300: #67c5bd;
+  --color-purple-400: #36b2a7;
+  --color-purple-500: #009688;
+  --color-purple-600: #00897b;
+  --color-purple-700: #00796b;
+  --color-purple-800: #00695c;
+  --color-purple-900: #004d40;
+  --color-purple-950: #00332b;
+
+  /* ── Tipografía: grotesca técnica disponible offline en Windows ── */
+  --font-display: "Bahnschrift", "DIN Alternate", "Franklin Gothic Medium", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+}
+
+
+/* ══════════════════════════════════════════════════════════════
    UNEM · SISTEMA DE GESTIÓN ACADÉMICA — DESIGN SYSTEM v5.0
    Layout estructural en CSS puro: el sidebar NUNCA se superpone
    al contenido porque ocupa una pista real del grid.
@@ -14,12 +82,12 @@
   --ink-700: #1a2350;
   --ink-600: #26316b;
 
-  /* Acentos de plena croma */
-  --indigo: #4f46e5;
-  --indigo-lt: #818cf8;
-  --violet: #7c3aed;
-  --cyan: #06b6d4;
-  --cyan-lt: #22d3ee;
+  /* Acentos institucionales (isotipo UNEM) */
+  --indigo: #2e3192;
+  --indigo-lt: #696ebc;
+  --violet: #0097a7;
+  --cyan: #00b8d4;
+  --cyan-lt: #4fc3f7;
 
   /* Semánticos */
   --ok: #0f9d58;
@@ -653,4 +721,27 @@ body.unem-locked { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ══════════════ ISOTIPO OFICIAL UNEM ══════════════ */
+.unem-logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.unem-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+}
+.unem-logo-tile {
+  background: #ffffff;
+  padding: 5px;
+  box-shadow:
+    0 6px 18px -6px rgba(0, 0, 0, .55),
+    inset 0 0 0 1px rgba(255, 255, 255, .65);
 }

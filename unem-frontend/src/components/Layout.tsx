@@ -8,6 +8,7 @@ import {
   ChevronRight, Command, CornerDownLeft, Clock3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { LogoUnem } from './LogoUnem';
 
 interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; hint: string }
 interface NavGroup { title: string; items: NavItem[] }
@@ -181,7 +182,7 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
       <div className="unem-shell" data-mini={mini} data-drawer={drawer}>
         <aside className="unem-sidebar" aria-label="Navegación principal">
           <div className="unem-brand">
-            <span className="unem-mark">U</span>
+            <LogoUnem size={40} variant="tile" />
             <span className="unem-brand-txt"><b>UNEM</b><span>Táchira</span></span>
             <button className="unem-icon-btn unem-burger"
               style={{ marginLeft: 'auto', background: 'rgba(255,255,255,.1)', borderColor: 'rgba(255,255,255,.2)', color: '#fff' }}
