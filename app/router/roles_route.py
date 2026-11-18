@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
 from app.dependencies.session_auditable import get_session_auditable as get_session
+
 from app.schemas.esq_roles import RolesCreate, RolesResposive, RolesUpdate
 import app.service.roles_service as service
 from app.dependencies.auth_deps import requerir_rol, verificar_permiso

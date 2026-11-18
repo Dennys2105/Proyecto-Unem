@@ -4,6 +4,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 from app.dependencies.auth_deps import verificar_permiso
 from app.dependencies.session_auditable import get_session_auditable as get_session
+
 from app.models.model_read_only import VwPermisosEfectivosRead
 
 router = APIRouter(prefix="/permisos", tags=["Gestión de Permisos"])

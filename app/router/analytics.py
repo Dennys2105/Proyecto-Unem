@@ -3,7 +3,7 @@ from sqlmodel import Session, text
 from typing import Optional
 from datetime import date
 from app.dependencies.auth_deps import verificar_permiso
-from app.config.db_conection import get_session
+from app.config.db_conection import get_session 
 from app.models.model_read_only import VwResumenEstadisticoRead,VwPermisosEfectivosRead,VwMovimientosRead,VwHorarioCompletoDocenteRead, VwDocentesPorContratoRead, VwDocentesPorProgramaMunicipioRead, VwAnalisisNotas
 router = APIRouter(prefix="/analytics", tags=["Analítica y Reportes"])
 
