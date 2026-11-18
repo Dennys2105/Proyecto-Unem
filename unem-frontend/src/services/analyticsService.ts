@@ -190,3 +190,20 @@ export const analyticsService = {
     return response.data;
   },
 };
+
+/* ===== METADATOS DEL SISTEMA (StatusBar) ===== */
+export interface EsquemaInfo { esquema: string; tablas: number; vistas: number }
+export interface TriggerDuplicado { esquema: string; tabla: string; cantidad: number }
+export interface PruebaSalud { prueba: string; fallas: number; ok: boolean }
+
+export interface InfoSistema {
+  motor: { base_datos: string; version: string; tamano: string; conexiones: number };
+  estructura: { esquemas: number; tablas: number; vistas: number; desglose: EsquemaInfo[] };
+  catalogo: {
+    triggers: number; indices: number; foraneas: number;
+    checks: number; unicos: number; triggers_duplicados: TriggerDuplicado[];
+  };
+  volumen: Record<string, number>;
+  salud: PruebaSalud[];
+  salud_ok: boolean;
+}

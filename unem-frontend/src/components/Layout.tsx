@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { ReactNode, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, MapPin, BookOpen, Layers, CalendarDays, Users, UserCheck,
-  Boxes, DoorOpen, Library, CalendarRange, ShieldCheck, Network, ClipboardList,
-  ShieldAlert, Award, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, Search,
-  ChevronRight, CornerDownLeft,
+  Award, BookOpen, Boxes, CalendarDays, CalendarRange, ChevronRight,
+  ClipboardList, CornerDownLeft, DoorOpen, Layers, LayoutDashboard,
+  Library, LogOut, MapPin, Menu, Network, PanelLeftClose, PanelLeftOpen,
+  Search, ShieldAlert, ShieldCheck, UserCheck, Users, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
 import { LogoUnem } from './LogoUnem';
 import { StatusBar } from './StatusBar';
 
@@ -48,6 +49,7 @@ const FLAT: NavItem[] = NAV.flatMap((g: NavGroup): NavItem[] => g.items);
 const readLS = (k: string, f: string): string => {
   try { return window.localStorage.getItem(k) ?? f; } catch { return f; }
 };
+
 const writeLS = (k: string, v: string): void => {
   try { window.localStorage.setItem(k, v); } catch { /* noop */ }
 };
@@ -256,7 +258,6 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
           </main>
 
           <StatusBar />
-          
         </div>
       </div>
 
