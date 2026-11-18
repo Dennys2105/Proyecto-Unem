@@ -5,10 +5,11 @@ import {
   LayoutDashboard, MapPin, BookOpen, Layers, CalendarDays, Users, UserCheck,
   Boxes, DoorOpen, Library, CalendarRange, ShieldCheck, Network, ClipboardList,
   ShieldAlert, Award, LogOut, Menu, X, PanelLeftClose, PanelLeftOpen, Search,
-  ChevronRight, Command, CornerDownLeft, Clock3,
+  ChevronRight, CornerDownLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { LogoUnem } from './LogoUnem';
+import { StatusBar } from './StatusBar';
 
 interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; hint: string }
 interface NavGroup { title: string; items: NavItem[] }
@@ -254,17 +255,8 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
             {children ?? <Outlet />}
           </main>
 
-          <footer className="unem-statusbar">
-            <span className="unem-dot" />
-            <span>API conectada</span><span>·</span>
-            <span>PostgreSQL <b>18.4</b></span><span>·</span>
-            <span><b>5</b> esquemas · <b>20</b> tablas</span>
-            <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <Command size={11} /> K para navegar
-            </span>
-            <span>·</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock3 size={11} /> v5.0</span>
-          </footer>
+          <StatusBar />
+          
         </div>
       </div>
 

@@ -6,8 +6,10 @@ import {
   ShieldAlert, Search, RefreshCw, Download, X, Trash2, FilePlus2, PencilLine,
   RotateCcw, Info, ArrowUpDown, ArrowUp, ArrowDown, Eye, CheckCheck,
   ChevronLeft, ChevronRight, Fingerprint, Database, Activity, Undo2, Copy,
+  ScrollText, ShieldCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PanelSeguridad } from '../components/PanelSeguridad';
 
 /* ═══════════════ TIPOS ═══════════════ */
 interface Movimiento {
@@ -135,6 +137,7 @@ export const AuditoriaPage = (): ReactNode => {
   const [sel, setSel] = useState<number[]>([]);
   const [detalle, setDetalle] = useState<Fila | null>(null);
   const [vista, setVista] = useState<'todos' | 'pendientes'>('todos');
+  const [pestana, setPestana] = useState<'bitacora' | 'seguridad'>('bitacora');
   const [revisados, setRevisados] = useState<number[]>(() => {
     try { return JSON.parse(window.localStorage.getItem('unem_aud_rev') ?? '[]') as number[]; }
     catch { return []; }
@@ -328,323 +331,341 @@ export const AuditoriaPage = (): ReactNode => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="unem-btn" onClick={() => { void refetch(); }} disabled={isFetching}>
-              <RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} />
-              {isFetching ? 'Consultando…' : 'Actualizar'}
-            </button>
-            <button className="unem-btn unem-btn-primary" onClick={exportCSV}>
-              <Download size={15} /> Exportar CSV
-            </button>
-          </div>
         </div>
       </section>
 
-      {offline && (
-        <div className="unem-note">
-          <Info size={16} />
-          <span>
-            Mostrando un <b>extracto local de referencia</b> porque el endpoint{' '}
-            <code>/analytics/auditoria/movimientos</code> no devolvió registros. Los filtros, el orden,
-            la revisión y la exportación operan igualmente sobre este conjunto.
-          </span>
-        </div>
-      )}
-
-      <div className="unem-kpis">
-        <article className="unem-kpi" style={kpiStyle('#4f46e5')}>
-          <div className="unem-kpi-top">
-            <span className="unem-kpi-l">Movimientos</span>
-            <span className="unem-kpi-i"><Activity size={17} /></span>
-          </div>
-          <div className="unem-kpi-v">{stats.total}</div>
-          <div className="unem-kpi-s">{stats.pendientes} pendiente(s) de revisión</div>
-          <div className="unem-spark" style={{ marginTop: 10 }}>
-            {spark.map((v: number, i: number) => (
-              <i key={i} style={{ height: `${Math.max(6, (v / sparkMax) * 100)}%`, animationDelay: `${i * 34}ms` }} />
-            ))}
-          </div>
-        </article>
-
-        {KIND_ORDER.filter((k: AccionKind) => k !== 'DELETE' || stats.DELETE > 0).map((k: AccionKind) => {
-          const meta = KIND_META[k];
-          const Icon = meta.icon;
-          const n = stats[k];
-          const p = stats.total ? (n / stats.total) * 100 : 0;
-          return (
-            <article className="unem-kpi" key={k} style={kpiStyle(meta.hex)}>
-              <div className="unem-kpi-top">
-                <span className="unem-kpi-l">{meta.label}</span>
-                <span className="unem-kpi-i"><Icon size={17} /></span>
-              </div>
-              <div className="unem-kpi-v">{n}</div>
-              <div className="unem-kpi-s">{p.toFixed(1)}% del total registrado</div>
-              <div className="unem-kpi-bar"><i style={{ width: `${Math.max(p, 1.5)}%` }} /></div>
-            </article>
-          );
-        })}
+      <div className="unem-seg" style={{ alignSelf: 'flex-start' }}>
+        <button data-on={pestana === 'bitacora'} onClick={() => setPestana('bitacora')}>
+          <ScrollText size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} /> Bitácora
+        </button>
+        <button data-on={pestana === 'seguridad'} onClick={() => setPestana('seguridad')}>
+          <ShieldCheck size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} /> Seguridad
+        </button>
       </div>
 
-      <section className="unem-card unem-card-pad">
-        <div className="unem-toolbar">
-          <label className="unem-field" style={{ flex: '1 1 260px' }}>
-            <Search size={15} />
-            <input
-              className="unem-input"
-              style={{ width: '100%' }}
-              placeholder="Buscar por registro, usuario, tabla, campo o IP…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </label>
-
-          <select className="unem-select" value={fTabla} onChange={(e) => setFTabla(e.target.value)}>
-            <option value="">Todas las tablas</option>
-            {tablas.map((t: string) => <option key={t} value={t}>{TABLA_LABEL[t] ?? t}</option>)}
-          </select>
-
-          <select className="unem-select" value={fKind} onChange={(e) => setFKind(e.target.value)}>
-            <option value="">Toda acción</option>
-            {KIND_ORDER.map((k: AccionKind) => <option key={k} value={k}>{KIND_META[k].label}</option>)}
-          </select>
-
-          <select className="unem-select" value={fUsuario} onChange={(e) => setFUsuario(e.target.value)}>
-            <option value="">Todo usuario</option>
-            {usuarios.map((u: string) => <option key={u} value={u}>{u}</option>)}
-          </select>
-
-          <div className="unem-seg">
-            <button data-on={vista === 'todos'} onClick={() => setVista('todos')}>Todos</button>
-            <button data-on={vista === 'pendientes'} onClick={() => setVista('pendientes')}>
-              Pendientes · {stats.pendientes}
-            </button>
-          </div>
-
-          <button className="unem-btn unem-btn-ghost" onClick={limpiar} title="Restablecer filtros">
-            <RotateCcw size={15} /> Limpiar
+      {pestana === 'bitacora' && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="unem-btn" onClick={() => { void refetch(); }} disabled={isFetching}>
+            <RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} />
+            {isFetching ? 'Consultando…' : 'Actualizar'}
           </button>
-        </div>
-
-        <div className="unem-legend" style={{ marginTop: 13, paddingTop: 12, borderTop: '1px solid var(--line-2)' }}>
-          {KIND_ORDER.map((k: AccionKind) => (
-            <span key={k}><i style={{ background: KIND_META[k].hex }} /> {KIND_META[k].label}</span>
-          ))}
-        </div>
-      </section>
-
-      {sel.length > 0 && (
-        <div className="unem-bulk">
-          <CheckCheck size={16} style={{ color: 'var(--indigo)' }} />
-          <b>{sel.length} seleccionado(s)</b>
-          <button className="unem-btn unem-btn-sm unem-btn-primary" onClick={() => marcarRevisados(sel)}>
-            <CheckCheck size={13} /> Marcar revisados
-          </button>
-          <button className="unem-btn unem-btn-sm" onClick={exportCSV}>
-            <Download size={13} /> Exportar selección
-          </button>
-          <button className="unem-btn unem-btn-sm unem-btn-ghost" onClick={() => setSel([])}>
-            <X size={13} /> Cancelar
+          <button className="unem-btn unem-btn-primary" onClick={exportCSV}>
+            <Download size={15} /> Exportar CSV
           </button>
         </div>
       )}
 
-      {isLoading ? (
-        <section className="unem-card unem-card-pad">
-          {Array.from({ length: 8 }).map((_, i: number) => (
-            <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-              <div className="unem-skel" style={{ width: 16, height: 16 }} />
-              <div className="unem-skel" style={{ width: 54, height: 13 }} />
-              <div className="unem-skel" style={{ width: 128, height: 13 }} />
-              <div className="unem-skel" style={{ width: 96, height: 20, borderRadius: 99 }} />
-              <div className="unem-skel" style={{ flex: 1, height: 13 }} />
-            </div>
-          ))}
-        </section>
-      ) : filtradas.length === 0 ? (
-        <section className="unem-card">
-          <div className="unem-empty">
-            <span className="unem-empty-i"><ShieldAlert size={26} /></span>
-            <b>Sin movimientos que coincidan</b>
-            <span>Ajusta la búsqueda o restablece los filtros para volver a ver la bitácora completa.</span>
-            <button className="unem-btn unem-btn-primary" style={{ marginTop: 16 }} onClick={limpiar}>
-              <RotateCcw size={15} /> Restablecer filtros
-            </button>
-          </div>
-        </section>
+      {pestana === 'seguridad' ? (
+        <PanelSeguridad />
       ) : (
         <>
-          <div className="unem-table-wrap unem-scroll">
-            <table className="unem-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 40 }}>
-                    <input className="unem-check" type="checkbox" checked={allVisibleSel} onChange={toggleAll} aria-label="Seleccionar página" />
-                  </th>
-                  <th style={{ width: 84 }}>
-                    <button className="unem-th-btn" onClick={() => toggleSort('id_aud')}>ID <SortIco k="id_aud" /></button>
-                  </th>
-                  <th style={{ width: 158 }}>
-                    <button className="unem-th-btn" onClick={() => toggleSort('fecha')}>Fecha · Hora <SortIco k="fecha" /></button>
-                  </th>
-                  <th style={{ width: 116 }}>Usuario</th>
-                  <th style={{ width: 178 }}>
-                    <button className="unem-th-btn" onClick={() => toggleSort('tabla_afectada')}>Módulo <SortIco k="tabla_afectada" /></button>
-                  </th>
-                  <th style={{ width: 160 }}>Acción</th>
-                  <th>Registro afectado</th>
-                  <th style={{ width: 118 }}>Campos</th>
-                  <th style={{ width: 104, textAlign: 'right' }}>Detalle</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map((f: Fila) => {
-                  const meta = KIND_META[f.kind];
-                  const Icon = meta.icon;
-                  const { d, h } = fmtFecha(f.fecha);
-                  const rev = revisados.includes(f.id_aud);
-                  return (
-                    <tr key={f.id_aud} data-sel={sel.includes(f.id_aud)}>
-                      <td>
-                        <input className="unem-check" type="checkbox" checked={sel.includes(f.id_aud)}
-                          onChange={() => toggleSel(f.id_aud)} aria-label={`Seleccionar ${f.id_aud}`} />
-                      </td>
-                      <td>
-                        <span className="unem-mono unem-strong">#{f.id_aud}</span>
-                        {rev && <span title="Revisado" style={{ marginLeft: 6, color: 'var(--ok)' }}><CheckCheck size={12} /></span>}
-                      </td>
-                      <td>
-                        <div className="unem-mono unem-strong" style={{ fontSize: 12.5 }}>{d}</div>
-                        <div className="unem-mono" style={{ fontSize: 11, color: 'var(--tx-3)' }}>{h}</div>
-                      </td>
-                      <td><span className="unem-chip unem-chip-mut">{f.usuario || 'Sistema'}</span></td>
-                      <td>
-                        <span className="unem-strong" style={{ fontSize: 12.5 }}>{TABLA_LABEL[f.tabla_afectada] ?? f.tabla_afectada}</span>
-                        <div className="unem-mono" style={{ fontSize: 10, color: 'var(--tx-3)' }}>{f.tabla_afectada}</div>
-                      </td>
-                      <td><span className={`unem-chip ${meta.cls}`}><Icon size={11} /> {meta.label}</span></td>
-                      <td>
-                        <span className="unem-ell unem-strong" title={f.registro_identificador}>{f.registro_identificador || '—'}</span>
-                        <span className="unem-mono" style={{ fontSize: 10.5, color: 'var(--tx-3)' }}>IP {f.ip_origen ?? 'no registrada'}</span>
-                      </td>
-                      <td>
-                        <span className="unem-ell" style={{ maxWidth: 110, fontSize: 11.5 }} title={f.resumen_cambios}>
-                          {f.resumen_cambios || '—'}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="unem-btn unem-btn-sm" onClick={() => setDetalle(f)}>
-                          <Eye size={13} /> Ver
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          {offline && (
+            <div className="unem-note">
+              <Info size={16} />
+              <span>
+                Mostrando un <b>extracto local de referencia</b> porque el endpoint{' '}
+                <code>/analytics/auditoria/movimientos</code> no devolvió registros. Los filtros, el orden,
+                la revisión y la exportación operan igualmente sobre este conjunto.
+              </span>
+            </div>
+          )}
+
+          <div className="unem-kpis">
+            <article className="unem-kpi" style={kpiStyle('#4f46e5')}>
+              <div className="unem-kpi-top">
+                <span className="unem-kpi-l">Movimientos</span>
+                <span className="unem-kpi-i"><Activity size={17} /></span>
+              </div>
+              <div className="unem-kpi-v">{stats.total}</div>
+              <div className="unem-kpi-s">{stats.pendientes} pendiente(s) de revisión</div>
+              <div className="unem-spark" style={{ marginTop: 10 }}>
+                {spark.map((v: number, i: number) => (
+                  <i key={i} style={{ height: `${Math.max(6, (v / sparkMax) * 100)}%`, animationDelay: `${i * 34}ms` }} />
+                ))}
+              </div>
+            </article>
+
+            {KIND_ORDER.filter((k: AccionKind) => k !== 'DELETE' || stats.DELETE > 0).map((k: AccionKind) => {
+              const meta = KIND_META[k];
+              const Icon = meta.icon;
+              const n = stats[k];
+              const p = stats.total ? (n / stats.total) * 100 : 0;
+              return (
+                <article className="unem-kpi" key={k} style={kpiStyle(meta.hex)}>
+                  <div className="unem-kpi-top">
+                    <span className="unem-kpi-l">{meta.label}</span>
+                    <span className="unem-kpi-i"><Icon size={17} /></span>
+                  </div>
+                  <div className="unem-kpi-v">{n}</div>
+                  <div className="unem-kpi-s">{p.toFixed(1)}% del total registrado</div>
+                  <div className="unem-kpi-bar"><i style={{ width: `${Math.max(p, 1.5)}%` }} /></div>
+                </article>
+              );
+            })}
           </div>
 
-          <div className="unem-pager">
-            <span className="unem-pager-info">
-              Mostrando <b>{(pageSafe - 1) * PAGE_SIZE + 1}</b>–<b>{Math.min(pageSafe * PAGE_SIZE, filtradas.length)}</b> de{' '}
-              <b>{filtradas.length}</b> movimiento(s) · página {pageSafe} de {totalPages}
-            </span>
-            <div className="unem-pager-ctrl">
-              <button className="unem-pnum" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)} aria-label="Anterior">
-                <ChevronLeft size={14} />
-              </button>
-              {pageBtns.map((n: number) => (
-                <button key={n} className="unem-pnum" data-on={n === pageSafe} onClick={() => setPage(n)}>{n}</button>
-              ))}
-              <button className="unem-pnum" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)} aria-label="Siguiente">
-                <ChevronRight size={14} />
+          <section className="unem-card unem-card-pad">
+            <div className="unem-toolbar">
+              <label className="unem-field" style={{ flex: '1 1 260px' }}>
+                <Search size={15} />
+                <input
+                  className="unem-input"
+                  style={{ width: '100%' }}
+                  placeholder="Buscar por registro, usuario, tabla, campo o IP…"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </label>
+
+              <select className="unem-select" value={fTabla} onChange={(e) => setFTabla(e.target.value)}>
+                <option value="">Todas las tablas</option>
+                {tablas.map((t: string) => <option key={t} value={t}>{TABLA_LABEL[t] ?? t}</option>)}
+              </select>
+
+              <select className="unem-select" value={fKind} onChange={(e) => setFKind(e.target.value)}>
+                <option value="">Toda acción</option>
+                {KIND_ORDER.map((k: AccionKind) => <option key={k} value={k}>{KIND_META[k].label}</option>)}
+              </select>
+
+              <select className="unem-select" value={fUsuario} onChange={(e) => setFUsuario(e.target.value)}>
+                <option value="">Todo usuario</option>
+                {usuarios.map((u: string) => <option key={u} value={u}>{u}</option>)}
+              </select>
+
+              <div className="unem-seg">
+                <button data-on={vista === 'todos'} onClick={() => setVista('todos')}>Todos</button>
+                <button data-on={vista === 'pendientes'} onClick={() => setVista('pendientes')}>
+                  Pendientes · {stats.pendientes}
+                </button>
+              </div>
+
+              <button className="unem-btn unem-btn-ghost" onClick={limpiar} title="Restablecer filtros">
+                <RotateCcw size={15} /> Limpiar
               </button>
             </div>
-          </div>
-        </>
-      )}
 
-      <div className="unem-note">
-        <Info size={16} />
-        <span>
-          El <b>borrado lógico</b> (<code>estatus = 'I'</code>) se distingue de la eliminación física: el registro
-          permanece en la base y puede reactivarse. Cada entrada fue escrita por{' '}
-          <code>fn_auditoria_general()</code>, por lo que existe incluso para cambios hechos fuera de la aplicación.
-        </span>
-      </div>
+            <div className="unem-legend" style={{ marginTop: 13, paddingTop: 12, borderTop: '1px solid var(--line-2)' }}>
+              {KIND_ORDER.map((k: AccionKind) => (
+                <span key={k}><i style={{ background: KIND_META[k].hex }} /> {KIND_META[k].label}</span>
+              ))}
+            </div>
+          </section>
 
-      {detalle && (
-        <>
-          <button className="unem-drawer-scrim" onClick={() => setDetalle(null)} aria-label="Cerrar detalle" />
-          <aside className="unem-drawer" role="dialog" aria-label={`Movimiento ${detalle.id_aud}`}>
-            <header className="unem-drawer-head">
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                  <span className="unem-mono" style={{ fontSize: 19, fontWeight: 900, color: 'var(--tx-1)' }}>#{detalle.id_aud}</span>
-                  <span className={`unem-chip ${KIND_META[detalle.kind].cls}`}>{KIND_META[detalle.kind].label}</span>
-                  {revisados.includes(detalle.id_aud) && (
-                    <span className="unem-chip unem-chip-ins"><CheckCheck size={11} /> Revisado</span>
-                  )}
+          {sel.length > 0 && (
+            <div className="unem-bulk">
+              <CheckCheck size={16} style={{ color: 'var(--indigo)' }} />
+              <b>{sel.length} seleccionado(s)</b>
+              <button className="unem-btn unem-btn-sm unem-btn-primary" onClick={() => marcarRevisados(sel)}>
+                <CheckCheck size={13} /> Marcar revisados
+              </button>
+              <button className="unem-btn unem-btn-sm" onClick={exportCSV}>
+                <Download size={13} /> Exportar selección
+              </button>
+              <button className="unem-btn unem-btn-sm unem-btn-ghost" onClick={() => setSel([])}>
+                <X size={13} /> Cancelar
+              </button>
+            </div>
+          )}
+
+          {isLoading ? (
+            <section className="unem-card unem-card-pad">
+              {Array.from({ length: 8 }).map((_, i: number) => (
+                <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+                  <div className="unem-skel" style={{ width: 16, height: 16 }} />
+                  <div className="unem-skel" style={{ width: 54, height: 13 }} />
+                  <div className="unem-skel" style={{ width: 128, height: 13 }} />
+                  <div className="unem-skel" style={{ width: 96, height: 20, borderRadius: 99 }} />
+                  <div className="unem-skel" style={{ flex: 1, height: 13 }} />
                 </div>
-                <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--tx-2)', fontWeight: 600 }}>
-                  {TABLA_LABEL[detalle.tabla_afectada] ?? detalle.tabla_afectada}
-                </div>
+              ))}
+            </section>
+          ) : filtradas.length === 0 ? (
+            <section className="unem-card">
+              <div className="unem-empty">
+                <span className="unem-empty-i"><ShieldAlert size={26} /></span>
+                <b>Sin movimientos que coincidan</b>
+                <span>Ajusta la búsqueda o restablece los filtros para volver a ver la bitácora completa.</span>
+                <button className="unem-btn unem-btn-primary" style={{ marginTop: 16 }} onClick={limpiar}>
+                  <RotateCcw size={15} /> Restablecer filtros
+                </button>
               </div>
-              <button className="unem-icon-btn" onClick={() => setDetalle(null)} aria-label="Cerrar"><X size={17} /></button>
-            </header>
+            </section>
+          ) : (
+            <>
+              <div className="unem-table-wrap unem-scroll">
+                <table className="unem-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 40 }}>
+                        <input className="unem-check" type="checkbox" checked={allVisibleSel} onChange={toggleAll} aria-label="Seleccionar página" />
+                      </th>
+                      <th style={{ width: 84 }}>
+                        <button className="unem-th-btn" onClick={() => toggleSort('id_aud')}>ID <SortIco k="id_aud" /></button>
+                      </th>
+                      <th style={{ width: 158 }}>
+                        <button className="unem-th-btn" onClick={() => toggleSort('fecha')}>Fecha · Hora <SortIco k="fecha" /></button>
+                      </th>
+                      <th style={{ width: 116 }}>Usuario</th>
+                      <th style={{ width: 178 }}>
+                        <button className="unem-th-btn" onClick={() => toggleSort('tabla_afectada')}>Módulo <SortIco k="tabla_afectada" /></button>
+                      </th>
+                      <th style={{ width: 160 }}>Acción</th>
+                      <th>Registro afectado</th>
+                      <th style={{ width: 118 }}>Campos</th>
+                      <th style={{ width: 104, textAlign: 'right' }}>Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibles.map((f: Fila) => {
+                      const meta = KIND_META[f.kind];
+                      const Icon = meta.icon;
+                      const { d, h } = fmtFecha(f.fecha);
+                      const rev = revisados.includes(f.id_aud);
+                      return (
+                        <tr key={f.id_aud} data-sel={sel.includes(f.id_aud)}>
+                          <td>
+                            <input className="unem-check" type="checkbox" checked={sel.includes(f.id_aud)}
+                              onChange={() => toggleSel(f.id_aud)} aria-label={`Seleccionar ${f.id_aud}`} />
+                          </td>
+                          <td>
+                            <span className="unem-mono unem-strong">#{f.id_aud}</span>
+                            {rev && <span title="Revisado" style={{ marginLeft: 6, color: 'var(--ok)' }}><CheckCheck size={12} /></span>}
+                          </td>
+                          <td>
+                            <div className="unem-mono unem-strong" style={{ fontSize: 12.5 }}>{d}</div>
+                            <div className="unem-mono" style={{ fontSize: 11, color: 'var(--tx-3)' }}>{h}</div>
+                          </td>
+                          <td><span className="unem-chip unem-chip-mut">{f.usuario || 'Sistema'}</span></td>
+                          <td>
+                            <span className="unem-strong" style={{ fontSize: 12.5 }}>{TABLA_LABEL[f.tabla_afectada] ?? f.tabla_afectada}</span>
+                            <div className="unem-mono" style={{ fontSize: 10, color: 'var(--tx-3)' }}>{f.tabla_afectada}</div>
+                          </td>
+                          <td><span className={`unem-chip ${meta.cls}`}><Icon size={11} /> {meta.label}</span></td>
+                          <td>
+                            <span className="unem-ell unem-strong" title={f.registro_identificador}>{f.registro_identificador || '—'}</span>
+                            <span className="unem-mono" style={{ fontSize: 10.5, color: 'var(--tx-3)' }}>IP {f.ip_origen ?? 'no registrada'}</span>
+                          </td>
+                          <td>
+                            <span className="unem-ell" style={{ maxWidth: 110, fontSize: 11.5 }} title={f.resumen_cambios}>
+                              {f.resumen_cambios || '—'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <button className="unem-btn unem-btn-sm" onClick={() => setDetalle(f)}>
+                              <Eye size={13} /> Ver
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-            <div className="unem-drawer-body unem-scroll">
-              <dl className="unem-kv">
-                <dt>Fecha y hora</dt>
-                <dd className="unem-mono">{fmtFecha(detalle.fecha).d} · {fmtFecha(detalle.fecha).h}</dd>
-                <dt>Usuario</dt><dd>{detalle.usuario || 'Sistema / Script'}</dd>
-                <dt>IP de origen</dt><dd className="unem-mono">{detalle.ip_origen ?? 'no registrada'}</dd>
-                <dt>Tabla</dt><dd className="unem-mono">{detalle.tabla_afectada}</dd>
-                <dt>Operación SQL</dt><dd className="unem-mono">{detalle.accion}</dd>
-                <dt>Registro</dt><dd>{detalle.registro_identificador || '—'}</dd>
-                <dt>Campos alterados</dt><dd>{detalle.resumen_cambios || '—'}</dd>
-              </dl>
-
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-                  <b style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-3)' }}>
-                    Snapshot del movimiento
-                  </b>
-                  <button className="unem-btn unem-btn-sm" onClick={() => { void copiar(jsonPintado(detalle as unknown as Record<string, unknown>)); }}>
-                    <Copy size={12} /> Copiar
+              <div className="unem-pager">
+                <span className="unem-pager-info">
+                  Mostrando <b>{(pageSafe - 1) * PAGE_SIZE + 1}</b>–<b>{Math.min(pageSafe * PAGE_SIZE, filtradas.length)}</b> de{' '}
+                  <b>{filtradas.length}</b> movimiento(s) · página {pageSafe} de {totalPages}
+                </span>
+                <div className="unem-pager-ctrl">
+                  <button className="unem-pnum" disabled={pageSafe <= 1} onClick={() => setPage(pageSafe - 1)} aria-label="Anterior">
+                    <ChevronLeft size={14} />
+                  </button>
+                  {pageBtns.map((n: number) => (
+                    <button key={n} className="unem-pnum" data-on={n === pageSafe} onClick={() => setPage(n)}>{n}</button>
+                  ))}
+                  <button className="unem-pnum" disabled={pageSafe >= totalPages} onClick={() => setPage(pageSafe + 1)} aria-label="Siguiente">
+                    <ChevronRight size={14} />
                   </button>
                 </div>
-                <pre className="unem-json unem-scroll-dark">{jsonPintado({
-                  id_aud: detalle.id_aud,
-                  fec_hor: detalle.fecha,
-                  usuario: detalle.usuario || 'Sistema',
-                  tabla_mod: detalle.tabla_afectada,
-                  accion: detalle.accion,
-                  clasificacion: KIND_META[detalle.kind].label,
-                  registro: detalle.registro_identificador,
-                  campos: detalle.resumen_cambios,
-                  dir_ip: detalle.ip_origen,
-                })}</pre>
               </div>
+            </>
+          )}
 
-              <div className="unem-note">
-                <Info size={15} />
-                <span>
-                  Los valores completos <code>val_antes</code> y <code>val_despues</code> residen en{' '}
-                  <code>general.aud_mov</code> como JSONB y permiten reversión punto a punto.
-                </span>
-              </div>
-            </div>
+          <div className="unem-note">
+            <Info size={16} />
+            <span>
+              El <b>borrado lógico</b> (<code>estatus = 'I'</code>) se distingue de la eliminación física: el registro
+              permanece en la base y puede reactivarse. Cada entrada fue escrita por{' '}
+              <code>fn_auditoria_general()</code>, por lo que existe incluso para cambios hechos fuera de la aplicación.
+            </span>
+          </div>
 
-            <footer className="unem-drawer-foot">
-              <button className="unem-btn" onClick={() => setDetalle(null)}>Cerrar</button>
-              <button className="unem-btn unem-btn-primary"
-                onClick={() => { marcarRevisados([detalle.id_aud]); setDetalle(null); }}
-                disabled={revisados.includes(detalle.id_aud)}>
-                <CheckCheck size={15} />
-                {revisados.includes(detalle.id_aud) ? 'Ya revisado' : 'Marcar revisado'}
-              </button>
-            </footer>
-          </aside>
+          {detalle && (
+            <>
+              <button className="unem-drawer-scrim" onClick={() => setDetalle(null)} aria-label="Cerrar detalle" />
+              <aside className="unem-drawer" role="dialog" aria-label={`Movimiento ${detalle.id_aud}`}>
+                <header className="unem-drawer-head">
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                      <span className="unem-mono" style={{ fontSize: 19, fontWeight: 900, color: 'var(--tx-1)' }}>#{detalle.id_aud}</span>
+                      <span className={`unem-chip ${KIND_META[detalle.kind].cls}`}>{KIND_META[detalle.kind].label}</span>
+                      {revisados.includes(detalle.id_aud) && (
+                        <span className="unem-chip unem-chip-ins"><CheckCheck size={11} /> Revisado</span>
+                      )}
+                    </div>
+                    <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--tx-2)', fontWeight: 600 }}>
+                      {TABLA_LABEL[detalle.tabla_afectada] ?? detalle.tabla_afectada}
+                    </div>
+                  </div>
+                  <button className="unem-icon-btn" onClick={() => setDetalle(null)} aria-label="Cerrar"><X size={17} /></button>
+                </header>
+
+                <div className="unem-drawer-body unem-scroll">
+                  <dl className="unem-kv">
+                    <dt>Fecha y hora</dt>
+                    <dd className="unem-mono">{fmtFecha(detalle.fecha).d} · {fmtFecha(detalle.fecha).h}</dd>
+                    <dt>Usuario</dt><dd>{detalle.usuario || 'Sistema / Script'}</dd>
+                    <dt>IP de origen</dt><dd className="unem-mono">{detalle.ip_origen ?? 'no registrada'}</dd>
+                    <dt>Tabla</dt><dd className="unem-mono">{detalle.tabla_afectada}</dd>
+                    <dt>Operación SQL</dt><dd className="unem-mono">{detalle.accion}</dd>
+                    <dt>Registro</dt><dd>{detalle.registro_identificador || '—'}</dd>
+                    <dt>Campos alterados</dt><dd>{detalle.resumen_cambios || '—'}</dd>
+                  </dl>
+
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+                      <b style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--tx-3)' }}>
+                        Snapshot del movimiento
+                      </b>
+                      <button className="unem-btn unem-btn-sm" onClick={() => { void copiar(jsonPintado(detalle as unknown as Record<string, unknown>)); }}>
+                        <Copy size={12} /> Copiar
+                      </button>
+                    </div>
+                    <pre className="unem-json unem-scroll-dark">{jsonPintado({
+                      id_aud: detalle.id_aud,
+                      fec_hor: detalle.fecha,
+                      usuario: detalle.usuario || 'Sistema',
+                      tabla_mod: detalle.tabla_afectada,
+                      accion: detalle.accion,
+                      clasificacion: KIND_META[detalle.kind].label,
+                      registro: detalle.registro_identificador,
+                      campos: detalle.resumen_cambios,
+                      dir_ip: detalle.ip_origen,
+                    })}</pre>
+                  </div>
+
+                  <div className="unem-note">
+                    <Info size={15} />
+                    <span>
+                      Los valores completos <code>val_antes</code> y <code>val_despues</code> residen en{' '}
+                      <code>general.aud_mov</code> como JSONB y permiten reversión punto a punto.
+                    </span>
+                  </div>
+                </div>
+
+                <footer className="unem-drawer-foot">
+                  <button className="unem-btn" onClick={() => setDetalle(null)}>Cerrar</button>
+                  <button className="unem-btn unem-btn-primary"
+                    onClick={() => { marcarRevisados([detalle.id_aud]); setDetalle(null); }}
+                    disabled={revisados.includes(detalle.id_aud)}>
+                    <CheckCheck size={15} />
+                    {revisados.includes(detalle.id_aud) ? 'Ya revisado' : 'Marcar revisado'}
+                  </button>
+                </footer>
+              </aside>
+            </>
+          )}
         </>
       )}
     </div>
