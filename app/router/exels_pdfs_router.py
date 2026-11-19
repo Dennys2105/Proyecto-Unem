@@ -22,53 +22,61 @@ router = APIRouter(prefix="/exportar", tags=["Exportar"])
 ###Exels
 @router.get("/exportar-notas", summary="Generar Notas")
 def exportar_inventario(
-    id_malla: int, 
-    id_per: int, 
+    id_malla: int,
+    id_per: int,
+    tipo_evaluacion: Optional[str] = Query(None, description="Tipo de evaluación del acta (ej: Final)"),
+    id_sec: Optional[int] = Query(None, description="Sección del estudiante (id_sec)"),
     session: Session = Depends(get_session)
 ):
     # 1. Preparar datos con Pandas
-    query = text("""
+    #    El acta se identifica por MALLA + PERÍODO (no por estudiante).
+    sql = """
         SELECT
-            e.nombre AS estudiante, 
-            n.nota, 
-            n.tipo_evaluacion, 
-            n.observaciones, 
-            n.fecha_registro 
+            e.cedula,
+            e.apellido || ', ' || e.nombre AS estudiante,
+            n.nota,
+            n.tipo_evaluacion,
+            n.observaciones,
+            n.fecha_registro
         FROM academico.notas n
         INNER JOIN personas.estudiantes e ON n.id_est = e.id_est
-        WHERE n.id_est = :id_est AND n.id_per = :id_per
-        ORDER BY e.nombre ASC, n.fecha_registro DESC
-    """)
-    
-    # Nota: Usamos id_est en el dict para que coincida con tu SQL
-    result = session.execute(query, {"id_est": id_malla, "id_per": id_per})
-    
+        WHERE n.id_malla = :id_malla AND n.id_per = :id_per AND n.estatus = 'A'
+    """
+    params = {"id_malla": id_malla, "id_per": id_per}
+    if tipo_evaluacion:
+        sql += " AND n.tipo_evaluacion = :tipo_evaluacion"
+        params["tipo_evaluacion"] = tipo_evaluacion
+    if id_sec is not None:
+        sql += " AND e.id_sec = :id_sec"
+        params["id_sec"] = id_sec
+    sql += " ORDER BY e.apellido ASC, e.nombre ASC, n.fecha_registro DESC"
+
+    result = session.execute(text(sql), params)
     df = pd.DataFrame(result.fetchall(), columns=result.keys())
-    
+
     for col in df.columns:
         if pd.api.types.is_datetime64tz_dtype(df[col]):
             df[col] = df[col].dt.tz_convert(None)
-    
-    # (Opcional pero recomendado): Manejar DataFrame vacío por si no hay registros
+
+    # Manejar DataFrame vacío por si no hay registros
     if df.empty:
-        # Puedes retornar un error o un excel vacío según prefieras
-        df = pd.DataFrame(columns=["estudiante", "nota", "tipo_evaluacion", "observaciones", "fecha_registro"])
+        df = pd.DataFrame(columns=["cedula", "estudiante", "nota", "tipo_evaluacion", "observaciones", "fecha_registro"])
 
     # 2. Crear un buffer de memoria y usar pd.ExcelWriter con openpyxl
     excel_buffer = io.BytesIO()
-    
+
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Notas')
-        
+
         # 3. Acceder al libro y a la hoja activa para aplicar estilos con openpyxl
         workbook = writer.book
         worksheet = writer.sheets['Notas']
-        
+
         # Estilos para los encabezados (Fila 1)
         header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
         header_font = Font(color="FFFFFF", bold=True, name="Calibri", size=11)
         header_alignment = Alignment(horizontal="center", vertical="center")
-        
+
         for col in range(1, len(df.columns) + 1):
             cell = worksheet.cell(row=1, column=col)
             cell.fill = header_fill
@@ -79,14 +87,14 @@ def exportar_inventario(
         for col in worksheet.columns:
             max_length = 0
             col_letter = get_column_letter(col[0].column)
-            
+
             for cell in col:
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
                 except:
                     pass
-            
+
             worksheet.column_dimensions[col_letter].width = max(max_length + 4, 12)
 
     # 5. ¡Importante! Rebobinar el buffer al inicio antes de retornarlo
@@ -98,8 +106,7 @@ def exportar_inventario(
         excel_buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={nombre_archivo}"}
-    )
-    
+    )    
 
 @router.get("/estudiantes/seccion/exel", summary= "descargar estudiantes de cada seccion")
 def descargar_list_estudiante_exel(

@@ -9,9 +9,17 @@ const abrir = (ruta: string): void => {
   window.open(`${API_BASE}${ruta}`, '_blank', 'noopener');
 };
 
-/** Acta de notas en Excel (malla + período académico). */
-export const descargarActaNotas = (idMalla: number, idPer: number): void => {
-  abrir(`/exportar/exportar-notas?id_malla=${idMalla}&id_per=${idPer}`);
+/** Acta de notas en Excel (malla + período; opcionalmente tipo de evaluación y sección). */
+export const descargarActaNotas = (
+  idMalla: number,
+  idPer: number,
+  tipoEvaluacion?: string,
+  idSeccion?: number,
+): void => {
+  let ruta = `/exportar/exportar-notas?id_malla=${idMalla}&id_per=${idPer}`;
+  if (tipoEvaluacion) ruta += `&tipo_evaluacion=${encodeURIComponent(tipoEvaluacion)}`;
+  if (idSeccion !== undefined) ruta += `&id_sec=${idSeccion}`;
+  abrir(ruta);
 };
 
 /** Listado de estudiantes de una sección en Excel. */

@@ -580,7 +580,7 @@ export const NotasPage = () => {
                 {cargandoActa ? 'Cargando acta...' : 'Cargar acta'}
               </button>
               <button
-                onClick={() => descargarActaNotas(parseInt(actaMalla, 10), parseInt(actaPeriodo, 10))}
+                onClick={() => descargarActaNotas(parseInt(actaMalla, 10), parseInt(actaPeriodo, 10), actaTipo, actaSeccion ? parseInt(actaSeccion, 10) : undefined)}
                 disabled={!actaMalla || !actaPeriodo}
                 title={!actaMalla || !actaPeriodo ? 'Selecciona materia y período para exportar' : 'Descargar el acta guardada en Excel'}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition text-sm font-medium"
