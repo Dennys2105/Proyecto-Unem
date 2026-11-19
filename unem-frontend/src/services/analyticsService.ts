@@ -161,6 +161,15 @@ export interface FilaEje {
   pct_aprobacion: number;
 }
 
+export interface FilaOcupacionDia {
+  id_esp: number;
+  aula: string;
+  nombre_centro: string;
+  capacidad: number;
+  total_asignaciones: number;
+  horas_ocupadas: number;
+}
+
 export interface FilaSabado {
   aula: string;
   nombre_centro: string;
@@ -256,6 +265,11 @@ export const analyticsService = {
 
   getEjes: async (): Promise<FilaEje[]> =>
     (await api.get('/analytics/desempeno-por-eje')).data,
+
+  getOcupacionPorDia: async (idDia: number): Promise<FilaOcupacionDia[]> =>
+    (await api.get('/analytics/ocupacion-por-dia', {
+      params: { id_dia: idDia },
+    })).data,
 
   getSabado: async (): Promise<FilaSabado[]> =>
     (await api.get('/analytics/ocupacion-sabado')).data,

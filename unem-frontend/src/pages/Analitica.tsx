@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { analyticsService } from '../services/analyticsService';
 import type {
-  PuntoTendencia, FilaTrayecto, FilaEje, FilaSabado, FilaGeografia, BinHistograma,
+  PuntoTendencia, FilaTrayecto, FilaEje, FilaOcupacionDia, FilaGeografia, BinHistograma,
 } from '../services/analyticsService';
+import { useDias } from '../hooks/useDias';
 import {
   BarChart3, TrendingUp, Layers, CalendarRange, MapPin, RefreshCw, Info,
 } from 'lucide-react';
@@ -13,7 +14,7 @@ import {
   Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
-type Tab = 'tendencia' | 'trayectos' | 'ejes' | 'sabado' | 'geografia';
+type Tab = 'tendencia' | 'trayectos' | 'ejes' | 'ocupacion' | 'geografia';
 
 const AZUL = '#1E88E5';
 const INDIGO = '#2E3192';
@@ -26,22 +27,22 @@ const etiquetaBin = (b: number): string => `${(b - 1) * 2}–${b * 2}`;
 
 export const Analitica = (): ReactNode => {
   const [tab, setTab] = useState<Tab>('tendencia');
+  const [idDia, setIdDia] = useState<number>(6); // 6 = Sábado por defecto
+  const { dias } = useDias();
+  const diasActivos = (dias ?? []).filter((d) => d.estatus === 'A');
+  const diaNombre = diasActivos.find((d) => d.id_dia === idDia)?.dia ?? 'Día';
 
   const qTen = useQuery<PuntoTendencia[]>({ queryKey: ['ana', 'ten'], queryFn: analyticsService.getTendencia, enabled: tab === 'tendencia' });
   const qHis = useQuery<BinHistograma[]>({ queryKey: ['ana', 'his'], queryFn: analyticsService.getHistograma, enabled: tab === 'tendencia' });
   const qTra = useQuery<FilaTrayecto[]>({ queryKey: ['ana', 'tra'], queryFn: () => analyticsService.getTrayectos(), enabled: tab === 'trayectos' });
   const qEje = useQuery<FilaEje[]>({ queryKey: ['ana', 'eje'], queryFn: analyticsService.getEjes, enabled: tab === 'ejes' });
-  const qSab = useQuery<FilaSabado[]>({ queryKey: ['ana', 'sab'], queryFn: analyticsService.getSabado, enabled: tab === 'sabado' });
+  const qOcu = useQuery<FilaOcupacionDia[]>({ queryKey: ['ana', 'ocu', idDia], queryFn: () => analyticsService.getOcupacionPorDia(idDia), enabled: tab === 'ocupacion' });
   const qGeo = useQuery<FilaGeografia[]>({ queryKey: ['ana', 'geo'], queryFn: analyticsService.getGeografia, enabled: tab === 'geografia' });
 
-  const activa = tab === 'tendencia' ? qTen : tab === 'trayectos' ? qTra : tab === 'ejes' ? qEje : tab === 'sabado' ? qSab : qGeo;
+  const activa = tab === 'tendencia' ? qTen : tab === 'trayectos' ? qTra : tab === 'ejes' ? qEje : tab === 'ocupacion' ? qOcu : qGeo;
 
-  const bins: { label: string; cantidad: number }[] = (qHis.data ?? []).map((b: BinHistograma) => ({
-    label: etiquetaBin(b.bin), cantidad: b.cantidad,
-  }));
-  const trayectos = (qTra.data ?? []).map((t: FilaTrayecto) => ({
-    ...t, label: `${t.cod_programa} · T${t.trayecto}`,
-  }));
+  const bins = (qHis.data ?? []).map((b: BinHistograma) => ({ label: etiquetaBin(b.bin), cantidad: b.cantidad }));
+  const trayectos = (qTra.data ?? []).map((t: FilaTrayecto) => ({ ...t, label: `${t.cod_programa} · T${t.trayecto}` }));
   const geoTop = (qGeo.data ?? []).slice(0, 8);
 
   return (
@@ -53,9 +54,8 @@ export const Analitica = (): ReactNode => {
             <div style={{ minWidth: 0 }}>
               <h1>Analítica Académica</h1>
               <p>
-                Análisis profundo del rendimiento: tendencias por período, comparativas por trayecto y
-                eje formativo, ocupación sabatina de aulas y distribución geográfica. Todo calculado en
-                el motor de base de datos sobre calificaciones oficiales.
+                Tendencias por período, comparativas por trayecto y eje formativo, ocupación de aulas
+                por día (viernes y sábado) y distribución geográfica. Todo calculado en el motor de BD.
               </p>
             </div>
           </div>
@@ -69,7 +69,7 @@ export const Analitica = (): ReactNode => {
         <button data-on={tab === 'tendencia'} onClick={() => setTab('tendencia')}><TrendingUp size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Tendencia</button>
         <button data-on={tab === 'trayectos'} onClick={() => setTab('trayectos')}><Layers size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Trayectos</button>
         <button data-on={tab === 'ejes'} onClick={() => setTab('ejes')}><BarChart3 size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Ejes</button>
-        <button data-on={tab === 'sabado'} onClick={() => setTab('sabado')}><CalendarRange size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Sábado</button>
+        <button data-on={tab === 'ocupacion'} onClick={() => setTab('ocupacion')}><CalendarRange size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Ocupación</button>
         <button data-on={tab === 'geografia'} onClick={() => setTab('geografia')}><MapPin size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Geografía</button>
       </div>
 
@@ -158,12 +158,19 @@ export const Analitica = (): ReactNode => {
             </div>
           )}
 
-          {tab === 'sabado' && (
+          {tab === 'ocupacion' && (
             <div className="unem-card unem-card-pad">
-              <b style={{ fontSize: 12, color: 'var(--tx-2)' }}>Horas ocupadas por aula — Sábado (Escuela Bustamante)</b>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+                <b style={{ fontSize: 12, color: 'var(--tx-2)' }}>Horas ocupadas por aula — {diaNombre}</b>
+                <select className="unem-select" value={idDia} onChange={(e) => setIdDia(Number(e.target.value))}>
+                  {diasActivos.map((d) => (
+                    <option key={d.id_dia} value={d.id_dia}>{d.dia}</option>
+                  ))}
+                </select>
+              </div>
               <div style={{ height: 300, marginTop: 12 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={qSab.data ?? []}>
+                  <BarChart data={qOcu.data ?? []}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis dataKey="aula" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
@@ -172,7 +179,7 @@ export const Analitica = (): ReactNode => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <TablaSabado filas={qSab.data ?? []} />
+              <TablaOcupacion filas={qOcu.data ?? []} />
             </div>
           )}
 
@@ -199,7 +206,6 @@ export const Analitica = (): ReactNode => {
   );
 };
 
-/* ---------- Tablas ---------- */
 const TablaTrayectos = ({ filas }: { filas: FilaTrayecto[] }): ReactNode => (
   <div className="unem-table-wrap unem-scroll" style={{ marginTop: 16 }}>
     <table className="unem-table">
@@ -207,10 +213,8 @@ const TablaTrayectos = ({ filas }: { filas: FilaTrayecto[] }): ReactNode => (
       <tbody>
         {filas.map((f: FilaTrayecto) => (
           <tr key={`${f.cod_programa}-${f.trayecto}`}>
-            <td className="unem-strong">{f.cod_programa}</td>
-            <td>T{f.trayecto}</td>
-            <td>{f.estudiantes}</td>
-            <td className="unem-mono unem-strong">{f.promedio.toFixed(2)}</td>
+            <td className="unem-strong">{f.cod_programa}</td><td>T{f.trayecto}</td>
+            <td>{f.estudiantes}</td><td className="unem-mono unem-strong">{f.promedio.toFixed(2)}</td>
             <td>{f.pct_aprobacion.toFixed(1)}%</td>
           </tr>
         ))}
@@ -226,11 +230,8 @@ const TablaEjes = ({ filas }: { filas: FilaEje[] }): ReactNode => (
       <tbody>
         {filas.map((f: FilaEje) => (
           <tr key={f.cod_eje}>
-            <td className="unem-strong">{f.eje}</td>
-            <td>{f.materias}</td>
-            <td>{f.evaluaciones}</td>
-            <td className="unem-mono unem-strong">{f.promedio.toFixed(2)}</td>
-            <td>{f.pct_aprobacion.toFixed(1)}%</td>
+            <td className="unem-strong">{f.eje}</td><td>{f.materias}</td><td>{f.evaluaciones}</td>
+            <td className="unem-mono unem-strong">{f.promedio.toFixed(2)}</td><td>{f.pct_aprobacion.toFixed(1)}%</td>
           </tr>
         ))}
       </tbody>
@@ -238,17 +239,15 @@ const TablaEjes = ({ filas }: { filas: FilaEje[] }): ReactNode => (
   </div>
 );
 
-const TablaSabado = ({ filas }: { filas: FilaSabado[] }): ReactNode => (
+const TablaOcupacion = ({ filas }: { filas: FilaOcupacionDia[] }): ReactNode => (
   <div className="unem-table-wrap unem-scroll" style={{ marginTop: 16 }}>
     <table className="unem-table">
-      <thead><tr><th>Aula</th><th>Centro</th><th>Asignaciones</th><th>Horas</th></tr></thead>
+      <thead><tr><th>Aula</th><th>Centro</th><th>Capacidad</th><th>Asignaciones</th><th>Horas</th></tr></thead>
       <tbody>
-        {filas.map((f: FilaSabado) => (
-          <tr key={f.aula}>
-            <td className="unem-strong">{f.aula}</td>
-            <td>{f.nombre_centro}</td>
-            <td>{f.total_asignaciones_sabado}</td>
-            <td className="unem-mono unem-strong">{f.horas_ocupadas.toFixed(2)}</td>
+        {filas.map((f: FilaOcupacionDia) => (
+          <tr key={f.id_esp}>
+            <td className="unem-strong">{f.aula}</td><td>{f.nombre_centro}</td><td>{f.capacidad}</td>
+            <td>{f.total_asignaciones}</td><td className="unem-mono unem-strong">{f.horas_ocupadas.toFixed(2)}</td>
           </tr>
         ))}
       </tbody>
@@ -263,10 +262,8 @@ const TablaGeo = ({ filas }: { filas: FilaGeografia[] }): ReactNode => (
       <tbody>
         {filas.map((f: FilaGeografia) => (
           <tr key={f.id_mun}>
-            <td className="unem-strong">{f.municipio}</td>
-            <td>{f.estudiantes}</td>
-            <td>{f.docentes}</td>
-            <td>{f.espacios}</td>
+            <td className="unem-strong">{f.municipio}</td><td>{f.estudiantes}</td>
+            <td>{f.docentes}</td><td>{f.espacios}</td>
           </tr>
         ))}
       </tbody>

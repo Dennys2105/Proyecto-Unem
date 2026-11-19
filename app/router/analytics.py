@@ -697,7 +697,7 @@ def info_sistema(
 
     # ============================================================
 # ANALYTICS AVANZADO (v5.7) — Opción 2
-# Tendencias, comparativas por trayecto/eje, ocupación sabatina,
+# Tendencias, comparativas por trayecto/eje, ocupación por día,
 # distribución geográfica e histograma fino de notas.
 # ============================================================
 
@@ -830,6 +830,33 @@ def ocupacion_sabado(
             "aula": r["aula"], "nombre_centro": r["nombre_centro"],
             "total_asignaciones_sabado": int(r["total_asignaciones_sabado"] or 0),
             "horas_ocupadas": round(float(r["horas_ocupadas"] or 0), 2),
+        } for r in rows
+    ]
+
+
+@router.get("/ocupacion-por-dia")
+def ocupacion_por_dia(
+    id_dia: int = Query(..., ge=1, le=7, description="Día laboral (5=Viernes, 6=Sábado…)"),
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+):
+    """Ocupación de aulas para un día específico."""
+    rows = session.exec(text("""
+        SELECT e.id_esp, e.ubicacion AS aula, e.nombre_centro, e.capacidad,
+               COUNT(a.id_asig) AS total_asignaciones,
+               COALESCE(SUM(EXTRACT(EPOCH FROM (a.hora_fin - a.hora_inicio)) / 3600.0), 0) AS horas_ocupadas
+        FROM infraestructura.espacios_fis e
+        LEFT JOIN horarios.asig_carga_horarias a
+               ON a.id_esp = e.id_esp AND a.id_dia = :id_dia AND a.estatus = 'A'
+        WHERE e.estatus = 'A'
+        GROUP BY e.id_esp, e.ubicacion, e.nombre_centro, e.capacidad
+        ORDER BY horas_ocupadas DESC, e.ubicacion ASC
+    """).params(id_dia=id_dia)).mappings().all()
+    return [
+        {
+            "id_esp": r["id_esp"], "aula": r["aula"], "nombre_centro": r["nombre_centro"],
+            "capacidad": int(r["capacidad"]), "total_asignaciones": int(r["total_asignaciones"]),
+            "horas_ocupadas": round(float(r["horas_ocupadas"]), 2),
         } for r in rows
     ]
 
