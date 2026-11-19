@@ -125,6 +125,62 @@ export interface RendimientoAcademicoData {
   materias_riesgo: MateriaRiesgo[];
 }
 
+/* ===== ANALYTICS AVANZADO (Opción 2) ===== */
+export interface PuntoTendencia {
+  id_per: number;
+  periodo: string;
+  anio: number;
+  numero_periodo: number;
+  tipo: string;
+  fecha_inicio: string;
+  evaluaciones: number;
+  estudiantes: number;
+  promedio: number;
+  aprobados: number;
+  pct_aprobacion: number;
+}
+
+export interface FilaTrayecto {
+  cod_programa: string;
+  programa: string;
+  trayecto: number;
+  evaluaciones: number;
+  estudiantes: number;
+  promedio: number;
+  aprobados: number;
+  pct_aprobacion: number;
+}
+
+export interface FilaEje {
+  cod_eje: string;
+  eje: string;
+  materias: number;
+  evaluaciones: number;
+  promedio: number;
+  aprobados: number;
+  pct_aprobacion: number;
+}
+
+export interface FilaSabado {
+  aula: string;
+  nombre_centro: string;
+  total_asignaciones_sabado: number;
+  horas_ocupadas: number;
+}
+
+export interface FilaGeografia {
+  id_mun: number;
+  municipio: string;
+  estudiantes: number;
+  docentes: number;
+  espacios: number;
+}
+
+export interface BinHistograma {
+  bin: number;
+  cantidad: number;
+}
+
 /* ===== METADATOS DEL SISTEMA (StatusBar) ===== */
 export interface EsquemaInfo { esquema: string; tablas: number; vistas: number }
 export interface TriggerDuplicado { esquema: string; tabla: string; cantidad: number }
@@ -189,6 +245,26 @@ export const analyticsService = {
     });
     return response.data;
   },
+
+  getTendencia: async (): Promise<PuntoTendencia[]> =>
+    (await api.get('/analytics/tendencia-academica')).data,
+
+  getTrayectos: async (idPro?: number): Promise<FilaTrayecto[]> =>
+    (await api.get('/analytics/desempeno-por-trayecto', {
+      params: idPro ? { id_pro: idPro } : {},
+    })).data,
+
+  getEjes: async (): Promise<FilaEje[]> =>
+    (await api.get('/analytics/desempeno-por-eje')).data,
+
+  getSabado: async (): Promise<FilaSabado[]> =>
+    (await api.get('/analytics/ocupacion-sabado')).data,
+
+  getGeografia: async (): Promise<FilaGeografia[]> =>
+    (await api.get('/analytics/distribucion-geografica')).data,
+
+  getHistograma: async (): Promise<BinHistograma[]> =>
+    (await api.get('/analytics/histograma-notas')).data,
 };
 
 /* ===== METADATOS DEL SISTEMA (StatusBar) ===== */

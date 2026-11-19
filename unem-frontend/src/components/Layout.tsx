@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { ReactNode, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Award, BookOpen, Boxes, CalendarDays, CalendarRange, ChevronRight,
+  Award, BarChart3, BookOpen, Boxes, CalendarDays, CalendarRange, ChevronRight,
   ClipboardList, CornerDownLeft, DoorOpen, Layers, LayoutDashboard,
   Library, LogOut, MapPin, Menu, Network, PanelLeftClose, PanelLeftOpen,
   Search, ShieldAlert, ShieldCheck, UserCheck, Users, X,
@@ -18,6 +18,7 @@ interface NavGroup { title: string; items: NavItem[] }
 const NAV: NavGroup[] = [
   { title: 'Panel', items: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: 'Métricas operativas y académicas' },
+    { to: '/analitica', label: 'Analítica', icon: BarChart3, hint: 'Tendencias, trayectos, ejes, sábado y geografía' },
   ]},
   { title: 'Académico', items: [
     { to: '/programas', label: 'Programas', icon: BookOpen, hint: 'PNF y licenciaturas' },

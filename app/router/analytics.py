@@ -694,3 +694,183 @@ def info_sistema(
         "salud": salud,
         "salud_ok": all(s["ok"] for s in salud),
     }
+
+    # ============================================================
+# ANALYTICS AVANZADO (v5.7) — Opción 2
+# Tendencias, comparativas por trayecto/eje, ocupación sabatina,
+# distribución geográfica e histograma fino de notas.
+# ============================================================
+
+_CTE_DEFINITIVAS = """
+    WITH definitivas AS (
+        SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
+               n.id_est, n.id_malla, n.id_per, n.nota
+        FROM academico.notas n
+        WHERE n.estatus = 'A'
+          AND n.tipo_evaluacion IN ('Final', 'Recuperación')
+        ORDER BY n.id_est, n.id_malla, n.id_per,
+                 CASE n.tipo_evaluacion WHEN 'Recuperación' THEN 1 ELSE 2 END
+    )
+"""
+
+
+@router.get("/tendencia-academica")
+def tendencia_academica(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+):
+    """Evolución del promedio y % de aprobación por período académico (serie temporal)."""
+    rows = session.exec(text(_CTE_DEFINITIVAS + """
+        SELECT pa.id_per, pa.nombre AS periodo, pa.anio, pa.numero_periodo, pa.tipo,
+               pa.fecha_inicio,
+               count(*)                          AS evaluaciones,
+               count(DISTINCT d.id_est)          AS estudiantes,
+               round(avg(d.nota), 2)             AS promedio,
+               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+                     / NULLIF(count(*), 0) * 100, 2)    AS pct_aprobacion
+        FROM definitivas d
+        JOIN academico.periodos_academicos pa ON pa.id_per = d.id_per
+        GROUP BY pa.id_per, pa.nombre, pa.anio, pa.numero_periodo, pa.tipo, pa.fecha_inicio
+        ORDER BY pa.fecha_inicio
+    """)).mappings().all()
+    return [
+        {
+            "id_per": r["id_per"], "periodo": r["periodo"], "anio": int(r["anio"]),
+            "numero_periodo": int(r["numero_periodo"]), "tipo": r["tipo"],
+            "fecha_inicio": str(r["fecha_inicio"]),
+            "evaluaciones": int(r["evaluaciones"]), "estudiantes": int(r["estudiantes"]),
+            "promedio": float(r["promedio"] or 0), "aprobados": int(r["aprobados"]),
+            "pct_aprobacion": float(r["pct_aprobacion"] or 0),
+        } for r in rows
+    ]
+
+
+@router.get("/desempeno-por-trayecto")
+def desempeno_por_trayecto(
+    id_pro: Optional[int] = Query(None, description="Filtrar por programa"),
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+):
+    """Comparativa de rendimiento por trayecto dentro de cada programa."""
+    filtro = " AND p.id_pro = :id_pro" if id_pro else ""
+    params = {"id_pro": id_pro} if id_pro else {}
+    rows = session.exec(text(_CTE_DEFINITIVAS + """
+        SELECT p.codigo AS cod_programa, p.nombre AS programa, mc.trayecto,
+               count(*)                          AS evaluaciones,
+               count(DISTINCT d.id_est)          AS estudiantes,
+               round(avg(d.nota), 2)             AS promedio,
+               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+                     / NULLIF(count(*), 0) * 100, 2)    AS pct_aprobacion
+        FROM definitivas d
+        JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
+        JOIN academico.programas p         ON p.id_pro  = mc.id_pro
+        WHERE 1=1
+    """ + filtro + """
+        GROUP BY p.codigo, p.nombre, mc.trayecto
+        ORDER BY p.codigo, mc.trayecto
+    """).params(**params)).mappings().all()
+    return [
+        {
+            "cod_programa": r["cod_programa"], "programa": r["programa"],
+            "trayecto": int(r["trayecto"]),
+            "evaluaciones": int(r["evaluaciones"]), "estudiantes": int(r["estudiantes"]),
+            "promedio": float(r["promedio"] or 0), "aprobados": int(r["aprobados"]),
+            "pct_aprobacion": float(r["pct_aprobacion"] or 0),
+        } for r in rows
+    ]
+
+
+@router.get("/desempeno-por-eje")
+def desempeno_por_eje(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+):
+    """Rendimiento agregado por eje formativo (Proyecto, Socio-Crítico, etc.)."""
+    rows = session.exec(text(_CTE_DEFINITIVAS + """
+        SELECT eje.codigo AS cod_eje, eje.nombre AS eje,
+               count(DISTINCT m.id_mat)          AS materias,
+               count(*)                          AS evaluaciones,
+               round(avg(d.nota), 2)             AS promedio,
+               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+                     / NULLIF(count(*), 0) * 100, 2)    AS pct_aprobacion
+        FROM definitivas d
+        JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
+        JOIN academico.materias m          ON m.id_mat  = mc.id_mat
+        JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
+        GROUP BY eje.codigo, eje.nombre
+        ORDER BY promedio DESC
+    """)).mappings().all()
+    return [
+        {
+            "cod_eje": r["cod_eje"], "eje": r["eje"], "materias": int(r["materias"]),
+            "evaluaciones": int(r["evaluaciones"]),
+            "promedio": float(r["promedio"] or 0), "aprobados": int(r["aprobados"]),
+            "pct_aprobacion": float(r["pct_aprobacion"] or 0),
+        } for r in rows
+    ]
+
+
+@router.get("/ocupacion-sabado")
+def ocupacion_sabado(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+):
+    """Ocupación de las aulas rotativas los sábados (requisito Vicerrectora)."""
+    rows = session.exec(text("""
+        SELECT aula, nombre_centro, total_asignaciones_sabado,
+               COALESCE(horas_ocupadas, 0) AS horas_ocupadas
+        FROM general.vw_ocupacion_aulas_sabado
+        ORDER BY horas_ocupadas DESC NULLS LAST, aula
+    """)).mappings().all()
+    return [
+        {
+            "aula": r["aula"], "nombre_centro": r["nombre_centro"],
+            "total_asignaciones_sabado": int(r["total_asignaciones_sabado"] or 0),
+            "horas_ocupadas": round(float(r["horas_ocupadas"] or 0), 2),
+        } for r in rows
+    ]
+
+
+@router.get("/distribucion-geografica")
+def distribucion_geografica(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+):
+    """Estudiantes, docentes y espacios por municipio del estado Táchira."""
+    rows = session.exec(text("""
+        SELECT m.id_mun, m.nombre AS municipio,
+            (SELECT count(*) FROM personas.estudiantes e
+              WHERE e.id_mun = m.id_mun AND e.estatus = 'A') AS estudiantes,
+            (SELECT count(*) FROM personas.docentes d
+              WHERE d.id_mun = m.id_mun AND d.estatus = 'A') AS docentes,
+            (SELECT count(*) FROM infraestructura.espacios_fis f
+              WHERE f.id_mun = m.id_mun AND f.estatus = 'A') AS espacios
+        FROM general.municipios m
+        WHERE m.estatus = 'A'
+        ORDER BY estudiantes DESC, municipio
+    """)).mappings().all()
+    return [
+        {
+            "id_mun": r["id_mun"], "municipio": r["municipio"],
+            "estudiantes": int(r["estudiantes"]), "docentes": int(r["docentes"]),
+            "espacios": int(r["espacios"]),
+        } for r in rows
+    ]
+
+
+@router.get("/histograma-notas")
+def histograma_notas(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+):
+    """Histograma fino de notas oficiales en 10 bins de 2 puntos (0-20)."""
+    rows = session.exec(text(_CTE_DEFINITIVAS + """
+        SELECT LEAST(width_bucket(d.nota, 0, 20, 10), 10) AS bin, count(*) AS cantidad
+        FROM definitivas d
+        GROUP BY bin
+        ORDER BY bin
+    """)).mappings().all()
+    return [{"bin": int(r["bin"]), "cantidad": int(r["cantidad"])} for r in rows]

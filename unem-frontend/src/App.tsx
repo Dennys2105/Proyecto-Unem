@@ -53,6 +53,7 @@ const Dias           = pagina(() => import('./pages/Dias'),             ['Dias',
 const Roles          = pagina(() => import('./pages/Roles'),            ['Roles', 'RolesPage']);
 const Notas          = pagina(() => import('./pages/Notas'),            ['NotasPage', 'Notas']);
 const Auditoria      = pagina(() => import('./pages/Auditoria'),        ['AuditoriaPage', 'Auditoria']);
+const Analitica = pagina(() => import('./pages/Analitica'), ['Analitica', 'AnaliticaPage', 'Analytics', 'AnalyticsPage']);
 
 /* ══════════════ QUERY CLIENT ══════════════ */
 const queryClient = new QueryClient({
@@ -176,6 +177,7 @@ const Rutas = (): ReactNode => (
       <Route path="/municipios" element={<Municipios />} />
       <Route path="/roles" element={<Roles />} />
       <Route path="/auditoria" element={<Auditoria />} />
+      <Route path="/analitica" element={<Analitica />} />
 
       {/* Alias de rutas usadas en versiones anteriores */}
       <Route path="/ejes-formativos" element={<Navigate to="/ejes" replace />} />
@@ -186,6 +188,7 @@ const Rutas = (): ReactNode => (
       <Route path="/asignacion" element={<Navigate to="/asignaciones" replace />} />
       <Route path="/dias-laborales" element={<Navigate to="/dias" replace />} />
       <Route path="/auditoria-movimientos" element={<Navigate to="/auditoria" replace />} />
+      <Route path="/analytics" element={<Navigate to="/analitica" replace />} />
     </Route>
 
     <Route path="*" element={<Navigate to="/dashboard" replace />} />
