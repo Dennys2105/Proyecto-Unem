@@ -22,7 +22,7 @@ from app.router.notas_router import router as notas_router
 from app.router.permisos_router import router as permisos_router
 from app.router.exels_pdfs_router import router as exportar
 from app.router.reportes_seguridad_router import router as reportes_seguridad_router
-
+from app.router.analitica_router import router as analitica_router
 
 app = FastAPI(
     title="App Unem",
@@ -69,3 +69,4 @@ app.include_router(notas_router)
 app.include_router(permisos_router)
 app.include_router(exportar)
 app.include_router(reportes_seguridad_router)
+app.include_router(analitica_router)
