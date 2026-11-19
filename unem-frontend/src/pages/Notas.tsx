@@ -6,6 +6,7 @@ import { usePeriodos } from '../hooks/usePeriodos';
 import { useProgramas } from '../hooks/useProgramas';
 import { useSecciones } from '../hooks/useSecciones';
 import { notaService } from '../services/notaService';
+import { descargarActaNotas } from '../utils/descargas';
 import type { Nota, NotaUpdate, FilaActa } from '../types/models';
 import {
   ClipboardList, Search, X, AlertCircle, Info, Edit, Save,
@@ -569,14 +570,24 @@ export const NotasPage = () => {
               </div>
             </div>
 
-            <button
-              onClick={cargarActa}
-              disabled={cargandoActa}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm font-medium"
-            >
-              <RefreshCw size={16} className={cargandoActa ? 'animate-spin' : ''} />
-              {cargandoActa ? 'Cargando acta...' : 'Cargar acta'}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={cargarActa}
+                disabled={cargandoActa}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm font-medium"
+              >
+                <RefreshCw size={16} className={cargandoActa ? 'animate-spin' : ''} />
+                {cargandoActa ? 'Cargando acta...' : 'Cargar acta'}
+              </button>
+              <button
+                onClick={() => descargarActaNotas(parseInt(actaMalla, 10), parseInt(actaPeriodo, 10))}
+                disabled={!actaMalla || !actaPeriodo}
+                title={!actaMalla || !actaPeriodo ? 'Selecciona materia y período para exportar' : 'Descargar el acta guardada en Excel'}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition text-sm font-medium"
+              >
+                <FileSpreadsheet size={16} /> Excel
+              </button>
+            </div>
           </div>
 
           {actaCargada && filas.length > 0 && (

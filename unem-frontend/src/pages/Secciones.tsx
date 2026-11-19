@@ -6,9 +6,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Seccion, SeccionCreate, SeccionUpdate } from '../types/models';
+import { descargarEstudiantesSeccion } from '../utils/descargas';
 import {
   Layers, Search, Plus, X, AlertCircle, Info,
-  CheckCircle2, XCircle, Edit
+  CheckCircle2, XCircle, Edit, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -195,6 +196,13 @@ export const Secciones = () => {
               title="Editar sección"
             >
               <Edit size={14} /> Editar
+            </button>
+            <button
+              onClick={() => descargarEstudiantesSeccion(row.codigo)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+              title="Listado de estudiantes de la sección en Excel"
+            >
+              <FileSpreadsheet size={14} /> Excel
             </button>
             <button
               onClick={() => toggleStatus(row)}
