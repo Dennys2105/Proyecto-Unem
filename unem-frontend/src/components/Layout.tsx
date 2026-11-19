@@ -18,7 +18,7 @@ interface NavGroup { title: string; items: NavItem[] }
 const NAV: NavGroup[] = [
   { title: 'Panel', items: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, hint: 'Métricas operativas y académicas' },
-    { to: '/analitica', label: 'Analítica', icon: BarChart3, hint: 'Tendencias, trayectos, ejes, sábado y geografía' },
+    { to: '/analitica', label: 'Analítica', icon: BarChart3, hint: 'Tendencias, trayectos, ejes, ocupación y geografía' },
   ]},
   { title: 'Académico', items: [
     { to: '/programas', label: 'Programas', icon: BookOpen, hint: 'PNF y licenciaturas' },

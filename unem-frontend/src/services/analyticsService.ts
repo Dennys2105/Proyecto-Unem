@@ -170,13 +170,6 @@ export interface FilaOcupacionDia {
   horas_ocupadas: number;
 }
 
-export interface FilaSabado {
-  aula: string;
-  nombre_centro: string;
-  total_asignaciones_sabado: number;
-  horas_ocupadas: number;
-}
-
 export interface FilaGeografia {
   id_mun: number;
   municipio: string;
@@ -271,29 +264,9 @@ export const analyticsService = {
       params: { id_dia: idDia },
     })).data,
 
-  getSabado: async (): Promise<FilaSabado[]> =>
-    (await api.get('/analytics/ocupacion-sabado')).data,
-
   getGeografia: async (): Promise<FilaGeografia[]> =>
     (await api.get('/analytics/distribucion-geografica')).data,
 
   getHistograma: async (): Promise<BinHistograma[]> =>
     (await api.get('/analytics/histograma-notas')).data,
 };
-
-/* ===== METADATOS DEL SISTEMA (StatusBar) ===== */
-export interface EsquemaInfo { esquema: string; tablas: number; vistas: number }
-export interface TriggerDuplicado { esquema: string; tabla: string; cantidad: number }
-export interface PruebaSalud { prueba: string; fallas: number; ok: boolean }
-
-export interface InfoSistema {
-  motor: { base_datos: string; version: string; tamano: string; conexiones: number };
-  estructura: { esquemas: number; tablas: number; vistas: number; desglose: EsquemaInfo[] };
-  catalogo: {
-    triggers: number; indices: number; foraneas: number;
-    checks: number; unicos: number; triggers_duplicados: TriggerDuplicado[];
-  };
-  volumen: Record<string, number>;
-  salud: PruebaSalud[];
-  salud_ok: boolean;
-}
