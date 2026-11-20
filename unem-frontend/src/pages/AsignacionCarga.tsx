@@ -5,6 +5,7 @@ import { useMallas } from '../hooks/useMallas';
 import { useEspaciosFisicos } from '../hooks/useEspaciosFisicos';
 import { useDias } from '../hooks/useDias';
 import { usePeriodos } from '../hooks/usePeriodos';
+import { useSecciones } from '../hooks/useSecciones';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -44,6 +45,7 @@ export const AsignacionCargaPage = () => {
   const { espacios } = useEspaciosFisicos();
   const { dias } = useDias();
   const { periodos } = usePeriodos();
+  const { secciones } = useSecciones();
   const { esAdmin, esCoordinador } = useAuth();
   const puedeEditar = esAdmin || esCoordinador;
 
@@ -190,28 +192,28 @@ export const AsignacionCargaPage = () => {
     toast.success('Generando ficha académica desde el servidor...');
   };
 
-  const handleGenerarPDFGeneral = () => {
+    const handleGenerarPDFGeneral = () => {
     if (!selectedPnf) return toast.error('Selecciona un PNF', { duration: 4000 });
-
+    const cod = selectedPnf === 'primaria' ? 'LPRI' : 'LESP';
     const filtradas = (asignaciones || []).filter(a => {
       const malla = mallas?.find(m => m.id_malla === a.id_malla);
-      if (!malla) return false;
-      return selectedPnf === 'primaria' ? malla.id_pro === 1 : malla.id_pro === 2;
+      return malla?.programa?.codigo === cod;
     });
-
+    if (filtradas.length === 0) {
+      return toast.error(`No hay asignaciones para ${cod}. Crea asignaciones primero.`, { duration: 5000 });
+    }
     const datos = filtradas.map(a => {
       const doc = docentes?.find(d => d.id_doc === a.id_doc);
       const malla = mallas?.find(m => m.id_malla === a.id_malla);
       const esp = espacios?.find(e => e.id_esp === a.id_esp);
       return {
         dia: dias?.find(d => d.id_dia === a.id_dia)?.dia || 'N/A',
-        hora: `${a.hora_inicio?.slice(0,5)} - ${a.hora_fin?.slice(0,5)}`,
+        hora: `${a.hora_inicio?.slice(0, 5)} - ${a.hora_fin?.slice(0, 5)}`,
         docente: doc ? `${doc.nombre} ${doc.apellido}` : 'N/A',
         materia: malla?.materia?.nombre || `Malla ${a.id_malla}`,
         espacio: esp ? `${esp.ubicacion} (${esp.nombre_centro})` : 'N/A',
       };
     }).sort((a, b) => a.dia.localeCompare(b.dia) || a.hora.localeCompare(b.hora));
-
     generateGeneralPNFPDF(datos, selectedPnf === 'especial' ? 'EDUCACIÓN ESPECIAL' : 'EDUCACIÓN PRIMARIA');
     closeReportModal();
     toast.success('Horario general descargado');
@@ -453,6 +455,9 @@ export const AsignacionCargaPage = () => {
                   <label className="block text-sm font-medium text-gray-700">Sección (Opcional)</label>
                   <select {...register('id_sec')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     <option value="">Sin sección específica</option>
+                    {(secciones ?? []).filter((s) => s.estatus === 'A').map((s) => (
+                      <option key={s.id_sec} value={s.id_sec}>{s.codigo} (T{s.trayecto}-P{s.periodo})</option>
+                    ))}
                   </select>
                 </div>
 

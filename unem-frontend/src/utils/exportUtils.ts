@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // ==========================================
 // 1. EXPORTAR A EXCEL (Mejorado con encabezado)
@@ -93,56 +93,52 @@ export const exportHorarioDocente = (
 // ==========================================
 export const generateGeneralPNFPDF = (
   data: Array<{ dia: string; hora: string; docente: string; materia: string; espacio: string }>,
-  pnfNombre: string, 
+  pnfNombre: string,
   fileName: string = 'Horario_General_PNF'
 ) => {
   const doc = new jsPDF('l', 'mm', 'a4');
-  
-  doc.setFontSize(16); 
+
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text('UNIVERSIDAD NACIONAL EXPERIMENTAL DEL MAGISTERIO', 148, 15, { align: 'center' });
-  
-  doc.setFontSize(10); 
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('"SAMUEL ROBINSON"', 148, 20, { align: 'center' });
-  
-  doc.setLineWidth(0.5); 
+  doc.setLineWidth(0.5);
   doc.line(10, 25, 287, 25);
-  
-  doc.setFontSize(14); 
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text(`HORARIO SEMANAL GENERAL - PNF ${pnfNombre.toUpperCase()}`, 148, 35, { align: 'center' });
-  
-  doc.setFontSize(9); 
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text(`Generado el: ${new Date().toLocaleDateString('es-VE')}`, 148, 42, { align: 'center' });
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     head: [['Día', 'Horario', 'Docente Investigador', 'Unidad Curricular', 'Espacio Físico']],
     body: data.map(row => [row.dia, row.hora, row.docente, row.materia, row.espacio]),
-    startY: 48, 
+    startY: 48,
     theme: 'grid',
     headStyles: { fillColor: [0, 51, 102], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 10 },
     bodyStyles: { fontSize: 9, cellPadding: 3 },
-    columnStyles: { 
-      0: { cellWidth: 30, halign: 'center', fontStyle: 'bold' }, 
-      1: { cellWidth: 35, halign: 'center' }, 
-      2: { cellWidth: 60 }, 
-      3: { cellWidth: 80 }, 
-      4: { cellWidth: 50 } 
+    columnStyles: {
+      0: { cellWidth: 30, halign: 'center', fontStyle: 'bold' },
+      1: { cellWidth: 35, halign: 'center' },
+      2: { cellWidth: 60 },
+      3: { cellWidth: 80 },
+      4: { cellWidth: 50 }
     },
     margin: { left: 10, right: 10 },
-    didParseCell: (data: any) => { 
-      if (data.column.index === 0 && data.section === 'body') {
-        data.cell.styles.fillColor = [240, 240, 240]; 
+    didParseCell: (hook: any) => {
+      if (hook.column.index === 0 && hook.section === 'body') {
+        hook.cell.styles.fillColor = [240, 240, 240];
       }
     }
   });
-  
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
-  doc.setFontSize(8); 
+
+  const finalY = ((doc as any).lastAutoTable?.finalY ?? 48) + 10;
+  doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text('Vicerrectorado Académico Territorial - Sistema de Gestión de Horarios', 148, finalY, { align: 'center' });
-  
+
   doc.save(`${fileName}.pdf`);
 };
