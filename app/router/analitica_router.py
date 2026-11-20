@@ -8,11 +8,11 @@ from sqlmodel import Session, text
 from typing import Optional
 
 from app.config.db_conection import get_session
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import obtener_usuario_actual
 
 router = APIRouter(prefix="/analitica", tags=["Analítica Académica"])
 
-_LECTOR = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+_LECTOR = Depends(obtener_usuario_actual)
 
 _CTE = """
     WITH definitivas AS (

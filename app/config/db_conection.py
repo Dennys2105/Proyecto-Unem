@@ -18,7 +18,7 @@ POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD")
 
 url = f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
-engine = create_engine(url, echo=True)
+engine = create_engine(url, echo=False)
 
 def get_session() -> Generator[Session,None ,None]:
     with Session(engine) as session:

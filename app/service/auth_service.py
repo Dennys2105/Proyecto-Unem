@@ -113,7 +113,12 @@ def iniciar_sesion(form_data: OAuth2PasswordRequestForm, session: Session) -> di
     username = form_data.username
     password = form_data.password
 
-    statement = select(Usuario, Credencial).join(Credencial,Usuario.id_usu == Credencial.id_usu).where(Usuario.username == username and Usuario.estatus == "A")
+    statement = (
+        select(Usuario, Credencial)
+        .join(Credencial, Usuario.id_usu == Credencial.id_usu)
+        .where(Usuario.username == username)
+        .where(Usuario.estatus == "A")
+    )
     resultado = session.exec(statement).first()
 
     if not resultado:

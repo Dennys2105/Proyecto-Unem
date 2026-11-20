@@ -1,20 +1,30 @@
 import api from '../lib/axios';
 import type { Usuario, MatrizPermiso } from '../types/models';
 
-// Interfaces para mapear las respuestas del backend
 interface BackendPermisoEfectivo {
   id_usu: number;
   username: string;
   rol: string;
-  modulo: string;       // Código del módulo (ej: 'docentes')
+  modulo: string;
   modulo_nombre: string;
-  permiso: string;      // Código del permiso (CRE, ACT, LEC, BOR)
+  permiso: string;
   permiso_nombre: string;
   alcance_efectivo: string;
-  origen: string;       // 'Heredado del rol' o 'Personalizado'
+  origen: string;
 }
 
-// Mapeo de códigos de permiso a sus IDs en la BD (según tus datos semilla)
+export interface UsuarioCreatePayload {
+  username: string;
+  email: string;
+  password: string;
+  id_rol: number;
+}
+
+export interface UsuarioPatchPayload {
+  id_rol?: number;
+  estatus?: string;
+}
+
 const PERMISO_CODE_TO_ID: Record<string, number> = {
   'CRE': 1,
   'ACT': 2,
@@ -22,10 +32,12 @@ const PERMISO_CODE_TO_ID: Record<string, number> = {
   'BOR': 4
 };
 
+const celdaVacia = () => ({ activo: false, alcance: 'NAD' as const, esPersonalizado: false });
+
 export const rolesService = {
-  // 1. Obtener todos los usuarios activos
-  getAllUsuarios: async (): Promise<Usuario[]> => {
-    const response = await api.get('/permisos/usuarios');
+  // 1. Usuarios (activos por defecto; opcionalmente incluye inactivos)
+  getAllUsuarios: async (incluirInactivos = false): Promise<Usuario[]> => {
+    const response = await api.get('/permisos/usuarios', { params: { incluir_inactivos: incluirInactivos } });
     return response.data.map((u: any) => ({
       id_usu: u.id_usu,
       username: u.username,
@@ -36,34 +48,39 @@ export const rolesService = {
     }));
   },
 
-  // 2. Obtener permisos efectivos de un usuario (rol + overrides)
+  // 1b. Crear usuario (usuario + credencial con hash)
+  crearUsuario: async (payload: UsuarioCreatePayload): Promise<void> => {
+    await api.post('/permisos/usuarios', payload);
+  },
+
+  // 1c. Cambiar rol y/o activar/desactivar
+  editarUsuario: async (idUsu: number, payload: UsuarioPatchPayload): Promise<void> => {
+    await api.patch(`/permisos/usuarios/${idUsu}`, payload);
+  },
+
+  // 1d. Resetear contraseña (y desbloquear la cuenta)
+  resetPassword: async (idUsu: number, password: string): Promise<void> => {
+    await api.post(`/permisos/usuarios/${idUsu}/password`, { password });
+  },
+
+  // 2. Permisos efectivos de un usuario (rol + overrides)
   getPermisosUsuario: async (usuarioId: number): Promise<MatrizPermiso[]> => {
-    // Obtener los permisos actuales del usuario
     const response = await api.get<BackendPermisoEfectivo[]>(`/permisos/usuario/${usuarioId}`);
     const datos = response.data;
 
-    // Obtener el catálogo completo de módulos para asegurar que todos aparezcan en la UI
     const catalogosRes = await api.get('/permisos/catalogos');
     const modulosReales = catalogosRes.data.modulos;
 
     const modulosMap = new Map<string, any>();
 
-    // Llenar el mapa con los permisos que el usuario ya tiene
     datos.forEach(d => {
       if (!modulosMap.has(d.modulo)) {
         modulosMap.set(d.modulo, {
-          permisos: {
-            CRE: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
-            ACT: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
-            LEC: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
-            BOR: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
-          }
+          permisos: { CRE: celdaVacia(), ACT: celdaVacia(), LEC: celdaVacia(), BOR: celdaVacia() }
         });
       }
-
       const moduloData = modulosMap.get(d.modulo);
       const codigoPermiso = d.permiso as 'CRE' | 'ACT' | 'LEC' | 'BOR';
-      
       moduloData.permisos[codigoPermiso] = {
         activo: d.alcance_efectivo !== 'NAD',
         alcance: d.alcance_efectivo as 'TODO' | 'SP' | 'LIM' | 'NAD',
@@ -71,7 +88,6 @@ export const rolesService = {
       };
     });
 
-    // Construir la matriz final asegurando que TODOS los módulos del sistema aparezcan
     const matrizFinal: MatrizPermiso[] = modulosReales.map((modReal: any) => {
       const datosModulo = modulosMap.get(modReal.codigo);
       return {
@@ -82,10 +98,7 @@ export const rolesService = {
           descripcion: modReal.descripcion || ''
         },
         permisos: datosModulo ? datosModulo.permisos : {
-          CRE: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
-          ACT: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
-          LEC: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
-          BOR: { activo: false, alcance: 'NAD' as const, esPersonalizado: false },
+          CRE: celdaVacia(), ACT: celdaVacia(), LEC: celdaVacia(), BOR: celdaVacia()
         }
       };
     });
@@ -96,10 +109,8 @@ export const rolesService = {
   // 3. Guardar permisos personalizados (overrides)
   savePermisosUsuario: async (usuarioId: number, matriz: MatrizPermiso[]): Promise<void> => {
     const permisosAplanados = [];
-    
     for (const item of matriz) {
       for (const [codigo, datos] of Object.entries(item.permisos)) {
-        // Solo enviamos al backend los permisos que el administrador marcó como "Personalizado"
         if (datos.esPersonalizado) {
           permisosAplanados.push({
             id_mod: item.modulo.id_mod,
@@ -109,11 +120,10 @@ export const rolesService = {
         }
       }
     }
-
     await api.put(`/permisos/usuario/${usuarioId}`, { permisos: permisosAplanados });
   },
-  
-  // 4. (Opcional) Restaurar permisos a los valores por defecto del rol
+
+  // 4. Restaurar permisos a los valores del rol
   resetearPermisos: async (usuarioId: number): Promise<void> => {
     await api.delete(`/permisos/usuario/${usuarioId}/reset`);
   }

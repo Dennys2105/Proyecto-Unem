@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status,Query
 from sqlmodel import Session, text
 from typing import Optional
 from datetime import date
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual
 from app.config.db_conection import get_session 
 from app.models.model_read_only import VwResumenEstadisticoRead,VwPermisosEfectivosRead,VwMovimientosRead,VwHorarioCompletoDocenteRead, VwDocentesPorContratoRead, VwDocentesPorProgramaMunicipioRead, VwAnalisisNotas
 router = APIRouter(prefix="/analytics", tags=["Analítica y Reportes"])
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/analytics", tags=["Analítica y Reportes"])
 #No se a implementado la funcion de autenticacion para facilitar las pruebas 
 
 @router.get("/resumen", response_model=VwResumenEstadisticoRead)
-def obtener_resumen_dashboard(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC","LIM"))):
+def obtener_resumen_dashboard(session: Session = Depends(get_session), usuario_actual: dict = Depends(obtener_usuario_actual)):
     statement = text("SELECT * FROM general.vw_resumen_estadistico")
     
     resultado = session.exec(statement).mappings().first()
@@ -218,7 +218,7 @@ def horario_completo_docente(
 @router.get("/carga-por-dia")
 def carga_horaria_por_dia(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """Horas reales asignadas por día de la semana (incluye asesorías)."""
     statement = text("""
@@ -251,7 +251,7 @@ def carga_horaria_por_dia(
 @router.get("/docentes-por-contrato")
 def docentes_por_contrato(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """Distribución de docentes y carga horaria por tipo de contrato."""
     statement = text("SELECT * FROM general.vw_docentes_por_contrato")
@@ -273,7 +273,7 @@ def docentes_por_contrato(
 def ocupacion_espacios(
     limite: int = Query(10, ge=1, le=50, description="Cantidad de espacios a devolver"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """Ranking de espacios físicos por horas ocupadas (toda la semana)."""
     statement = text("""
@@ -311,7 +311,7 @@ def ocupacion_espacios(
 @router.get("/estudiantes-por-programa")
 def estudiantes_por_programa(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """Cantidad de estudiantes activos por programa académico."""
     statement = text("""
@@ -344,7 +344,7 @@ def estudiantes_por_programa(
 @router.get("/periodo-vigente")
 def periodo_vigente(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """Devuelve el período académico marcado como vigente (o null si no hay)."""
     statement = text("""
@@ -371,7 +371,7 @@ def periodo_vigente(
 @router.get("/cobertura-notas")
 def cobertura_notas(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """
     Mide el AVANCE DE CARGA de notas, NO el rendimiento académico.
@@ -404,7 +404,7 @@ def cobertura_notas(
 def rendimiento_academico(
     id_per: Optional[int] = Query(None, description="Filtrar por período académico"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM"))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """
     KPIs académicos institucionales calculados en el motor de BD.
@@ -717,7 +717,7 @@ _CTE_DEFINITIVAS = """
 @router.get("/tendencia-academica")
 def tendencia_academica(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """Evolución del promedio y % de aprobación por período académico (serie temporal)."""
     rows = session.exec(text(_CTE_DEFINITIVAS + """
@@ -750,7 +750,7 @@ def tendencia_academica(
 def desempeno_por_trayecto(
     id_pro: Optional[int] = Query(None, description="Filtrar por programa"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """Comparativa de rendimiento por trayecto dentro de cada programa."""
     filtro = " AND p.id_pro = :id_pro" if id_pro else ""
@@ -785,7 +785,7 @@ def desempeno_por_trayecto(
 @router.get("/desempeno-por-eje")
 def desempeno_por_eje(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """Rendimiento agregado por eje formativo (Proyecto, Socio-Crítico, etc.)."""
     rows = session.exec(text(_CTE_DEFINITIVAS + """
@@ -816,7 +816,7 @@ def desempeno_por_eje(
 @router.get("/ocupacion-sabado")
 def ocupacion_sabado(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """Ocupación de las aulas rotativas los sábados (requisito Vicerrectora)."""
     rows = session.exec(text("""
@@ -838,7 +838,7 @@ def ocupacion_sabado(
 def ocupacion_por_dia(
     id_dia: int = Query(..., ge=1, le=7, description="Día laboral (5=Viernes, 6=Sábado…)"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """Ocupación de aulas para un día específico."""
     rows = session.exec(text("""
@@ -864,7 +864,7 @@ def ocupacion_por_dia(
 @router.get("/distribucion-geografica")
 def distribucion_geografica(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """Estudiantes, docentes y espacios por municipio del estado Táchira."""
     rows = session.exec(text("""
@@ -891,7 +891,7 @@ def distribucion_geografica(
 @router.get("/histograma-notas")
 def histograma_notas(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "LIM")),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """Histograma fino de notas oficiales en 10 bins de 2 puntos (0-20)."""
     rows = session.exec(text(_CTE_DEFINITIVAS + """

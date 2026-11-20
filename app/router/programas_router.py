@@ -21,7 +21,7 @@ def crear_programa(programa_in: ProgramasCreate, session: Session = Depends(get_
 
 # --- READ ALL ---
 @router.get("/", response_model=List[ProgramasResposive])
-def leer_programa(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('malla','LEC','TODO'))):
+def leer_programa(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('malla','LEC','SP'))):
     return service.leer_programas(session)
 
 # --- READ ONE ---

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PanelSeguridad } from '../components/PanelSeguridad';
+import { useAuth } from '../hooks/useAuth';
 
 /* ═══════════════ TIPOS ═══════════════ */
 interface Movimiento {
@@ -106,6 +107,8 @@ const PAGE_SIZE = 12;
 
 /* ═══════════════ PÁGINA ═══════════════ */
 export const AuditoriaPage = (): ReactNode => {
+  const { puede } = useAuth();
+  const puedeSeguridad = puede('aud_mov', 'LEC', 'LIM');
   const { data, isLoading, isFetching, isError, refetch } = useQuery<Movimiento[]>({
     queryKey: ['auditoria', 'movimientos'],
     queryFn: async (): Promise<Movimiento[]> => {
@@ -338,9 +341,11 @@ export const AuditoriaPage = (): ReactNode => {
         <button data-on={pestana === 'bitacora'} onClick={() => setPestana('bitacora')}>
           <ScrollText size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} /> Bitácora
         </button>
-        <button data-on={pestana === 'seguridad'} onClick={() => setPestana('seguridad')}>
-          <ShieldCheck size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} /> Seguridad
-        </button>
+        {puedeSeguridad && (
+          <button data-on={pestana === 'seguridad'} onClick={() => setPestana('seguridad')}>
+            <ShieldCheck size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} /> Seguridad
+          </button>
+        )}
       </div>
 
       {pestana === 'bitacora' && (

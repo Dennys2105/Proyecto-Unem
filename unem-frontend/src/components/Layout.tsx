@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 
 import { LogoUnem } from './LogoUnem';
 import { StatusBar } from './StatusBar';
+import { useAuth } from '../hooks/useAuth';
 
 interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; hint: string }
 interface NavGroup { title: string; items: NavItem[] }
@@ -47,6 +48,28 @@ const NAV: NavGroup[] = [
 
 const FLAT: NavItem[] = NAV.flatMap((g: NavGroup): NavItem[] => g.items);
 
+// Módulo y alcance mínimo que exige el backend para poder LEER cada página.
+// Si una ruta no aparece aquí, es visible para cualquier usuario autenticado.
+const REQ_MODULO: Record<string, [string, string]> = {
+  '/programas':    ['malla', 'SP'],
+  '/ejes':         ['malla', 'TODO'],
+  '/materias':     ['materias', 'TODO'],
+  '/malla':        ['malla', 'TODO'],
+  '/periodos':     ['periodos', 'TODO'],
+  '/secciones':    ['estudiantes', 'TODO'],
+  '/docentes':     ['docentes', 'TODO'],
+  '/estudiantes':  ['estudiantes', 'TODO'],
+  '/asignaciones': ['horarios', 'TODO'],
+  '/espacios':     ['espacios', 'TODO'],
+  '/notas':        ['notas', 'SP'],
+  '/municipios':   ['municipios', 'LIM'],
+  '/roles':        ['usuarios', 'LIM'],
+};
+
+const ROL_NOMBRE: Record<number, string> = {
+  1: 'Admin', 2: 'Vicerrector', 3: 'Coordinador', 4: 'Docente', 5: 'Estudiante',
+};
+
 const readLS = (k: string, f: string): string => {
   try { return window.localStorage.getItem(k) ?? f; } catch { return f; }
 };
@@ -68,7 +91,7 @@ const Reloj = (): ReactNode => {
   );
 };
 
-const Palette = ({ onClose }: { onClose: () => void }): ReactNode => {
+const Palette = ({ items, onClose }: { items: NavItem[]; onClose: () => void }): ReactNode => {
   const [q, setQ] = useState<string>('');
   const [sel, setSel] = useState<number>(0);
   const nav = useNavigate();
@@ -76,9 +99,9 @@ const Palette = ({ onClose }: { onClose: () => void }): ReactNode => {
 
   const results: NavItem[] = useMemo(() => {
     const t = q.trim().toLowerCase();
-    if (!t) return FLAT;
-    return FLAT.filter((i: NavItem) => `${i.label} ${i.hint} ${i.to}`.toLowerCase().includes(t));
-  }, [q]);
+    if (!t) return items;
+    return items.filter((i: NavItem) => `${i.label} ${i.hint} ${i.to}`.toLowerCase().includes(t));
+  }, [q, items]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => { setSel(0); }, [q]);
@@ -138,6 +161,20 @@ const Palette = ({ onClose }: { onClose: () => void }): ReactNode => {
 export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
   const loc = useLocation();
   const nav = useNavigate();
+  const { puede, username, idRol } = useAuth();
+
+  // Solo mostramos los módulos que el usuario puede leer (y ocultamos grupos vacíos)
+  const navVisible: NavGroup[] = NAV
+    .map((g: NavGroup): NavGroup => ({
+      ...g,
+      items: g.items.filter((i: NavItem): boolean => {
+        const req = REQ_MODULO[i.to];
+        return !req || puede(req[0], 'LEC', req[1]);
+      }),
+    }))
+    .filter((g: NavGroup): boolean => g.items.length > 0);
+
+  const flatVisible: NavItem[] = navVisible.flatMap((g: NavGroup): NavItem[] => g.items);
 
   const [mini, setMini] = useState<boolean>(() => readLS('unem_sidebar_mini', '0') === '1');
   const [drawer, setDrawer] = useState<boolean>(false);
@@ -196,7 +233,7 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
           </div>
 
           <nav className="unem-nav unem-scroll-dark">
-            {NAV.map((g: NavGroup) => (
+            {navVisible.map((g: NavGroup) => (
               <div className="unem-nav-group" key={g.title}>
                 <div className="unem-nav-label">{mini ? '•••' : g.title}</div>
                 {g.items.map((item: NavItem) => {
@@ -249,8 +286,8 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
             <Reloj />
 
             <div className="unem-user">
-              <span className="unem-avatar">A</span>
-              <span className="unem-user-txt"><b>Administrador</b><span>Admin</span></span>
+              <span className="unem-avatar">{(username ?? 'U').charAt(0).toUpperCase()}</span>
+              <span className="unem-user-txt"><b>{username ?? 'Usuario'}</b><span>{ROL_NOMBRE[idRol ?? 0] ?? 'Usuario'}</span></span>
             </div>
           </header>
 
@@ -263,7 +300,7 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
       </div>
 
       {drawer && <button className="unem-scrim" onClick={() => setDrawer(false)} aria-label="Cerrar menú" />}
-      {palette && <Palette onClose={() => setPalette(false)} />}
+      {palette && <Palette items={flatVisible} onClose={() => setPalette(false)} />}
     </>
   );
 };

@@ -12,6 +12,8 @@ interface TokenPayload {
   exp?: number;
 }
 
+const ORDEN_ALCANCE: Record<string, number> = { NAD: 0, SP: 1, LIM: 2, TODO: 3 };
+
 const getRawToken = (): string | null => {
   return (
     sessionStorage.getItem('unem_token') ||
@@ -55,19 +57,28 @@ export const useAuth = () => {
   // Si no podemos leer el rol, mostrar todo (fallback seguro)
   const rolDesconocido = idRol === null;
   const esAdmin = rolDesconocido ? true : idRol === 1;
+  const scopes = payload?.scopes ?? {};
+
+  /** ¿Tiene al menos el alcance mínimo sobre (modulo, accion)? ADMIN siempre sí. */
+  const puede = (modulo: string, accion: string = 'LEC', minimo: string = 'SP'): boolean => {
+    if (esAdmin) return true;
+    const alcance = String(scopes[`${modulo}:${accion}`] ?? 'NAD');
+    return (ORDEN_ALCANCE[alcance] ?? 0) >= (ORDEN_ALCANCE[minimo] ?? 1);
+  };
 
   return {
-    payload, // Para debug
+    payload,
     idRol,
     idUsuario,
     username,
     email: payload?.email ?? null,
-    scopes: payload?.scopes ?? {},
+    scopes,
     rolDesconocido,
     esAdmin,
     esVicerrector: idRol === 2,
     esCoordinador: idRol === 3,
     esDocente: idRol === 4,
     esEstudiante: idRol === 5,
+    puede,
   };
 };
