@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportesSeguridadService } from '../services/reportesSeguridadService';
 import type {
@@ -8,11 +8,24 @@ import type {
 } from '../services/reportesSeguridadService';
 import {
   Activity, AlertTriangle, Download, KeyRound, LogIn, RefreshCw,
-  ShieldAlert, ShieldCheck, ScrollText,
+  ShieldAlert, ShieldCheck, ScrollText, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 type Sub = 'resumen' | 'anomalias' | 'notas' | 'privilegios' | 'accesos';
+type SortKey = 'fec_hor' | 'estudiante' | 'nota_despues' | 'ejecutado_por' | 'tabla_mod' | 'usuario' | 'evento';
+type SortDir = 'asc' | 'desc';
+
+interface SortProps {
+  sortKey: SortKey;
+  sortDir: SortDir;
+  toggleSort: (key: SortKey) => void;
+}
+
+const SortIco = ({ k, sortKey, sortDir }: { k: SortKey; sortKey: SortKey; sortDir: SortDir }): ReactNode => {
+  if (sortKey !== k) return <ArrowUpDown size={11} style={{ opacity: 0.4 }} />;
+  return sortDir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />;
+};
 
 const hoy = (): string => new Date().toISOString().slice(0, 10);
 const haceDias = (n: number): string => {
@@ -62,6 +75,14 @@ export const PanelSeguridad = (): ReactNode => {
   const [umbral, setUmbral] = useState<number>(3);
   const [hmin, setHmin] = useState<number>(7);
   const [hmax, setHmax] = useState<number>(21);
+
+  const [sortKey, setSortKey] = useState<SortKey>('fec_hor');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const toggleSort = (key: SortKey): void => {
+    if (sortKey === key) setSortDir((d: SortDir): SortDir => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('desc'); }
+  };
 
   const qEjec = useQuery<ReporteEjecutivo>({
     queryKey: ['seguridad', 'ejecutivo', fecha],
@@ -123,7 +144,7 @@ export const PanelSeguridad = (): ReactNode => {
         <div className="unem-toolbar">
           <div className="unem-seg">
             {([['resumen', 'Resumen'], ['anomalias', 'Anomalías'], ['notas', 'Notas'], ['privilegios', 'Privilegios'], ['accesos', 'Accesos']] as [Sub, string][]).map(([k, label]: [Sub, string]) => (
-              <button key={k} data-on={sub === k} onClick={() => setSub(k)}>{label}</button>
+              <button key={k} data-on={sub === k} onClick={() => { setSub(k); setSortKey('fec_hor'); setSortDir('desc'); }}>{label}</button>
             ))}
           </div>
 
@@ -180,9 +201,9 @@ export const PanelSeguridad = (): ReactNode => {
         <>
           {sub === 'resumen' && qEjec.data && <Resumen d={qEjec.data} />}
           {sub === 'anomalias' && qAnom.data && <Anomalias lista={qAnom.data} />}
-          {sub === 'notas' && qNotas.data && <Notas d={qNotas.data} />}
-          {sub === 'privilegios' && qPriv.data && <Privilegios lista={qPriv.data} />}
-          {sub === 'accesos' && qAcc.data && <Accesos d={qAcc.data} />}
+          {sub === 'notas' && qNotas.data && <Notas d={qNotas.data} sortKey={sortKey} sortDir={sortDir} toggleSort={toggleSort} />}
+          {sub === 'privilegios' && qPriv.data && <Privilegios lista={qPriv.data} sortKey={sortKey} sortDir={sortDir} toggleSort={toggleSort} />}
+          {sub === 'accesos' && qAcc.data && <Accesos d={qAcc.data} sortKey={sortKey} sortDir={sortDir} toggleSort={toggleSort} />}
         </>
       )}
     </div>
@@ -264,55 +285,82 @@ const Anomalias = ({ lista }: { lista: Anomalia[] }): ReactNode => (
   )
 );
 
-const Notas = ({ d }: { d: CambiosNotas }): ReactNode => (
-  <>
-    <div className="unem-toolbar">
-      <span className="unem-chip unem-chip-mut">Total: {d.resumen.total_cambios}</span>
-      <span className="unem-chip unem-chip-ins">Subieron: {d.resumen.notas_subieron}</span>
-      <span className="unem-chip unem-chip-del">Bajaron: {d.resumen.notas_bajaron}</span>
-      <span className="unem-chip unem-chip-soft">Anuladas: {d.resumen.anuladas}</span>
-      <span className="unem-chip unem-chip-upd">Restauradas: {d.resumen.restauradas}</span>
-    </div>
-    <div className="unem-table-wrap unem-scroll">
-      <table className="unem-table">
-        <thead><tr>
-          <th>Fecha</th><th>Usuario</th><th>Estudiante</th><th>Materia</th><th>Nota</th><th>Estatus</th><th>IP</th>
-        </tr></thead>
-        <tbody>
-          {d.detalle.map((r: DetalleNota) => (
-            <tr key={r.id_aud}>
-              <td className="unem-mono" style={{ fontSize: 11.5 }}>{fmtFH(r.fec_hor)}</td>
-              <td><span className="unem-chip unem-chip-mut">{r.usuario}</span></td>
-              <td><span className="unem-strong">{r.estudiante ?? '—'}</span><br /><span className="unem-mono" style={{ fontSize: 10.5, color: 'var(--tx-3)' }}>{r.cedula ?? ''}</span></td>
-              <td><span className="unem-ell" style={{ maxWidth: 220 }}>{r.materia ?? '—'}</span></td>
-              <td className="unem-mono unem-strong">
-                {r.nota_antes !== null && r.nota_despues !== null && r.nota_antes !== r.nota_despues
-                  ? `${Number(r.nota_antes).toFixed(2)} → ${Number(r.nota_despues).toFixed(2)}`
-                  : r.nota_despues !== null ? Number(r.nota_despues).toFixed(2) : '—'}
-              </td>
-              <td>{r.estatus_antes !== r.estatus_despues
-                ? <span className={`unem-chip ${r.estatus_despues === 'I' ? 'unem-chip-soft' : 'unem-chip-ins'}`}>{r.estatus_antes} → {r.estatus_despues}</span>
-                : <span className="unem-chip unem-chip-mut">{r.estatus_despues ?? '—'}</span>}</td>
-              <td className="unem-mono" style={{ fontSize: 11 }}>{r.dir_ip ?? '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </>
-);
+const Notas = ({ d, sortKey, sortDir, toggleSort }: { d: CambiosNotas } & SortProps): ReactNode => {
+  const datosOrdenados = [...d.detalle].sort((a: DetalleNota, b: DetalleNota): number => {
+    let cmp = 0;
+    if (sortKey === 'fec_hor') cmp = (new Date(a.fec_hor).getTime() || 0) - (new Date(b.fec_hor).getTime() || 0);
+    else if (sortKey === 'estudiante') cmp = (a.estudiante ?? '').localeCompare(b.estudiante ?? '');
+    else if (sortKey === 'nota_despues') cmp = (a.nota_despues ?? 0) - (b.nota_despues ?? 0);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
 
-const Privilegios = ({ lista }: { lista: CambioPrivilegio[] }): ReactNode => (
-  lista.length === 0 ? (
+  return (
+    <>
+      <div className="unem-toolbar">
+        <span className="unem-chip unem-chip-mut">Total: {d.resumen.total_cambios}</span>
+        <span className="unem-chip unem-chip-ins">Subieron: {d.resumen.notas_subieron}</span>
+        <span className="unem-chip unem-chip-del">Bajaron: {d.resumen.notas_bajaron}</span>
+        <span className="unem-chip unem-chip-soft">Anuladas: {d.resumen.anuladas}</span>
+        <span className="unem-chip unem-chip-upd">Restauradas: {d.resumen.restauradas}</span>
+      </div>
+      <div className="unem-table-wrap unem-scroll">
+        <table className="unem-table">
+          <thead><tr>
+            <th><button className="unem-th-btn" onClick={() => toggleSort('fec_hor')}>Fecha <SortIco k="fec_hor" sortKey={sortKey} sortDir={sortDir} /></button></th>
+            <th>Usuario</th>
+            <th><button className="unem-th-btn" onClick={() => toggleSort('estudiante')}>Estudiante <SortIco k="estudiante" sortKey={sortKey} sortDir={sortDir} /></button></th>
+            <th>Materia</th>
+            <th><button className="unem-th-btn" onClick={() => toggleSort('nota_despues')}>Nota <SortIco k="nota_despues" sortKey={sortKey} sortDir={sortDir} /></button></th>
+            <th>Estatus</th>
+            <th>IP</th>
+          </tr></thead>
+          <tbody>
+            {datosOrdenados.map((r: DetalleNota) => (
+              <tr key={r.id_aud}>
+                <td className="unem-mono" style={{ fontSize: 11.5 }}>{fmtFH(r.fec_hor)}</td>
+                <td><span className="unem-chip unem-chip-mut">{r.usuario}</span></td>
+                <td><span className="unem-strong">{r.estudiante ?? '—'}</span><br /><span className="unem-mono" style={{ fontSize: 10.5, color: 'var(--tx-3)' }}>{r.cedula ?? ''}</span></td>
+                <td><span className="unem-ell" style={{ maxWidth: 220 }}>{r.materia ?? '—'}</span></td>
+                <td className="unem-mono unem-strong">
+                  {r.nota_antes !== null && r.nota_despues !== null && r.nota_antes !== r.nota_despues
+                    ? `${Number(r.nota_antes).toFixed(2)} → ${Number(r.nota_despues).toFixed(2)}`
+                    : r.nota_despues !== null ? Number(r.nota_despues).toFixed(2) : '—'}
+                </td>
+                <td>{r.estatus_antes !== r.estatus_despues
+                  ? <span className={`unem-chip ${r.estatus_despues === 'I' ? 'unem-chip-soft' : 'unem-chip-ins'}`}>{r.estatus_antes} → {r.estatus_despues}</span>
+                  : <span className="unem-chip unem-chip-mut">{r.estatus_despues ?? '—'}</span>}</td>
+                <td className="unem-mono" style={{ fontSize: 11 }}>{r.dir_ip ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+};
+
+const Privilegios = ({ lista, sortKey, sortDir, toggleSort }: { lista: CambioPrivilegio[] } & SortProps): ReactNode => {
+  const datosOrdenados = [...lista].sort((a: CambioPrivilegio, b: CambioPrivilegio): number => {
+    let cmp = 0;
+    if (sortKey === 'fec_hor') cmp = (new Date(a.fec_hor).getTime() || 0) - (new Date(b.fec_hor).getTime() || 0);
+    else if (sortKey === 'ejecutado_por') cmp = a.ejecutado_por.localeCompare(b.ejecutado_por);
+    else if (sortKey === 'tabla_mod') cmp = a.tabla_mod.localeCompare(b.tabla_mod);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  return lista.length === 0 ? (
     <div className="unem-note"><ShieldCheck size={16} /><span>Sin cambios de privilegios en el rango.</span></div>
   ) : (
     <div className="unem-table-wrap unem-scroll">
       <table className="unem-table">
         <thead><tr>
-          <th>Fecha</th><th>Ejecutado por</th><th>Tabla</th><th>Rol</th><th>Módulo</th><th>Permiso</th><th>Alcance</th><th>IP</th>
+          <th><button className="unem-th-btn" onClick={() => toggleSort('fec_hor')}>Fecha <SortIco k="fec_hor" sortKey={sortKey} sortDir={sortDir} /></button></th>
+          <th><button className="unem-th-btn" onClick={() => toggleSort('ejecutado_por')}>Ejecutado por <SortIco k="ejecutado_por" sortKey={sortKey} sortDir={sortDir} /></button></th>
+          <th><button className="unem-th-btn" onClick={() => toggleSort('tabla_mod')}>Tabla <SortIco k="tabla_mod" sortKey={sortKey} sortDir={sortDir} /></button></th>
+          <th>Rol</th><th>Módulo</th><th>Permiso</th><th>Alcance</th><th>IP</th>
         </tr></thead>
         <tbody>
-          {lista.map((r: CambioPrivilegio) => (
+          {datosOrdenados.map((r: CambioPrivilegio) => (
             <tr key={r.id_aud}>
               <td className="unem-mono" style={{ fontSize: 11.5 }}>{fmtFH(r.fec_hor)}</td>
               <td><span className="unem-chip unem-chip-mut">{r.ejecutado_por}</span></td>
@@ -327,39 +375,54 @@ const Privilegios = ({ lista }: { lista: CambioPrivilegio[] }): ReactNode => (
         </tbody>
       </table>
     </div>
-  )
-);
+  );
+};
 
-const Accesos = ({ d }: { d: EventosAcceso }): ReactNode => (
-  <>
-    <div className="unem-kpis">
-      <Kpi label="Logins" v={d.resumen.logins} hex="#0f9d58" icon={<LogIn size={16} />} />
-      <Kpi label="Fallidos" v={d.resumen.fallidos} hex="#e08600" icon={<AlertTriangle size={16} />} />
-      <Kpi label="Bloqueos" v={d.resumen.bloqueos} hex="#dc2626" icon={<ShieldAlert size={16} />} />
-      <Kpi label="Cambios de clave" v={d.resumen.cambios_password} hex="#2563eb" icon={<KeyRound size={16} />} />
-    </div>
-    <div className="unem-table-wrap unem-scroll">
-      <table className="unem-table">
-        <thead><tr><th>Fecha</th><th>Usuario</th><th>Evento</th><th>Intentos</th><th>IP</th></tr></thead>
-        <tbody>
-          {d.eventos.map((r: AccesoEvento) => (
-            <tr key={r.id_aud}>
-              <td className="unem-mono" style={{ fontSize: 11.5 }}>{fmtFH(r.fec_hor)}</td>
-              <td><span className="unem-chip unem-chip-mut">{r.usuario}</span></td>
-              <td><span className={`unem-chip ${EVENTO_CHIP[r.evento]}`}>{EVENTO_LABEL[r.evento]}</span></td>
-              <td className="unem-mono">{r.intentos_antes ?? 0} → {r.intentos_despues ?? 0}</td>
-              <td className="unem-mono" style={{ fontSize: 11 }}>{r.dir_ip ?? '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </>
-);
+const Accesos = ({ d, sortKey, sortDir, toggleSort }: { d: EventosAcceso } & SortProps): ReactNode => {
+  const datosOrdenados = [...d.eventos].sort((a: AccesoEvento, b: AccesoEvento): number => {
+    let cmp = 0;
+    if (sortKey === 'fec_hor') cmp = (new Date(a.fec_hor).getTime() || 0) - (new Date(b.fec_hor).getTime() || 0);
+    else if (sortKey === 'usuario') cmp = a.usuario.localeCompare(b.usuario);
+    else if (sortKey === 'evento') cmp = a.evento.localeCompare(b.evento);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  return (
+    <>
+      <div className="unem-kpis">
+        <Kpi label="Logins" v={d.resumen.logins} hex="#0f9d58" icon={<LogIn size={16} />} />
+        <Kpi label="Fallidos" v={d.resumen.fallidos} hex="#e08600" icon={<AlertTriangle size={16} />} />
+        <Kpi label="Bloqueos" v={d.resumen.bloqueos} hex="#dc2626" icon={<ShieldAlert size={16} />} />
+        <Kpi label="Cambios de clave" v={d.resumen.cambios_password} hex="#2563eb" icon={<KeyRound size={16} />} />
+      </div>
+      <div className="unem-table-wrap unem-scroll">
+        <table className="unem-table">
+          <thead><tr>
+            <th><button className="unem-th-btn" onClick={() => toggleSort('fec_hor')}>Fecha <SortIco k="fec_hor" sortKey={sortKey} sortDir={sortDir} /></button></th>
+            <th><button className="unem-th-btn" onClick={() => toggleSort('usuario')}>Usuario <SortIco k="usuario" sortKey={sortKey} sortDir={sortDir} /></button></th>
+            <th><button className="unem-th-btn" onClick={() => toggleSort('evento')}>Evento <SortIco k="evento" sortKey={sortKey} sortDir={sortDir} /></button></th>
+            <th>Intentos</th><th>IP</th>
+          </tr></thead>
+          <tbody>
+            {datosOrdenados.map((r: AccesoEvento) => (
+              <tr key={r.id_aud}>
+                <td className="unem-mono" style={{ fontSize: 11.5 }}>{fmtFH(r.fec_hor)}</td>
+                <td><span className="unem-chip unem-chip-mut">{r.usuario}</span></td>
+                <td><span className={`unem-chip ${EVENTO_CHIP[r.evento]}`}>{EVENTO_LABEL[r.evento]}</span></td>
+                <td className="unem-mono">{r.intentos_antes ?? 0} → {r.intentos_despues ?? 0}</td>
+                <td className="unem-mono" style={{ fontSize: 11 }}>{r.dir_ip ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+};
 
 /* ---------- Auxiliares ---------- */
 const Kpi = ({ label, v, hex, icon }: { label: string; v: number; hex: string; icon: ReactNode }): ReactNode => (
-  <article className="unem-kpi" style={{ ['--kpi-c' as never]: hex } as React.CSSProperties}>
+  <article className="unem-kpi" style={{ ['--kpi-c' as never]: hex } as CSSProperties}>
     <div className="unem-kpi-top"><span className="unem-kpi-l">{label}</span><span className="unem-kpi-i">{icon}</span></div>
     <div className="unem-kpi-v">{v}</div>
   </article>

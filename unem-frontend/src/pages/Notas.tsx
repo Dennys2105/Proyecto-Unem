@@ -300,10 +300,11 @@ export const NotasPage = () => {
     const accion = nuevo === 'A' ? 'restaurada' : 'anulada';
     try {
       await updateNota({ id: n.id_nota, data: { estatus: nuevo } as NotaUpdate });
-      await refetch();
+      await refetch(); // Fuerza la recarga de la lista
       toast.success(`Calificación ${accion} correctamente`, { icon: nuevo === 'A' ? '✅' : '📋' });
-    } catch {
-      toast.error(`No se pudo ${accion === 'anulada' ? 'anular' : 'restaurar'} la calificación`);
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail ?? `No se pudo ${accion} la calificación`;
+      toast.error(msg, { duration: 5000 });
     }
   };
 
