@@ -1,5 +1,6 @@
 import io
 import base64, os
+from PIL import Image as PILImage
 import pandas as pd
 from html import escape
 from fastapi import APIRouter, Depends, HTTPException, status,Query
@@ -22,15 +23,20 @@ router = APIRouter(prefix="/exportar", tags=["Exportar"])
 
 _MEMBRETE_PATH = os.path.join(os.path.dirname(__file__), '..', 'assets', 'membrete-unem.png')
 
-def _membrete_img() -> str:
-    """Devuelve el membrete como <img> base64 (o '' si no existe el archivo)."""
+def _membrete_img(ancho_mm: float = 190.0) -> str:
+    """Membrete con proporción real (xhtml2pdf solo respeta width/height)."""
     try:
         with open(_MEMBRETE_PATH, 'rb') as f:
-            uri = 'data:image/png;base64,' + base64.b64encode(f.read()).decode()
-        return f'<img src="{uri}" style="width:100%;max-height:70px;object-fit:contain;" />'
+            data = f.read()
+        w, h = PILImage.open(io.BytesIO(data)).size
+        alto_mm = round(ancho_mm * h / w, 2)
+        uri = 'data:image/png;base64,' + base64.b64encode(data).decode()
+        return (f'<div style="text-align:center;">'
+                f'<img src="{uri}" style="width:{ancho_mm}mm;height:{alto_mm}mm;" />'
+                f'</div>')
     except Exception:
         return ''
-
+    
 ###Exels
 @router.get("/exportar-notas", summary="Generar Notas")
 def exportar_inventario(
@@ -205,7 +211,13 @@ HTML_TEMPLATE = """
 <head>
 <meta charset="UTF-8">
 <style>
-    @page { size: letter landscape; margin: 0.6cm; }
+    @page {
+        size: letter landscape; margin: 0.6cm;
+        @frame footer_horario {
+            -pdf-frame-content: leyenda;
+            left: 0.6cm; right: 0.6cm; bottom: 0.6cm; height: 1cm;
+        }
+    }
     body { font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #222; }
     .header { text-align: center; border-bottom: 2px solid #1F4E78; padding-bottom: 6px; margin-bottom: 10px; }
     .header h1 { margin: 0; font-size: 15pt; color: #1F4E78; }
@@ -220,7 +232,7 @@ HTML_TEMPLATE = """
         padding: 6px 4px; font-size: 10pt; border: 1px solid #1F4E78; text-align: center;
     }
     table.horario td {
-        border: 1px solid #cbd5e1; padding: 4px; vertical-align: top;
+        border: 1px solid #cbd5e1; padding: 4px; vertical-align: top; height: 70px;
     }
     .col-hora { background-color: #f8fafc; font-weight: bold; text-align: center; font-size: 10pt; }
     .bloque-clase { background-color: #e0f2fe; border-left: 3px solid #0284c7; padding: 4px; margin-bottom: 4px; }
@@ -275,7 +287,7 @@ HTML_TEMPLATE = """
         </tbody>
     </table>
 
-    <div class="footer">Leyenda: Azul = Carga Académica | Ámbar = Asesoría | Verde = Preparación</div>
+    <div id="leyenda" class="footer">Leyenda: Azul = Carga Académica | Ámbar = Asesoría | Verde = Preparación</div>
 </body>
 </html>
 """
@@ -396,7 +408,13 @@ def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_sessio
     <head>
     <meta charset="UTF-8">
     <style>
-        @page {{ size: letter portrait; margin: 1.2cm; }}
+        @page {{
+            size: letter portrait; margin: 1.2cm;
+            @frame footer_ficha {{
+                -pdf-frame-content: pie_firma;
+                left: 1.2cm; right: 1.2cm; bottom: 1.2cm; height: 3cm;
+            }}
+        }}
         body {{ font-family: Helvetica, Arial, sans-serif; font-size: 10pt; color: #222; }}
         .header {{ text-align: center; margin-bottom: 12px; }}
         .header h1 {{ font-size: 13pt; color: #1F4E78; margin: 0; }}
@@ -411,15 +429,14 @@ def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_sessio
         table.horario {{ width: 100%; border-collapse: collapse; }}
         table.horario th {{ background-color: #1F4E78; color: #fff; padding: 6px; font-size: 9.5pt; border: 1px solid #1F4E78; }}
         table.horario td {{ border: 1px solid #cbd5e1; padding: 5px 6px; font-size: 9.5pt; }}
-        .firma {{ margin-top: 30px; text-align: center; font-size: 9pt; }}
+        .firma {{ margin-top: 6px; text-align: center; font-size: 9pt; }}
         .firma .linea-firma {{ border-top: 1px solid #333; width: 60%; margin: 0 auto 4px auto; }}
         .pie {{ margin-top: 18px; font-size: 8pt; color: #64748b; text-align: center; }}
     </style>
     </head>
     <body>
         <div class="header">
-            <h1>UNIVERSIDAD NACIONAL EXPERIMENTAL DEL MAGISTERIO</h1>
-            <h2>"SAMUEL ROBINSON"</h2>
+
             <h3>FICHA DE ORGANIZACIÓN ACADÉMICA DEL DOCENTE INVESTIGADOR</h3>
         </div>
         <div class="linea"></div>
@@ -459,12 +476,13 @@ def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_sessio
             </tbody>
         </table>
 
-        <div class="firma">
-            <div class="linea-firma"></div>
-            Firma del Docente Investigador
+        <div id="pie_firma">
+            <div class="firma">
+                <div class="linea-firma"></div>
+                Firma del Docente Investigador
+            </div>
+            <div class="pie">Vicerrectorado Académico Territorial — Generado el {datetime.now().strftime("%d/%m/%Y")}</div>
         </div>
-
-        <div class="pie">Vicerrectorado Académico Territorial — Generado el {datetime.now().strftime("%d/%m/%Y")}</div>
     </body>
     </html>"""
 
