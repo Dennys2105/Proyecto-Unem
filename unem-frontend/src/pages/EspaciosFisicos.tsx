@@ -2,15 +2,33 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/axios';
 import type { EspacioFisico } from '../types/models';
-import { MapPin, Search, Filter, Users, Clock, CheckCircle, XCircle, Info } from 'lucide-react';
+import { MapPin, Search, Filter, Users, Clock, CheckCircle, XCircle, Info, Plus, X, Edit } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+type Municipio = { id_mun: number; nombre: string };
+
+const FORM_INICIAL = {
+  nombre_centro: 'Escuela Bustamante',
+  ubicacion: '',
+  tipo_espacio: 'Aula',
+  capacidad: '30',
+  equipamiento: '',
+  id_mun: '',
+  disponibilidad: true,
+};
 
 export const EspaciosFisicos = () => {
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<string>('');
   const [filtroEstado, setFiltroEstado] = useState<string>('');
 
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [editando, setEditando] = useState<EspacioFisico | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [form, setForm] = useState(FORM_INICIAL);
+
   // Cargar espacios
-  const { data: espacios, isLoading } = useQuery<EspacioFisico[]>({
+  const { data: espacios, isLoading, refetch } = useQuery<EspacioFisico[]>({
     queryKey: ['espacios'],
     queryFn: async () => {
       const res = await api.get('/espacios_fisicos/');
@@ -18,23 +36,89 @@ export const EspaciosFisicos = () => {
     },
   });
 
+  // Catálogo de municipios para el formulario
+  const { data: municipios } = useQuery<Municipio[]>({
+    queryKey: ['municipios', 'catalogo'],
+    queryFn: async () => {
+      const res = await api.get('/Municipio/');
+      return res.data;
+    },
+  });
+
+  const abrirCrear = () => {
+    setEditando(null);
+    setForm(FORM_INICIAL);
+    setModalAbierto(true);
+  };
+
+  const abrirEditar = (esp: EspacioFisico) => {
+    const mun = municipios?.find((m: Municipio) => m.nombre === esp.municipio);
+    setEditando(esp);
+    setForm({
+      nombre_centro: esp.nombre_centro,
+      ubicacion: esp.ubicacion,
+      tipo_espacio: esp.tipo_espacio,
+      capacidad: String(esp.capacidad ?? 30),
+      equipamiento: esp.equipamiento ?? '',
+      id_mun: mun ? String(mun.id_mun) : '',
+      disponibilidad: esp.disponibilidad,
+    });
+    setModalAbierto(true);
+  };
+
+  const guardar = async () => {
+    const cap = Number(form.capacidad);
+    if (!form.nombre_centro.trim() || !form.ubicacion.trim()) {
+      toast.error('Indica el centro y la ubicación (ej: Aula 16).');
+      return;
+    }
+    if (!Number.isInteger(cap) || cap < 1 || cap > 500) {
+      toast.error('La capacidad debe ser un número entero entre 1 y 500.');
+      return;
+    }
+    if (!form.id_mun) {
+      toast.error('Selecciona el municipio del espacio.');
+      return;
+    }
+    const payload = {
+      nombre_centro: form.nombre_centro.trim(),
+      ubicacion: form.ubicacion.trim(),
+      tipo_espacio: form.tipo_espacio,
+      capacidad: cap,
+      equipamiento: form.equipamiento.trim() || null,
+      id_mun: Number(form.id_mun),
+      disponibilidad: form.disponibilidad,
+    };
+    setGuardando(true);
+    try {
+      if (editando) {
+        await api.patch(`/espacios_fisicos/${editando.id_esp}`, payload);
+        toast.success('Espacio actualizado correctamente', { icon: '✅' });
+      } else {
+        await api.post('/espacios_fisicos/', payload);
+        toast.success(`Espacio "${payload.ubicacion}" creado`, { icon: '🏫' });
+      }
+      setModalAbierto(false);
+      setEditando(null);
+      await refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail ?? 'No se pudo guardar el espacio', { duration: 5000 });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   // Filtrar espacios
   const espaciosFiltrados = useMemo(() => {
     if (!espacios) return [];
-    
+
     return espacios.filter(esp => {
-      // Filtro por búsqueda
       if (busqueda) {
         const texto = `${esp.nombre_centro} ${esp.ubicacion}`.toLowerCase();
         if (!texto.includes(busqueda.toLowerCase())) return false;
       }
-      
-      // Filtro por tipo
       if (filtroTipo && esp.tipo_espacio !== filtroTipo) return false;
-      
-      // Filtro por disponibilidad (true/false)
       if (filtroEstado !== '' && esp.disponibilidad.toString() !== filtroEstado) return false;
-      
       return true;
     });
   }, [espacios, busqueda, filtroTipo, filtroEstado]);
@@ -58,16 +142,24 @@ export const EspaciosFisicos = () => {
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="flex items-start gap-4">
-        <div className="bg-indigo-100 p-3 rounded-xl">
-          <MapPin className="text-indigo-600" size={32} />
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-4">
+          <div className="bg-indigo-100 p-3 rounded-xl">
+            <MapPin className="text-indigo-600" size={32} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Espacios Físicos</h1>
+            <p className="text-gray-600 mt-1">
+              Gestión de aulas, laboratorios y espacios de la universidad
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Espacios Físicos</h1>
-          <p className="text-gray-600 mt-1">
-            Gestión de aulas, laboratorios y espacios de la universidad
-          </p>
-        </div>
+        <button
+          onClick={abrirCrear}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium shadow-sm"
+        >
+          <Plus size={16} /> Nuevo Espacio
+        </button>
       </div>
 
       {/* Barra de Filtros */}
@@ -137,17 +229,16 @@ export const EspaciosFisicos = () => {
 
             {/* Grid de tarjetas */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* ✅ AQUÍ ESTÁ LA CORRECCIÓN: Ordenamiento nativo con tipos explícitos */}
               {espaciosCentro
-                .sort((a: EspacioFisico, b: EspacioFisico) => 
+                .sort((a: EspacioFisico, b: EspacioFisico) =>
                   a.ubicacion.localeCompare(b.ubicacion, 'es', { numeric: true, sensitivity: 'base' })
                 )
                 .map((esp: EspacioFisico) => {
                   const tipoConfig = TIPO_CONFIG[esp.tipo_espacio] || TIPO_CONFIG['Aula'];
-                  const ocupacionPorcentaje = esp.horas_ocupadas > 0 
-                    ? Math.min((esp.horas_ocupadas / 40) * 100, 100) 
+                  const ocupacionPorcentaje = esp.horas_ocupadas > 0
+                    ? Math.min((esp.horas_ocupadas / 40) * 100, 100)
                     : 0;
-                  
+
                   return (
                     <div
                       key={esp.id_esp}
@@ -219,8 +310,7 @@ export const EspaciosFisicos = () => {
                               {esp.horas_ocupadas.toFixed(1)}h / 40h
                             </span>
                           </div>
-                          
-                          {/* Barra de ocupación */}
+
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full transition-all ${
@@ -237,6 +327,16 @@ export const EspaciosFisicos = () => {
                             <span>{ocupacionPorcentaje.toFixed(0)}% ocupado</span>
                           </div>
                         </div>
+
+                        {/* Acciones */}
+                        <div className="pt-2 border-t border-gray-100">
+                          <button
+                            onClick={() => abrirEditar(esp)}
+                            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                          >
+                            <Edit size={14} /> Editar espacio
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -244,6 +344,133 @@ export const EspaciosFisicos = () => {
             </div>
           </div>
         ))
+      )}
+
+      {/* MODAL CREAR / EDITAR */}
+      {modalAbierto && (
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editando ? 'Editar Espacio' : 'Nuevo Espacio'}
+              </h2>
+              <button onClick={() => setModalAbierto(false)} className="text-gray-400 hover:text-gray-600 transition">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                <Info size={18} className="shrink-0 mt-0.5" />
+                <p>
+                  Puedes registrar aulas, laboratorios, auditorios o canchas de cualquier centro.
+                  La ubicación debe ser única dentro del centro (ej: <strong>Aula 16</strong>).
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Centro educativo *</label>
+                <input
+                  type="text"
+                  value={form.nombre_centro}
+                  onChange={(e) => setForm({ ...form, nombre_centro: e.target.value })}
+                  placeholder="Ej: Escuela Bustamante"
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Ubicación *</label>
+                  <input
+                    type="text"
+                    value={form.ubicacion}
+                    onChange={(e) => setForm({ ...form, ubicacion: e.target.value })}
+                    placeholder="Ej: Aula 16"
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Tipo *</label>
+                  <select
+                    value={form.tipo_espacio}
+                    onChange={(e) => setForm({ ...form, tipo_espacio: e.target.value })}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="Aula">Aula</option>
+                    <option value="Laboratorio">Laboratorio</option>
+                    <option value="Auditorio">Auditorio</option>
+                    <option value="Cancha">Cancha</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Capacidad *</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.capacidad}
+                    onChange={(e) => setForm({ ...form, capacidad: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                    placeholder="Ej: 30"
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Municipio *</label>
+                  <select
+                    value={form.id_mun}
+                    onChange={(e) => setForm({ ...form, id_mun: e.target.value })}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">Selecciona</option>
+                    {municipios?.map((m: Municipio) => (
+                      <option key={m.id_mun} value={m.id_mun}>{m.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Equipamiento</label>
+                <textarea
+                  rows={2}
+                  value={form.equipamiento}
+                  onChange={(e) => setForm({ ...form, equipamiento: e.target.value })}
+                  placeholder="Ej: 30 pupitres, pizarra acrílica, ventilador"
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.disponibilidad}
+                  onChange={(e) => setForm({ ...form, disponibilidad: e.target.checked })}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Disponible para asignaciones
+              </label>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setModalAbierto(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={guardar}
+                  disabled={guardando}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm font-medium"
+                >
+                  {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Crear espacio'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

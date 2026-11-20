@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlmodel import Session, text
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.dependencies.auth_deps import verificar_permiso
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
@@ -65,3 +65,91 @@ def listar_espacios(
     
     resultados = session.exec(text(query).params(**params)).mappings().all()
     return [EspacioFisicoRead(**dict(r)) for r in resultados]
+
+
+# ============================================================
+# CREAR / EDITAR ESPACIOS (Lote 5)
+# ============================================================
+from typing import Literal
+
+TIPOS_ESPACIO = Literal['Aula', 'Laboratorio', 'Auditorio', 'Cancha']
+
+class EspacioFisicoCreate(BaseModel):
+    nombre_centro: str
+    ubicacion: str
+    tipo_espacio: TIPOS_ESPACIO
+    capacidad: int = Field(..., ge=1, le=500)
+    equipamiento: Optional[str] = None
+    id_mun: int
+    disponibilidad: bool = True
+
+class EspacioFisicoUpdate(BaseModel):
+    nombre_centro: Optional[str] = None
+    ubicacion: Optional[str] = None
+    tipo_espacio: Optional[TIPOS_ESPACIO] = None
+    capacidad: Optional[int] = Field(None, ge=1, le=500)
+    equipamiento: Optional[str] = None
+    id_mun: Optional[int] = None
+    disponibilidad: Optional[bool] = None
+    estatus: Optional[str] = None
+
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
+def crear_espacio(
+    datos: EspacioFisicoCreate,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("espacios", "CRE", "TODO")),
+):
+    centro = datos.nombre_centro.strip()
+    ubi = datos.ubicacion.strip()
+    dup = session.exec(text("""
+        SELECT id_esp FROM infraestructura.espacios_fis
+        WHERE lower(nombre_centro) = lower(:centro)
+          AND lower(ubicacion) = lower(:ubi) AND estatus = 'A'
+    """).params(centro=centro, ubi=ubi)).first()
+    if dup:
+        raise HTTPException(status_code=400, detail="Ya existe un espacio con esa ubicación en ese centro.")
+
+    row = session.exec(text("""
+        INSERT INTO infraestructura.espacios_fis
+            (nombre_centro, ubicacion, tipo_espacio, capacidad, equipamiento, id_mun, disponibilidad, estatus)
+        VALUES (:centro, :ubi, :tipo, :cap, :eq, :mun, :disp, 'A')
+        RETURNING id_esp
+    """).params(
+        centro=centro, ubi=ubi, tipo=datos.tipo_espacio, cap=datos.capacidad,
+        eq=datos.equipamiento, mun=datos.id_mun, disp=datos.disponibilidad,
+    )).first()
+    session.commit()
+    return {"id_esp": row[0], "mensaje": f"Espacio '{ubi}' creado correctamente."}
+
+
+@router.patch("/{id_esp}")
+def actualizar_espacio(
+    id_esp: int,
+    datos: EspacioFisicoUpdate,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("espacios", "ACT", "TODO")),
+):
+    existe = session.exec(text(
+        "SELECT id_esp FROM infraestructura.espacios_fis WHERE id_esp = :i"
+    ).params(i=id_esp)).first()
+    if not existe:
+        raise HTTPException(status_code=404, detail="Espacio no encontrado.")
+
+    campos = datos.model_dump(exclude_unset=True)
+    permitidos = {"nombre_centro", "ubicacion", "tipo_espacio", "capacidad",
+                  "equipamiento", "id_mun", "disponibilidad", "estatus"}
+    sets, params = [], {"i": id_esp}
+    for k, v in campos.items():
+        if k not in permitidos:
+            continue
+        sets.append(f"{k} = :{k}")
+        params[k] = v.strip() if isinstance(v, str) and k in {"nombre_centro", "ubicacion"} else v
+    if not sets:
+        raise HTTPException(status_code=400, detail="No se envió ningún campo válido para actualizar.")
+
+    session.exec(text(
+        f"UPDATE infraestructura.espacios_fis SET {', '.join(sets)} WHERE id_esp = :i"
+    ).params(**params))
+    session.commit()
+    return {"mensaje": "Espacio actualizado correctamente."}
