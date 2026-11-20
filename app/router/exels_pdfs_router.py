@@ -1,4 +1,5 @@
 import io
+import base64, os
 import pandas as pd
 from html import escape
 from fastapi import APIRouter, Depends, HTTPException, status,Query
@@ -18,6 +19,17 @@ from app.dependencies.auth_deps import verificar_permiso
 
 
 router = APIRouter(prefix="/exportar", tags=["Exportar"])
+
+_MEMBRETE_PATH = os.path.join(os.path.dirname(__file__), '..', 'assets', 'membrete-unem.png')
+
+def _membrete_img() -> str:
+    """Devuelve el membrete como <img> base64 (o '' si no existe el archivo)."""
+    try:
+        with open(_MEMBRETE_PATH, 'rb') as f:
+            uri = 'data:image/png;base64,' + base64.b64encode(f.read()).decode()
+        return f'<img src="{uri}" style="width:100%;max-height:70px;object-fit:contain;" />'
+    except Exception:
+        return ''
 
 ###Exels
 @router.get("/exportar-notas", summary="Generar Notas")
@@ -320,6 +332,7 @@ def descargar_horario_docente_pdf(
     # 3. Renderizar HTML con Jinja2
     template = Template(HTML_TEMPLATE)
     html_renderizado = template.render(**contexto)
+    html_renderizado = html_renderizado.replace('<body>', '<body>' + _membrete_img(), 1)
 
     # 4. Convertir HTML a PDF en memoria
     pdf_buffer = io.BytesIO()
@@ -456,6 +469,7 @@ def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_sessio
     </html>"""
 
     pdf_buffer = io.BytesIO()
+    html = html.replace('<body>', '<body>' + _membrete_img(), 1)
     pisa_status = pisa.CreatePDF(io.StringIO(html), dest=pdf_buffer)
     if pisa_status.err:
         raise HTTPException(status_code=500, detail="Error al generar el PDF.")

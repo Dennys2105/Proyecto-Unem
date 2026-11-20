@@ -91,32 +91,41 @@ export const exportHorarioDocente = (
 // ==========================================
 // 3. GENERAR REPORTE GENERAL POR PNF (PDF)
 // ==========================================
-export const generateGeneralPNFPDF = (
+const cargarMembrete = async (): Promise<string | null> => {
+  try {
+    const r = await fetch('/membrete-unem.png');
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    return await new Promise((res) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result as string);
+      fr.onerror = () => res(null);
+      fr.readAsDataURL(blob);
+    });
+  } catch { return null; }
+};
+
+export const generateGeneralPNFPDF = async (
   data: Array<{ dia: string; hora: string; docente: string; materia: string; espacio: string }>,
   pnfNombre: string,
   fileName: string = 'Horario_General_PNF'
 ) => {
   const doc = new jsPDF('l', 'mm', 'a4');
+  const membrete = await cargarMembrete();
+  let y = 10;
+  if (membrete) { doc.addImage(membrete, 'PNG', 10, 4, 277, 18); y = 26; }
 
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('UNIVERSIDAD NACIONAL EXPERIMENTAL DEL MAGISTERIO', 148, 15, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('"SAMUEL ROBINSON"', 148, 20, { align: 'center' });
-  doc.setLineWidth(0.5);
-  doc.line(10, 25, 287, 25);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(`HORARIO SEMANAL GENERAL - PNF ${pnfNombre.toUpperCase()}`, 148, 35, { align: 'center' });
+  doc.text(`HORARIO SEMANAL GENERAL - PNF ${pnfNombre.toUpperCase()}`, 148, y + 6, { align: 'center' });
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Generado el: ${new Date().toLocaleDateString('es-VE')}`, 148, 42, { align: 'center' });
+  doc.text(`Generado el: ${new Date().toLocaleDateString('es-VE')}`, 148, y + 12, { align: 'center' });
 
   autoTable(doc, {
     head: [['Día', 'Horario', 'Docente Investigador', 'Unidad Curricular', 'Espacio Físico']],
     body: data.map(row => [row.dia, row.hora, row.docente, row.materia, row.espacio]),
-    startY: 48,
+    startY: y + 16,
     theme: 'grid',
     headStyles: { fillColor: [0, 51, 102], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 10 },
     bodyStyles: { fontSize: 9, cellPadding: 3 },
@@ -129,16 +138,13 @@ export const generateGeneralPNFPDF = (
     },
     margin: { left: 10, right: 10 },
     didParseCell: (hook: any) => {
-      if (hook.column.index === 0 && hook.section === 'body') {
-        hook.cell.styles.fillColor = [240, 240, 240];
-      }
+      if (hook.column.index === 0 && hook.section === 'body') hook.cell.styles.fillColor = [240, 240, 240];
     }
   });
 
-  const finalY = ((doc as any).lastAutoTable?.finalY ?? 48) + 10;
+  const finalY = ((doc as any).lastAutoTable?.finalY ?? y + 16) + 10;
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
   doc.text('Vicerrectorado Académico Territorial - Sistema de Gestión de Horarios', 148, finalY, { align: 'center' });
-
   doc.save(`${fileName}.pdf`);
 };

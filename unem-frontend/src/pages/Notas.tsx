@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const TIPOS_EVALUACION = ['Parcial 1', 'Parcial 2', 'Parcial 3', 'Final', 'Recuperación', 'Trabajo'];
+const TIPOS_EVALUACION = ['Final'];
 
 
 const aRomano = (n: number): string => {
@@ -561,7 +561,7 @@ export const NotasPage = () => {
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-gray-600 uppercase">5. Evaluación *</label>
                 <select
-                  value={actaTipo}
+                  value={actaTipo} disabled
                   onChange={(e) => { setActaTipo(e.target.value); setActaCargada(false); }}
                   className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
