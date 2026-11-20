@@ -4,6 +4,11 @@ import { useProgramas } from '../hooks/useProgramas';
 import { Layers, ChevronRight, ChevronDown, BookOpen, Clock, Link as LinkIcon, Search, Filter } from 'lucide-react';
 import type { MallaCurricular } from '../types/models';
 
+const aRomano = (n: number): string => {
+  const r = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+  return r[n - 1] || String(n);
+};
+
 export const MallaCurricularPage = () => {
   const { mallas, isLoading } = useMallas();
   const { programas } = useProgramas();
@@ -132,6 +137,8 @@ export const MallaCurricularPage = () => {
           Object.entries(arbolCurricular).map(([progKey, trayectos]) => {
             const progNombre = progKey.split('_').slice(1).join('_');
             const isOpen = openPrograms.has(progKey);
+            const prog = programas?.find((p) => p.id_pro === Number(progKey.split('_')[0]));
+            const esSemestral = prog?.tipo_sistema === 'Semestral';
 
             return (
               <div key={progKey} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -165,7 +172,7 @@ export const MallaCurricularPage = () => {
                             className="w-full flex items-center gap-3 px-6 py-3 bg-gray-50 hover:bg-gray-100 transition text-left"
                           >
                             {trayOpen ? <ChevronDown size={16} className="text-gray-600" /> : <ChevronRight size={16} className="text-gray-600" />}
-                            <span className="font-semibold text-gray-800">{trayKey}</span>
+                            <span className="font-semibold text-gray-800">Trayecto {aRomano(Number(trayKey.slice(1)))}</span>
                           </button>
 
                           {/* Contenido del Trayecto */}
@@ -174,7 +181,7 @@ export const MallaCurricularPage = () => {
                               {Object.entries(periodos).map(([perKey, materias]) => (
                                 <div key={perKey} className="space-y-2">
                                   <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                                    <Clock size={14} /> {perKey}
+                                    <Clock size={14} /> {esSemestral ? 'Semestre' : 'Trimestre'} {aRomano(Number(perKey.slice(1)))}
                                   </h4>
                                   
                                   {/* Nivel 4: Tabla de Materias */}

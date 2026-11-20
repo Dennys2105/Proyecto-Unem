@@ -26,14 +26,15 @@ const programaSchema = z.object({
   nombre: z.string()
     .min(3, 'Mínimo 3 caracteres')
     .max(100, 'Máximo 100 caracteres')
-    .regex(/^[a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ\s\-]+$/, 'Caracteres no permitidos'),
+    .regex(/^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+$/, 'Solo letras y espacios')
+    .refine((v) => v.trim().length >= 3, 'Escribe al menos 3 letras (no solo espacios)'),
   tipo_sistema: z.enum(['Trimestral', 'Semestral'], { message: 'Seleccione un tipo válido' }),
   total_trayectos: z.string()
-    .regex(/^[1-9][0-9]?$/, 'Debe ser un número entre 1 y 99')
+    .regex(/^([1-9]|1[0-2])$/, 'Debe ser un número entre 1 y 12')
     .optional()
     .or(z.literal('')),
   total_uc: z.string()
-    .regex(/^[1-9][0-9]?$/, 'Debe ser un número entre 1 y 99')
+    .regex(/^[1-9][0-9]{0,2}$/, 'Debe ser un número entre 1 y 999')
     .optional()
     .or(z.literal('')),
 });
@@ -65,12 +66,35 @@ export const Programas = () => {
   });
 
   const codigoWatch = watch('codigo');
+  const nombreWatch = watch('nombre');
+  const trayectosWatch = watch('total_trayectos');
+  const ucWatch = watch('total_uc');
+
+  // Máscaras de entrada: código en mayúsculas sin espacios/símbolos;
+  // nombre solo letras y espacios; trayectos y UC solo dígitos.
+  useEffect(() => {
+    if (!codigoWatch) return;
+    const limpio = codigoWatch.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    if (limpio !== codigoWatch) setValue('codigo', limpio, { shouldValidate: true });
+  }, [codigoWatch, setValue]);
 
   useEffect(() => {
-    if (codigoWatch) {
-      setValue('codigo', codigoWatch.toUpperCase(), { shouldValidate: true });
-    }
-  }, [codigoWatch, setValue]);
+    if (!nombreWatch) return;
+    const limpio = nombreWatch.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '');
+    if (limpio !== nombreWatch) setValue('nombre', limpio, { shouldValidate: true });
+  }, [nombreWatch, setValue]);
+
+  useEffect(() => {
+    if (!trayectosWatch) return;
+    const limpio = trayectosWatch.replace(/\D/g, '').slice(0, 2);
+    if (limpio !== trayectosWatch) setValue('total_trayectos', limpio, { shouldValidate: true });
+  }, [trayectosWatch, setValue]);
+
+  useEffect(() => {
+    if (!ucWatch) return;
+    const limpio = ucWatch.replace(/\D/g, '').slice(0, 3);
+    if (limpio !== ucWatch) setValue('total_uc', limpio, { shouldValidate: true });
+  }, [ucWatch, setValue]);
 
   const openCreateModal = () => {
     setEditingPrograma(null);

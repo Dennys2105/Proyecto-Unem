@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/axios';
+import { useMallas } from '../hooks/useMallas';
+import { useProgramas } from '../hooks/useProgramas';
 import type { Materia, EjeFormativo } from '../types/models';
 import { BookOpen, Search, Layers } from 'lucide-react';
 
 export const Materias = () => {
   const [busqueda, setBusqueda] = useState('');
   const [filtroEje, setFiltroEje] = useState<number | ''>('');
+  const [filtroPnf, setFiltroPnf] = useState<number | ''>('');
+
+  const { mallas } = useMallas();
+  const { programas } = useProgramas();
 
   // 1. Cargar ejes formativos para el dropdown
   const { data: ejes } = useQuery<EjeFormativo[]>({
@@ -24,11 +30,19 @@ export const Materias = () => {
       const params: Record<string, any> = {};
       if (busqueda) params.busqueda = busqueda;
       if (filtroEje) params.id_eje = filtroEje;
-      
+
       const res = await api.get('/materias', { params });
       return res.data;
     },
   });
+
+  // 3. Filtro por PNF (en cliente): una materia es de un PNF si está en su malla
+  const materiasVisibles = useMemo(() => {
+    const lista = materias ?? [];
+    if (filtroPnf === '') return lista;
+    const ids = new Set((mallas ?? []).filter((m) => m.id_pro === filtroPnf).map((m) => m.id_mat));
+    return lista.filter((m) => ids.has(m.id_mat));
+  }, [materias, mallas, filtroPnf]);
 
   return (
     <div className="space-y-6">
@@ -47,7 +61,7 @@ export const Materias = () => {
 
       {/* Barra de Filtros */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
@@ -58,6 +72,16 @@ export const Materias = () => {
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+          <select
+            value={filtroPnf}
+            onChange={(e) => setFiltroPnf(e.target.value ? Number(e.target.value) : '')}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">Todos los PNF</option>
+            {programas?.map((p) => (
+              <option key={p.id_pro} value={p.id_pro}>{p.codigo}</option>
+            ))}
+          </select>
           <select
             value={filtroEje}
             onChange={(e) => setFiltroEje(e.target.value ? Number(e.target.value) : '')}
@@ -70,7 +94,7 @@ export const Materias = () => {
           </select>
           <div className="flex items-center text-sm text-gray-500 gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
             <Layers size={16} />
-            <span>{materias?.length || 0} materias encontradas</span>
+            <span>{materiasVisibles.length} materias encontradas</span>
           </div>
         </div>
       </div>
@@ -79,10 +103,10 @@ export const Materias = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {isLoading ? (
           <div className="p-12 text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="text-gray-500 mt-4">Cargando catálogo...</p>
           </div>
-        ) : !materias || materias.length === 0 ? (
+        ) : materiasVisibles.length === 0 ? (
           <div className="p-12 text-center">
             <BookOpen className="mx-auto text-gray-300 mb-3" size={48} />
             <p className="text-gray-500">No se encontraron materias con los filtros actuales</p>
@@ -100,7 +124,7 @@ export const Materias = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {materias.map((m) => (
+                {materiasVisibles.map((m) => (
                   <tr key={m.id_mat} className="hover:bg-gray-50 transition group">
                     <td className="px-6 py-4 text-sm font-mono text-indigo-700 font-medium">
                       {m.codigo}
