@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlmodel import Session, text
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso, requerir_rol
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
 router = APIRouter(prefix="/espacios_fisicos", tags=["Espacios Físicos"])
@@ -78,7 +78,7 @@ class EspacioFisicoCreate(BaseModel):
     nombre_centro: str
     ubicacion: str
     tipo_espacio: TIPOS_ESPACIO
-    capacidad: int = Field(..., ge=1, le=500)
+    capacidad: int = Field(..., ge=10, le=30)
     equipamiento: Optional[str] = None
     id_mun: int
     disponibilidad: bool = True
@@ -87,7 +87,7 @@ class EspacioFisicoUpdate(BaseModel):
     nombre_centro: Optional[str] = None
     ubicacion: Optional[str] = None
     tipo_espacio: Optional[TIPOS_ESPACIO] = None
-    capacidad: Optional[int] = Field(None, ge=1, le=500)
+    capacidad: Optional[int] = Field(None, ge=10, le=30)
     equipamiento: Optional[str] = None
     id_mun: Optional[int] = None
     disponibilidad: Optional[bool] = None
@@ -153,3 +153,36 @@ def actualizar_espacio(
     ).params(**params))
     session.commit()
     return {"mensaje": "Espacio actualizado correctamente."}
+
+
+# ============================================================
+# RETIRAR ESPACIO (borrado lógico) — solo ADMIN(1) y VICERRECTOR(2)
+# ============================================================
+@router.delete("/{id_esp}")
+def retirar_espacio(
+    id_esp: int,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1, 2])),
+):
+    row = session.exec(text(
+        "SELECT ubicacion FROM infraestructura.espacios_fis WHERE id_esp = :i"
+    ).params(i=id_esp)).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Espacio no encontrado.")
+
+    activas = session.exec(text("""
+        SELECT COUNT(*) FROM horarios.asig_carga_horarias
+        WHERE id_esp = :i AND estatus = 'A'
+    """).params(i=id_esp)).first()
+    if activas and int(activas[0]) > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{row[0]}' tiene {int(activas[0])} asignación(es) activa(s). "
+                   "Reasígnalas o anúlalas antes de retirarlo.",
+        )
+
+    session.exec(text(
+        "UPDATE infraestructura.espacios_fis SET estatus = 'I' WHERE id_esp = :i"
+    ).params(i=id_esp))
+    session.commit()
+    return {"mensaje": f"Espacio '{row[0]}' retirado correctamente."}

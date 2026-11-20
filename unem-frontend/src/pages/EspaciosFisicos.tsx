@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/axios';
 import type { EspacioFisico } from '../types/models';
-import { MapPin, Search, Filter, Users, Clock, CheckCircle, XCircle, Info, Plus, X, Edit } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { MapPin, Search, Filter, Users, Clock, CheckCircle, XCircle, Info, Plus, X, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 type Municipio = { id_mun: number; nombre: string };
@@ -26,6 +27,10 @@ export const EspaciosFisicos = () => {
   const [editando, setEditando] = useState<EspacioFisico | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [form, setForm] = useState(FORM_INICIAL);
+  const [porRetirar, setPorRetirar] = useState<EspacioFisico | null>(null);
+  const [retirando, setRetirando] = useState(false);
+  const { esAdmin, esVicerrector } = useAuth();
+  const puedeRetirar = esAdmin || esVicerrector;
 
   // Cargar espacios
   const { data: espacios, isLoading, refetch } = useQuery<EspacioFisico[]>({
@@ -72,8 +77,8 @@ export const EspaciosFisicos = () => {
       toast.error('Indica el centro y la ubicación (ej: Aula 16).');
       return;
     }
-    if (!Number.isInteger(cap) || cap < 1 || cap > 500) {
-      toast.error('La capacidad debe ser un número entero entre 1 y 500.');
+    if (!Number.isInteger(cap) || cap < 10 || cap > 30) {
+      toast.error('La capacidad debe ser un número entero entre 10 y 30 personas.');
       return;
     }
     if (!form.id_mun) {
@@ -107,6 +112,23 @@ export const EspaciosFisicos = () => {
       setGuardando(false);
     }
   };
+
+  const confirmarRetiro = async () => {
+    if (!porRetirar) return;
+    setRetirando(true);
+    try {
+      await api.delete(`/espacios_fisicos/${porRetirar.id_esp}`);
+      toast.success(`"${porRetirar.ubicacion}" retirado correctamente`, { icon: '🗑️' });
+      setPorRetirar(null);
+      await refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail ?? 'No se pudo retirar el espacio', { duration: 6000 });
+    } finally {
+      setRetirando(false);
+    }
+  };
+
+  // Filtrar espacios
 
   // Filtrar espacios
   const espaciosFiltrados = useMemo(() => {
@@ -329,13 +351,22 @@ export const EspaciosFisicos = () => {
                         </div>
 
                         {/* Acciones */}
-                        <div className="pt-2 border-t border-gray-100">
+                        <div className="pt-2 border-t border-gray-100 flex gap-2">
                           <button
                             onClick={() => abrirEditar(esp)}
-                            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
                           >
-                            <Edit size={14} /> Editar espacio
+                            <Edit size={14} /> Editar
                           </button>
+                          {puedeRetirar && (
+                            <button
+                              onClick={() => setPorRetirar(esp)}
+                              className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                              title="Retirar espacio (solo ADMIN / Vicerrector)"
+                            >
+                              <Trash2 size={14} /> Retirar
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -344,6 +375,39 @@ export const EspaciosFisicos = () => {
             </div>
           </div>
         ))
+      )}
+
+      {/* MODAL CONFIRMAR RETIRO */}
+      {porRetirar && (
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-2xl">
+            <h2 className="text-xl font-bold mb-3 text-red-600 flex items-center gap-2">
+              <Trash2 size={20} /> Retirar espacio
+            </h2>
+            <p className="text-gray-700 mb-1">
+              ¿Seguro que deseas retirar <strong>{porRetirar.ubicacion}</strong> de {porRetirar.nombre_centro}?
+            </p>
+            <p className="text-xs text-gray-500 mb-5">
+              Es un borrado lógico: deja de estar disponible, pero su historial y auditoría se conservan.
+              Esta acción es exclusiva de Administrador y Vicerrector.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setPorRetirar(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarRetiro}
+                disabled={retirando}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+              >
+                {retirando ? 'Retirando...' : 'Sí, retirar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* MODAL CREAR / EDITAR */}
@@ -407,12 +471,12 @@ export const EspaciosFisicos = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Capacidad *</label>
+                  <label className="block text-sm font-medium text-gray-700">Capacidad *(máx. 30)*</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={form.capacidad}
-                    onChange={(e) => setForm({ ...form, capacidad: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                    onChange={(e) => setForm({ ...form, capacidad: e.target.value.replace(/\D/g, '').slice(0, 2) })}
                     placeholder="Ej: 30"
                     className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
