@@ -25,6 +25,7 @@ def listar_espacios(
     disponible: Optional[bool] = Query(None, description="Filtrar por disponibilidad"),
     capacidad_min: Optional[int] = Query(None, description="Capacidad mínima"),
     busqueda: Optional[str] = Query(None, description="Buscar por nombre o ubicación"),
+    estatus: Optional[str] = Query('A', description="A=activos, I=retirados, vacío=todos"),
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso("espacios", "LEC", "TODO"))
 ):
@@ -43,9 +44,12 @@ def listar_espacios(
         FROM infraestructura.espacios_fis e
         LEFT JOIN general.municipios m ON m.id_mun = e.id_mun
         LEFT JOIN horarios.asig_carga_horarias a ON a.id_esp = e.id_esp AND a.estatus = 'A'
-        WHERE e.estatus = 'A'
+        WHERE 1=1
     """
     params = {}
+    if estatus:
+        query += " AND e.estatus = :estatus"
+        params["estatus"] = estatus
     
     if tipo:
         query += " AND e.tipo_espacio = :tipo"
@@ -138,7 +142,7 @@ def actualizar_espacio(
 
     campos = datos.model_dump(exclude_unset=True)
     permitidos = {"nombre_centro", "ubicacion", "tipo_espacio", "capacidad",
-                  "equipamiento", "id_mun", "disponibilidad", "estatus"}
+                  "equipamiento", "id_mun", "disponibilidad"}
     sets, params = [], {"i": id_esp}
     for k, v in campos.items():
         if k not in permitidos:
@@ -186,3 +190,39 @@ def retirar_espacio(
     ).params(i=id_esp))
     session.commit()
     return {"mensaje": f"Espacio '{row[0]}' retirado correctamente."}
+
+
+# ============================================================
+# RESTAURAR ESPACIO — solo ADMIN(1) y VICERRECTOR(2)
+# ============================================================
+@router.patch("/{id_esp}/restaurar")
+def restaurar_espacio(
+    id_esp: int,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1, 2])),
+):
+    row = session.exec(text(
+        "SELECT nombre_centro, ubicacion, estatus FROM infraestructura.espacios_fis WHERE id_esp = :i"
+    ).params(i=id_esp)).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Espacio no encontrado.")
+    if row[2] == 'A':
+        raise HTTPException(status_code=400, detail="El espacio ya está activo.")
+
+    dup = session.exec(text("""
+        SELECT id_esp FROM infraestructura.espacios_fis
+        WHERE lower(nombre_centro) = lower(:centro)
+          AND lower(ubicacion) = lower(:ubi) AND estatus = 'A' AND id_esp <> :i
+    """).params(centro=row[0], ubi=row[1], i=id_esp)).first()
+    if dup:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya existe un espacio activo con la ubicación '{row[1]}' en ese centro. "
+                   "Renómbralo antes de restaurar este.",
+        )
+
+    session.exec(text(
+        "UPDATE infraestructura.espacios_fis SET estatus = 'A' WHERE id_esp = :i"
+    ).params(i=id_esp))
+    session.commit()
+    return {"mensaje": f"Espacio '{row[1]}' restaurado correctamente."}

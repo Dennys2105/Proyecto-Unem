@@ -22,6 +22,9 @@ export const EspaciosFisicos = () => {
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<string>('');
   const [filtroEstado, setFiltroEstado] = useState<string>('');
+  const [filtroEstatus, setFiltroEstatus] = useState<string>('A');
+  const esVistaRetirados = filtroEstatus === 'I';
+  const [restaurandoId, setRestaurandoId] = useState<number | null>(null);
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<EspacioFisico | null>(null);
@@ -34,9 +37,9 @@ export const EspaciosFisicos = () => {
 
   // Cargar espacios
   const { data: espacios, isLoading, refetch } = useQuery<EspacioFisico[]>({
-    queryKey: ['espacios'],
+    queryKey: ['espacios', filtroEstatus],
     queryFn: async () => {
-      const res = await api.get('/espacios_fisicos/');
+      const res = await api.get('/espacios_fisicos/', { params: { estatus: filtroEstatus } });
       return res.data;
     },
   });
@@ -128,6 +131,19 @@ export const EspaciosFisicos = () => {
     }
   };
 
+  const restaurar = async (esp: EspacioFisico) => {
+    setRestaurandoId(esp.id_esp);
+    try {
+      await api.patch(`/espacios_fisicos/${esp.id_esp}/restaurar`);
+      toast.success(`"${esp.ubicacion}" restaurado correctamente`, { icon: '♻️' });
+      await refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail ?? 'No se pudo restaurar el espacio', { duration: 6000 });
+    } finally {
+      setRestaurandoId(null);
+    }
+  };
+
   // Filtrar espacios
 
   // Filtrar espacios
@@ -186,7 +202,7 @@ export const EspaciosFisicos = () => {
 
       {/* Barra de Filtros */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
@@ -216,6 +232,14 @@ export const EspaciosFisicos = () => {
             <option value="">Disponibilidad</option>
             <option value="true">Disponibles</option>
             <option value="false">No disponibles</option>
+          </select>
+          <select
+            value={filtroEstatus}
+            onChange={(e) => setFiltroEstatus(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="A">Activos</option>
+            <option value="I">Retirados</option>
           </select>
           <div className="flex items-center text-sm text-gray-500 gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
             <Filter size={16} />
@@ -276,7 +300,11 @@ export const EspaciosFisicos = () => {
                           <span className="text-2xl">{tipoConfig.icon}</span>
                           <h3 className="font-bold text-gray-900">{esp.ubicacion}</h3>
                         </div>
-                        {esp.disponibilidad ? (
+                        {esVistaRetirados ? (
+                          <span className="flex items-center gap-1 text-xs font-bold text-gray-600 bg-gray-200 px-2 py-1 rounded-full">
+                            <XCircle size={12} /> Retirado
+                          </span>
+                        ) : esp.disponibilidad ? (
                           <span className="flex items-center gap-1 text-xs font-bold text-green-700 bg-green-200 px-2 py-1 rounded-full">
                             <CheckCircle size={12} /> Disponible
                           </span>
@@ -352,20 +380,37 @@ export const EspaciosFisicos = () => {
 
                         {/* Acciones */}
                         <div className="pt-2 border-t border-gray-100 flex gap-2">
-                          <button
-                            onClick={() => abrirEditar(esp)}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                          >
-                            <Edit size={14} /> Editar
-                          </button>
-                          {puedeRetirar && (
-                            <button
-                              onClick={() => setPorRetirar(esp)}
-                              className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
-                              title="Retirar espacio (solo ADMIN / Vicerrector)"
-                            >
-                              <Trash2 size={14} /> Retirar
-                            </button>
+                          {esVistaRetirados ? (
+                            puedeRetirar ? (
+                              <button
+                                onClick={() => restaurar(esp)}
+                                disabled={restaurandoId === esp.id_esp}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 disabled:opacity-50"
+                                title="Restaurar espacio (solo ADMIN / Vicerrector)"
+                              >
+                                <CheckCircle size={14} /> {restaurandoId === esp.id_esp ? 'Restaurando...' : 'Restaurar'}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">Solo ADMIN / Vicerrector pueden restaurar</span>
+                            )
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => abrirEditar(esp)}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                              >
+                                <Edit size={14} /> Editar
+                              </button>
+                              {puedeRetirar && (
+                                <button
+                                  onClick={() => setPorRetirar(esp)}
+                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                                  title="Retirar espacio (solo ADMIN / Vicerrector)"
+                                >
+                                  <Trash2 size={14} /> Retirar
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
