@@ -7,15 +7,14 @@ import app.service.asig_carga_hor_service as service
 from app.dependencies.auth_deps import recurso_propietario, verificar_permiso
 from app.dependencies.asig_hor_deps import validar_conflictos_horarios, validar_disponibilidad_docente
 
-
 router= APIRouter(
     prefix="/asig_carga_hor",
-    tags=["Carga Horraria"]
+    tags=["Carga Horaria"]
 )
 
 # --- CREATE ---
 @router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED)
-def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('horarios','CRE','TODO'))):
+def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','CRE','TODO'))):
     validar_conflictos_horarios(session, carga_in)
 
     dia_id = service.existe_llave_foranea_dia(session, carga_in.id_dia)
@@ -58,21 +57,21 @@ def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Dep
 
 # --- READ ALL ---
 @router.get("/", response_model=List[AsigCargaHorariaResponse])
-def leer_carga_horaria(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('horarios','LEC','TODO'))):
+def leer_carga_horaria(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','LEC','TODO'))):
     return service.leer_todos(session)
 
 # --- READ ONE ---
 @router.get("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse)
-def leer_carga_horaria_id(disp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','LEC','SP'))):
+def leer_carga_horaria_id(disp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','LEC','SP'))):
     dato = service.obtener_dato_por_id(disp_id, session)
-    recurso_propietario(usuario_actual,dato.id_doc,roles_restringidos=2)
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campo no encontrado")
+    recurso_propietario(usuario_actual,dato.id_doc,roles_restringidos=2)
     return dato
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse)
-def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('horarios','ACT','TODO'))):
+def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','ACT','TODO'))):
     
     validar_conflictos_horarios(session,dato_in,carga_id)
     
@@ -111,8 +110,9 @@ def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, ses
 
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
+# --- DELETE LOGICO ---
 @router.delete("/{carga_horaria_id}", status_code=status.HTTP_200_OK)
-def eliminar_carga_horaria(carga_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('horarios','BOR','TODO'))):
+def eliminar_carga_horaria(carga_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','BOR','TODO'))):
     db_dato = service.obtener_dato_por_id(carga_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carga Horaria no encontrada")
