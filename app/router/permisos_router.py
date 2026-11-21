@@ -134,12 +134,24 @@ def actualizar_permisos_usuario(
     usuario_actual: dict = Depends(verificar_permiso("usuarios", "ACT", "TODO"))
 ):
     """
-    Guarda la matriz de permisos personalizados de un usuario.
-    - Borra todos los overrides actuales (estatus='I' para mantener histórico).
-    - Inserta los nuevos overrides.
-    - Valida que no se otorgue un permiso superior al del rol (seguridad).
+    Guarda la matriz de permisos personalizados (overrides) de un usuario.
+    - SOLO el Administrador (rol 1) puede modificar permisos personalizados.
+    - El Administrador PUEDE otorgar por encima del rol base (queda 'Personalizado').
+    - No se permiten overrides sobre otro Administrador (acceso total por diseño).
+    - Idempotente: upsert sobre la UNIQUE (id_usu, id_mod, id_perm).
     """
-    # 1. Verificar usuario existe
+    # 0. Solo ADMIN puede editar permisos personalizados
+    actor = session.exec(
+        text("SELECT id_rol FROM general.usuarios WHERE id_usu = :i")
+        .params(i=usuario_actual.get("id_usu"))
+    ).first()
+    if not actor or actor[0] != 1:
+        raise HTTPException(
+            status_code=403,
+            detail="Solo el Administrador puede modificar los permisos personalizados de un usuario."
+        )
+
+    # 1. Verificar usuario destino
     usuario = session.exec(
         text("SELECT id_rol FROM general.usuarios WHERE id_usu = :id AND estatus = 'A'")
         .params(id=id_usu)
@@ -147,83 +159,63 @@ def actualizar_permisos_usuario(
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    id_rol = usuario[0]
+    # 2. Proteger al Administrador: nunca se personaliza ni se restringe
+    if usuario[0] == 1:
+        raise HTTPException(
+            status_code=400,
+            detail="El Administrador tiene acceso total por diseño: no admite permisos personalizados."
+        )
 
-    # 2. Obtener el alcance máximo permitido por rol para cada (modulo, permiso)
-    rol_permisos_q = text("""
-        SELECT id_mod, id_perm, alcance
-        FROM general.permisos_rol
-        WHERE id_rol = :id_rol AND estatus = 'A'
-    """).params(id_rol=id_rol)
-    rol_permisos = {
-        (row[0], row[1]): row[2]
-        for row in session.exec(rol_permisos_q).all()
-    }
-
-    # 3. Validar que ningún override exceda el permiso del rol
-    ORDEN_ALCANCE = {'NAD': 0, 'SP': 1, 'LIM': 2, 'TODO': 3}
+    # 3. Validar alcances y catálogo (ya NO se limita contra el rol base)
+    ALCANCES_VALIDOS = {'NAD', 'SP', 'LIM', 'TODO'}
     for p in payload.permisos:
-        alcance_rol = rol_permisos.get((p.id_mod, p.id_perm), 'NAD')
-        if ORDEN_ALCANCE.get(p.alcance, 0) > ORDEN_ALCANCE.get(alcance_rol, 0):
+        if p.alcance not in ALCANCES_VALIDOS:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    f"No se puede otorgar alcance '{p.alcance}' al módulo {p.id_mod}, "
-                    f"permiso {p.id_perm}: el rol del usuario solo permite '{alcance_rol}'. "
-                    "Un administrador no puede escalar privilegios por encima del rol base."
-                )
+                detail=f"Alcance inválido: '{p.alcance}'. Use TODO, SP, LIM o NAD."
+            )
+        valido = session.exec(
+            text("""
+                SELECT 1 FROM general.modulos m, general.permisos pe
+                WHERE m.id_mod = :m AND pe.id_perm = :p AND m.estatus = 'A'
+            """).params(m=p.id_mod, p=p.id_perm)
+        ).first()
+        if not valido:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Módulo {p.id_mod} o permiso {p.id_perm} inexistente o inactivo."
             )
 
-    # 4. Desactivar (borrado lógico) los overrides actuales
+    # 4. Desactivar los overrides actuales (histórico)
     session.exec(
         text("""
-            UPDATE general.permisos_usuario
-            SET estatus = 'I'
-            WHERE id_usu = :id_usu AND estatus = 'A'
+        UPDATE general.permisos_usuario
+        SET estatus = 'I'
+        WHERE id_usu = :id_usu AND estatus = 'A'
         """).params(id_usu=id_usu)
     )
 
-    # 5. Insertar los nuevos overrides
+    # 5. Upsert idempotente de los nuevos overrides
     for p in payload.permisos:
-        # Verificar si ya existe un registro inactivo para reactivarlo (mantiene histórico)
-        existente = session.exec(
+        session.exec(
             text("""
-                SELECT id_pu FROM general.permisos_usuario
-                WHERE id_usu = :id_usu AND id_mod = :id_mod AND id_perm = :id_perm
-            """).params(id_usu=id_usu, id_mod=p.id_mod, id_perm=p.id_perm)
-        ).first()
-
-        if existente:
-            session.exec(
-                text("""
-                    UPDATE general.permisos_usuario
-                    SET alcance = :alcance, estatus = 'A'
-                    WHERE id_pu = :id_pu
-                """).params(alcance=p.alcance, id_pu=existente[0])
-            )
-        else:
-            session.exec(
-                text("""
-                    INSERT INTO general.permisos_usuario (id_usu, id_mod, id_perm, alcance, estatus)
-                    VALUES (:id_usu, :id_mod, :id_perm, :alcance, 'A')
-                """).params(
-                    id_usu=id_usu,
-                    id_mod=p.id_mod,
-                    id_perm=p.id_perm,
-                    alcance=p.alcance
-                )
-            )
+            INSERT INTO general.permisos_usuario (id_usu, id_mod, id_perm, alcance, estatus)
+            VALUES (:id_usu, :id_mod, :id_perm, :alcance, 'A')
+            ON CONFLICT (id_usu, id_mod, id_perm)
+            DO UPDATE SET alcance = EXCLUDED.alcance, estatus = 'A'
+            """).params(id_usu=id_usu, id_mod=p.id_mod, id_perm=p.id_perm, alcance=p.alcance)
+        )
 
     session.commit()
 
     # 6. Retornar los permisos efectivos actualizados
     query = text("""
-        SELECT * FROM general.vw_permisos_efectivos_usuario
-        WHERE id_usu = :usuario_id
+    SELECT * FROM general.vw_permisos_efectivos_usuario
+    WHERE id_usu = :usuario_id
     """).params(usuario_id=id_usu)
+
     resultados = session.exec(query).mappings().all()
     return [VwPermisosEfectivosRead(**dict(r)) for r in resultados]
-
 
 @router.delete("/usuario/{id_usu}/reset")
 def resetear_permisos_usuario(
@@ -231,19 +223,36 @@ def resetear_permisos_usuario(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso("usuarios", "ACT", "TODO"))
 ):
-    """
-    Elimina TODOS los overrides del usuario (vuelve a heredar 100% del rol).
-    """
+    """Elimina TODOS los overrides del usuario (vuelve a heredar 100% del rol). Solo ADMIN."""
+    actor = session.exec(
+        text("SELECT id_rol FROM general.usuarios WHERE id_usu = :i")
+        .params(i=usuario_actual.get("id_usu"))
+    ).first()
+    if not actor or actor[0] != 1:
+        raise HTTPException(status_code=403, detail="Solo el Administrador puede restaurar permisos.")
+
+    destino = session.exec(
+        text("SELECT id_rol FROM general.usuarios WHERE id_usu = :id").params(id=id_usu)
+    ).first()
+    if not destino:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if destino[0] == 1:
+        raise HTTPException(
+            status_code=400,
+            detail="El Administrador no tiene permisos personalizados que restaurar."
+        )
+
     session.exec(
         text("""
-            UPDATE general.permisos_usuario
-            SET estatus = 'I'
-            WHERE id_usu = :id_usu AND estatus = 'A'
+        UPDATE general.permisos_usuario
+        SET estatus = 'I'
+        WHERE id_usu = :id_usu AND estatus = 'A'
         """).params(id_usu=id_usu)
     )
-    session.commit()
-    return {"message": "Permisos personalizados eliminados. Usuario hereda 100% del rol."}
 
+    session.commit()
+
+    return {"message": "Permisos personalizados eliminados. Usuario hereda 100% del rol."}
 
 # ============================================================
 # GESTIÓN DE USUARIOS (crear / editar / contraseña) — Lote 5b
