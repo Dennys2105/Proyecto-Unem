@@ -140,7 +140,7 @@ export const rolesService = {
         }
       }
     }
-    await api.put(`/permisos/usuario/${usuarioId}`, { permisos: permisosAplanados });
+    await api.put(`/permisos/usuarios/${usuarioId}/permisos`, { permisos: permisosAplanados });
   },
 
   // 4. Restaurar permisos a los valores del rol

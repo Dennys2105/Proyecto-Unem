@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, text
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
 from app.models.model_read_only import VwPermisosEfectivosRead
@@ -126,12 +126,14 @@ def permisos_efectivos_usuario(
     return [VwPermisosEfectivosRead(**dict(r)) for r in resultados]
 
 
-@router.put("/usuario/{id_usu}", response_model=List[VwPermisosEfectivosRead])
+@router.put("/usuarios/{id_usu}/permisos", summary="Actualizar permisos personalizados de un usuario",
+            response_model=List[VwPermisosEfectivosRead])
+@router.put("/usuario/{id_usu}", response_model=List[VwPermisosEfectivosRead], include_in_schema=False)
 def actualizar_permisos_usuario(
     id_usu: int,
     payload: PermisosUsuarioUpdate,
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("usuarios", "ACT", "TODO"))
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
     """
     Guarda la matriz de permisos personalizados (overrides) de un usuario.
@@ -141,14 +143,10 @@ def actualizar_permisos_usuario(
     - Idempotente: upsert sobre la UNIQUE (id_usu, id_mod, id_perm).
     """
     # 0. Solo ADMIN puede editar permisos personalizados
-    actor = session.exec(
-        text("SELECT id_rol FROM general.usuarios WHERE id_usu = :i")
-        .params(i=usuario_actual.get("id_usu"))
-    ).first()
-    if not actor or actor[0] != 1:
+    if usuario_actual.get("rol") != 1:
         raise HTTPException(
             status_code=403,
-            detail="Solo el Administrador puede modificar los permisos personalizados de un usuario."
+            detail="Acción exclusiva del Administrador: solo el administrador puede modificar la matriz de permisos de un usuario."
         )
 
     # 1. Verificar usuario destino

@@ -3,7 +3,8 @@ from sqlmodel import Session
 from typing import List, Optional, Any
 from app.models.unem_db_models import Nota
 from app.dependencies.auth_deps import (
-    verificar_permiso, docente_del_usuario, materias_del_docente, secciones_del_docente,
+    verificar_permiso, docente_del_usuario, materias_del_docente,
+    secciones_del_docente, es_docente_sp,
 )
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_notas import (
@@ -21,8 +22,7 @@ def leer_notas(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('notas', 'LEC', 'SP')),
 ):
-    alcance = usuario_actual.get("alcance", "TODO")
-    if alcance == "SP":
+    if es_docente_sp(usuario_actual):
         id_doc = docente_del_usuario(usuario_actual, session)
         if id_doc is None:
             return []
@@ -43,8 +43,7 @@ def obtener_acta(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('notas', 'LEC', 'SP')),
 ):
-    alcance = usuario_actual.get("alcance", "TODO")
-    if alcance == "SP":
+    if es_docente_sp(usuario_actual):
         id_doc = docente_del_usuario(usuario_actual, session)
         if id_doc is None:
             raise HTTPException(status_code=403, detail="Docente sin vínculo en el sistema.")

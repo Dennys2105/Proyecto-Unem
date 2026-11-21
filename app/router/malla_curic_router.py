@@ -35,7 +35,7 @@ class MallaRead(BaseModel):
     prerequisito: Optional[MateriaInfo] = None
 
 @router.get("/", response_model=List[MallaRead])
-def listar_mallas(
+def leer_malla(
     id_pro: Optional[int] = Query(None, description="Filtrar por programa"),
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso("malla", "LEC", "SP"))
