@@ -1,38 +1,39 @@
-/**
- * UNEM · Descargas de reportes generados por el backend (Opción 3).
- * Los endpoints /exportar/* usan sesión neutra (sin Authorization),
- * por eso se abren con window.open y no con el cliente axios.
- */
-const API_BASE: string = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import api from '../lib/axios';
+import toast from 'react-hot-toast';
 
-const abrir = (ruta: string): void => {
-  window.open(`${API_BASE}${ruta}`, '_blank', 'noopener');
+const guardar = (blob: Blob, nombre: string): void => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
-/** Acta de notas en Excel (malla + período; opcionalmente tipo de evaluación y sección). */
+const descargar = async (ruta: string, nombre: string): Promise<void> => {
+  try {
+    const res = await api.get(ruta, { responseType: 'blob' });
+    guardar(res.data as Blob, nombre);
+    toast.success('Descarga lista', { icon: '📄' });
+  } catch {
+    toast.error('No se pudo generar el archivo (sesión o permisos).');
+  }
+};
+
 export const descargarActaNotas = (
-  idMalla: number,
-  idPer: number,
-  tipoEvaluacion?: string,
-  idSeccion?: number,
-): void => {
+  idMalla: number, idPer: number, tipoEvaluacion?: string, idSeccion?: number,
+): Promise<void> => {
   let ruta = `/exportar/exportar-notas?id_malla=${idMalla}&id_per=${idPer}`;
   if (tipoEvaluacion) ruta += `&tipo_evaluacion=${encodeURIComponent(tipoEvaluacion)}`;
   if (idSeccion !== undefined) ruta += `&id_sec=${idSeccion}`;
-  abrir(ruta);
+  return descargar(ruta, `acta_notas_${idMalla}_${idPer}.xlsx`);
 };
 
-/** Listado de estudiantes de una sección en Excel. */
-export const descargarEstudiantesSeccion = (codigoSeccion: string): void => {
-  abrir(`/exportar/estudiantes/seccion/exel?codigo_seccion=${encodeURIComponent(codigoSeccion)}`);
-};
+export const descargarEstudiantesSeccion = (codigoSeccion: string): Promise<void> =>
+  descargar(`/exportar/estudiantes/seccion/exel?codigo_seccion=${encodeURIComponent(codigoSeccion)}`, `seccion_${codigoSeccion}.xlsx`);
 
-/** Horario semanal del docente en PDF (cédula exacta, ej: V-14567890). */
-export const descargarHorarioDocente = (cedula: string): void => {
-  abrir(`/exportar/Horario_docente/pdf?cedula=${encodeURIComponent(cedula)}`);
-};
+export const descargarHorarioDocente = (cedula: string): Promise<void> =>
+  descargar(`/exportar/Horario_docente/pdf?cedula=${encodeURIComponent(cedula)}`, `horario_${cedula}.pdf`);
 
-/** Ficha de organización académica del docente en PDF. */
-export const descargarFichaDocente = (cedula: string): void => {
-  abrir(`/exportar/ficha-docente-pdf/${encodeURIComponent(cedula)}`);
-};
+export const descargarFichaDocente = (cedula: string): Promise<void> =>
+  descargar(`/exportar/ficha-docente-pdf/${encodeURIComponent(cedula)}`, `ficha_docente_${cedula}.pdf`);

@@ -16,10 +16,10 @@ from datetime import datetime
 
 
 from app.config.db_conection import get_session 
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual
 
 
-router = APIRouter(prefix="/exportar", tags=["Exportar"])
+router = APIRouter(prefix="/exportar", tags=["Exportar"], dependencies=[Depends(obtener_usuario_actual)])
 
 _MEMBRETE_PATH = os.path.join(os.path.dirname(__file__), '..', 'assets', 'membrete-unem.png')
 
