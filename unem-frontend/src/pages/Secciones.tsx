@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Seccion, SeccionCreate, SeccionUpdate } from '../types/models';
 import { descargarEstudiantesSeccion } from '../utils/descargas';
+import { useAuth } from '../hooks/useAuth';
 import {
   Layers, Search, Plus, X, AlertCircle, Info,
   CheckCircle2, XCircle, Edit, FileSpreadsheet
@@ -39,6 +40,7 @@ const seccionSchema = z.object({
 type SeccionFormData = z.infer<typeof seccionSchema>;
 
 export const Secciones = () => {
+  const { puede } = useAuth();
   const { secciones, isLoading, createSeccion, updateSeccion, isCreating, isUpdating } = useSecciones();
   const { programas } = useProgramas();
 
@@ -188,15 +190,20 @@ export const Secciones = () => {
       label: 'Acciones',
       render: (_: any, row: Seccion) => {
         const isActive = row.estatus === 'A';
+        const puedeEditar = puede('secciones', 'ACT', 'LIM');
+        const puedeDesactivar = puede('secciones', 'BOR', 'TODO');
+
         return (
           <div className="flex gap-2">
-            <button
-              onClick={() => openEditModal(row)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-              title="Editar sección"
-            >
-              <Edit size={14} /> Editar
-            </button>
+            {puedeEditar && (
+              <button
+                onClick={() => openEditModal(row)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                title="Editar sección"
+              >
+                <Edit size={14} /> Editar
+              </button>
+            )}
             <button
               onClick={() => descargarEstudiantesSeccion(row.codigo)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
@@ -204,17 +211,19 @@ export const Secciones = () => {
             >
               <FileSpreadsheet size={14} /> Excel
             </button>
-            <button
-              onClick={() => toggleStatus(row)}
-              disabled={isUpdating}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
-                isActive ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-              }`}
-              title={isActive ? 'Desactivar sección' : 'Activar sección'}
-            >
-              {isActive ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
-              {isActive ? 'Desactivar' : 'Activar'}
-            </button>
+            {puedeDesactivar && (
+              <button
+                onClick={() => toggleStatus(row)}
+                disabled={isUpdating}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+                  isActive ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                }`}
+                title={isActive ? 'Desactivar sección' : 'Activar sección'}
+              >
+                {isActive ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
+                {isActive ? 'Desactivar' : 'Activar'}
+              </button>
+            )}
           </div>
         );
       },
@@ -276,12 +285,14 @@ export const Secciones = () => {
             <option value="A">Activos</option>
             <option value="I">Inactivos</option>
           </select>
-          <button
-            onClick={openCreateModal}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap"
-          >
-            <Plus size={16} /> Nueva Sección
-          </button>
+          {puede('secciones', 'CRE', 'TODO') && (
+            <button
+              onClick={openCreateModal}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap"
+            >
+              <Plus size={16} /> Nueva Sección
+            </button>
+          )}
         </div>
       </div>
 

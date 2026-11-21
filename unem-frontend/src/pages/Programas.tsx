@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Programa, ProgramaCreate, ProgramaUpdate } from '../types/models';
+import { useAuth } from '../hooks/useAuth';
 import {
   BookOpen, Search, Plus, X, AlertCircle, Info,
   Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown
@@ -44,6 +45,7 @@ type SortKey = 'id_pro' | 'codigo' | 'nombre';
 type SortDir = 'asc' | 'desc';
 
 export const Programas = () => {
+  const { puede } = useAuth();
   const { programas, isLoading, createPrograma, updatePrograma, isCreating, isUpdating, refetch } = useProgramas();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -212,17 +214,26 @@ export const Programas = () => {
       key: 'acciones', label: 'Acciones',
       render: (_: any, row: Programa) => {
         const esActivo = (row.estatus ?? 'A') === 'A';
+        const puedeEditar = puede('programas', 'ACT', 'LIM');
+        const puedeDesactivar = puede('programas', 'BOR', 'TODO');
+
+        if (!puedeEditar && !puedeDesactivar) return <span className="text-xs text-gray-400">Sin permisos</span>;
+
         return (
           <div className="flex gap-2">
-            <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-              <Edit size={14} /> Editar
-            </button>
-            <button onClick={() => toggleActivacion(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
-              esActivo ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-            }`}>
-              {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
-              {esActivo ? 'Desactivar' : 'Activar'}
-            </button>
+            {puedeEditar && (
+              <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                <Edit size={14} /> Editar
+              </button>
+            )}
+            {puedeDesactivar && (
+              <button onClick={() => toggleActivacion(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+                esActivo ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+              }`}>
+                {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
+                {esActivo ? 'Desactivar' : 'Activar'}
+              </button>
+            )}
           </div>
         );
       },
@@ -258,9 +269,11 @@ export const Programas = () => {
             <option value="I">Solo desactivados</option>
             <option value="">Todos los estados</option>
           </select>
-          <button onClick={openCreateModal} className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap">
-            <Plus size={16} /> Nuevo Programa
-          </button>
+          {puede('programas', 'CRE', 'TODO') && (
+            <button onClick={openCreateModal} className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap">
+              <Plus size={16} /> Nuevo Programa
+            </button>
+          )}
         </div>
       </div>
 

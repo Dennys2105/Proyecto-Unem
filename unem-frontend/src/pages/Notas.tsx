@@ -8,6 +8,7 @@ import { useSecciones } from '../hooks/useSecciones';
 import { notaService } from '../services/notaService';
 import { descargarActaNotas } from '../utils/descargas';
 import type { Nota, NotaUpdate, FilaActa } from '../types/models';
+import { useAuth } from '../hooks/useAuth';
 import {
   ClipboardList, Search, X, AlertCircle, Info, Edit, Save,
   ArrowUp, ArrowDown, ArrowUpDown, UserX, UserCheck,
@@ -35,6 +36,7 @@ type SortDir = 'asc' | 'desc';
 type Tab = 'acta' | 'listado';
 
 export const NotasPage = () => {
+  const { puede } = useAuth();
   const {
     notas, isLoading, updateNota, guardarActa,
     isUpdating, isSavingActa, refetch
@@ -374,17 +376,26 @@ export const NotasPage = () => {
       key: 'acciones', label: 'Acciones',
       render: (_: any, row: Nota) => {
         const activa = (row.estatus ?? 'A') === 'A';
+        const puedeEditar = puede('notas', 'ACT', 'LIM');
+        const puedeAnular = puede('notas', 'BOR', 'TODO');
+
+        if (!puedeEditar && !puedeAnular) return <span className="text-xs text-gray-400">Sin permisos</span>;
+
         return (
           <div className="flex gap-2">
-            <button onClick={() => abrirEdicion(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-              <Edit size={14} /> Editar
-            </button>
-            <button onClick={() => toggleAnulacion(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
-              activa ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-            }`}>
-              {activa ? <UserX size={14} /> : <UserCheck size={14} />}
-              {activa ? 'Anular' : 'Restaurar'}
-            </button>
+            {puedeEditar && (
+              <button onClick={() => abrirEdicion(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                <Edit size={14} /> Editar
+              </button>
+            )}
+            {puedeAnular && (
+              <button onClick={() => toggleAnulacion(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+                activa ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+              }`}>
+                {activa ? <UserX size={14} /> : <UserCheck size={14} />}
+                {activa ? 'Anular' : 'Restaurar'}
+              </button>
+            )}
           </div>
         );
       },

@@ -6,10 +6,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Docente, DocenteCreate, DocenteUpdate } from '../types/models';
-import { descargarFichaDocente, descargarHorarioDocente } from '../utils/descargas';
+import { useAuth } from '../hooks/useAuth';
 import {
   UserCog, Search, Plus, X, AlertCircle, Info,
-  Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown, Clock, FileText
+  Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown, Clock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -57,6 +57,7 @@ type SortKey = 'id_doc' | 'cedula';
 type SortDir = 'asc' | 'desc';
 
 export const DocentesPage = () => {
+  const { puede } = useAuth();
   const { docentes, isLoading, createDocente, updateDocente, isCreating, isUpdating, refetch } = useDocentes();
   const { municipios } = useMunicipios();
 
@@ -259,33 +260,28 @@ export const DocentesPage = () => {
     },
     {
       key: 'acciones', label: 'Acciones',
-      render: (_: any, row: Docente) => {
-        const isActive = ((row as any).estatus ?? 'A') === 'A';
+      render: (_: any, doc: Docente) => {
+        const esActivo = (doc.estatus ?? 'A') === 'A';
+        const puedeEditar = puede('docentes', 'ACT', 'LIM');
+        const puedeRetirar = puede('docentes', 'BOR', 'TODO');
+
+        if (!puedeEditar && !puedeRetirar) return <span className="text-xs text-gray-400">Sin permisos</span>;
+
         return (
           <div className="flex gap-2">
-            <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-              <Edit size={14} /> Editar
-            </button>
-            <button
-              onClick={() => descargarFichaDocente(row.cedula)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
-              title="Ficha del docente en PDF"
-            >
-              <FileText size={14} /> Ficha PDF
-            </button>
-            <button
-              onClick={() => descargarHorarioDocente(row.cedula)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200"
-              title="Horario semanal en PDF"
-            >
-              <Clock size={14} /> Horario PDF
-            </button>
-            <button onClick={() => toggleRetiro(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
-              isActive ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-            }`}>
-              {isActive ? <UserX size={14} /> : <UserCheck size={14} />}
-              {isActive ? 'Retirar' : 'Reincorporar'}
-            </button>
+            {puedeEditar && (
+              <button onClick={() => openEditModal(doc)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                <Edit size={14} /> Editar
+              </button>
+            )}
+            {puedeRetirar && (
+              <button onClick={() => toggleRetiro(doc)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+                esActivo ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+              }`}>
+                {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
+                {esActivo ? 'Retirar' : 'Reincorporar'}
+              </button>
+            )}
           </div>
         );
       },
@@ -326,9 +322,11 @@ export const DocentesPage = () => {
             <option value="I">Solo retirados</option>
             <option value="">Todos los estados</option>
           </select>
-          <button onClick={openCreateModal} className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap">
-            <Plus size={16} /> Nuevo Docente
-          </button>
+          {puede('docentes', 'CRE', 'TODO') && (
+            <button onClick={openCreateModal} className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap">
+              <Plus size={16} /> Nuevo Docente
+            </button>
+          )}
         </div>
       </div>
 
