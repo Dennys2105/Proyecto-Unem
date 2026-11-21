@@ -11,6 +11,7 @@ import {
   Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PageHero } from '../components/PageHero';
 
 interface ColumnDef {
   key: string;
@@ -241,80 +242,78 @@ export const Programas = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-4">
-        <div className="bg-indigo-100 p-3 rounded-xl"><BookOpen className="text-indigo-600" size={32} /></div>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">Programas Académicos</h1>
-          <p className="text-gray-600 mt-1 max-w-3xl">
-            Gestión de Programas Nacionales de Formación (PNF) y licenciaturas. 
-            Los programas desactivados no aparecen en listados de secciones pero pueden reactivarse.
-          </p>
-        </div>
-      </div>
+    <div className="unem-page">
+      <PageHero
+        icon={BookOpen}
+        titulo="Programas Académicos"
+        descripcion="Programas Nacionales de Formación (PNF) y licenciaturas. Los programas desactivados no aparecen en listados de secciones, pero pueden reactivarse."
+      />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input type="text" placeholder="Buscar por código o nombre..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <section className="unem-card unem-card-pad">
+        <div className="unem-toolbar">
+          <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-3)' }} />
+            <input type="text" className="unem-input" style={{ paddingLeft: 34 }} placeholder="Buscar por código o nombre…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           </div>
-          <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <select className="unem-select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
             <option value="">Todos los tipos</option>
             <option value="Trimestral">Trimestral</option>
             <option value="Semestral">Semestral</option>
           </select>
-          <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <select className="unem-select" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
             <option value="A">Solo activos</option>
             <option value="I">Solo desactivados</option>
             <option value="">Todos los estados</option>
           </select>
           {puede('programas', 'CRE', 'TODO') && (
-            <button onClick={openCreateModal} className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm whitespace-nowrap">
-              <Plus size={16} /> Nuevo Programa
+            <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
+              <Plus size={15} /> Nuevo Programa
             </button>
           )}
         </div>
-      </div>
+      </section>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {isLoading ? (
-          <div className="p-12 text-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div><p className="text-gray-500 mt-4">Cargando programas...</p></div>
-        ) : programasFiltrados.length === 0 ? (
-          <div className="p-12 text-center"><BookOpen className="mx-auto text-gray-300 mb-3" size={48} /><p className="text-gray-500 font-medium">No se encontraron programas</p></div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>{columns.map(col => (
-                  <th key={col.key} className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">
-                    {col.sortable ? (
-                      <button onClick={() => toggleSort(col.key as SortKey)} className="inline-flex items-center gap-1 hover:text-indigo-700 transition uppercase">
-                        {col.label}<SortIcon colKey={col.key as SortKey} />
-                      </button>
-                    ) : col.label}
-                  </th>
-                ))}</tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {programasFiltrados.map(prog => (
-                  <tr key={prog.id_pro} className="hover:bg-gray-50 transition">
-                    {columns.map(col => (
-                      <td key={col.key} className="px-4 py-3 text-sm text-gray-700">
-                        {col.render ? col.render((prog as any)[col.key], prog) : (prog as any)[col.key]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {isLoading ? (
+        <section className="unem-card unem-card-pad">
+          {[0, 1, 2, 3].map((i: number) => <div key={i} className="unem-skel" style={{ height: 40, marginBottom: 10 }} />)}
+        </section>
+      ) : programasFiltrados.length === 0 ? (
+        <div className="unem-empty">
+          <span className="unem-empty-i"><BookOpen size={34} /></span>
+          <p>No se encontraron programas.</p>
+        </div>
+      ) : (
+        <div className="unem-table-wrap unem-scroll">
+          <table className="unem-table">
+            <thead>
+              <tr>{columns.map((col) => (
+                <th key={col.key}>
+                  {col.sortable ? (
+                    <button className="unem-th-btn" onClick={() => toggleSort(col.key as SortKey)}>
+                      {col.label}<SortIcon colKey={col.key as SortKey} />
+                    </button>
+                  ) : col.label}
+                </th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {programasFiltrados.map((prog) => (
+                <tr key={prog.id_pro}>
+                  {columns.map((col) => (
+                    <td key={col.key}>
+                      {col.render ? col.render((prog as any)[col.key], prog) : (prog as any)[col.key]}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      <p className="text-xs text-gray-500 text-center">
+      <p style={{ fontSize: 11.5, color: 'var(--tx-3)', textAlign: 'center' }}>
         Mostrando {programasFiltrados.length} de {programas?.length || 0} programas registrados
-        {' · '}Ordenado por <span className="font-semibold">{sortKey === 'id_pro' ? 'ID' : sortKey === 'codigo' ? 'Código' : 'Nombre'}</span> ({sortDir === 'asc' ? 'ascendente' : 'descendente'})
+        {' · '}Ordenado por <b>{sortKey === 'id_pro' ? 'ID' : sortKey === 'codigo' ? 'Código' : 'Nombre'}</b> ({sortDir === 'asc' ? 'ascendente' : 'descendente'})
       </p>
 
       {isModalOpen && (
