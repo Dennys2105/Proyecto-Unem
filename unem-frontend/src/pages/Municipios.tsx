@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHero } from '../components/PageHero';
+import { useAuth } from '../hooks/useAuth';
 
 interface ColumnDef {
   key: string;
@@ -31,6 +32,7 @@ type SortKey = 'id_mun' | 'nombre';
 type SortDir = 'asc' | 'desc';
 
 export const Municipios = () => {
+  const { puede } = useAuth();
   const { municipios, isLoading, createMunicipio, updateMunicipio, isCreating, isUpdating, refetch } = useMunicipios();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -148,17 +150,29 @@ export const Municipios = () => {
       key: 'acciones', label: 'Acciones',
       render: (_: any, row: Municipio) => {
         const esActivo = (row.estatus ?? 'A') === 'A';
+        const puedeEditar = puede('municipios', 'ACT', 'TODO');
+        const puedeDesactivar = puede('municipios', 'BOR', 'TODO');
+
+        if (!puedeEditar && !puedeDesactivar) return <span className="unem-chip unem-chip-mut">Sin permisos</span>;
+
         return (
-          <div className="flex gap-2">
-            <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-              <Edit size={14} /> Editar
-            </button>
-            <button onClick={() => toggleActivacion(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
-              esActivo ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-            }`}>
-              {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
-              {esActivo ? 'Desactivar' : 'Activar'}
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {puedeEditar && (
+              <button className="unem-btn unem-btn-sm" onClick={() => openEditModal(row)}>
+                <Edit size={14} /> Editar
+              </button>
+            )}
+            {puedeDesactivar && (
+              <button
+                className="unem-btn unem-btn-sm"
+                onClick={() => toggleActivacion(row)}
+                disabled={isUpdating}
+                style={{ color: esActivo ? 'var(--warn)' : 'var(--ok)' }}
+              >
+                {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
+                {esActivo ? 'Desactivar' : 'Activar'}
+              </button>
+            )}
           </div>
         );
       },
@@ -184,9 +198,11 @@ export const Municipios = () => {
             <option value="I">Solo desactivados</option>
             <option value="">Todos los estados</option>
           </select>
-          <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
-            <Plus size={15} /> Nuevo Municipio
-          </button>
+          {puede('municipios', 'CRE', 'TODO') && (
+            <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
+              <Plus size={15} /> Nuevo Municipio
+            </button>
+          )}
         </div>
       </section>
 

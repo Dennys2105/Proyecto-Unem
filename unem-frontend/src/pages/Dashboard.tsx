@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, CSSProperties } from 'react';
 import { useAnalytics } from '../hooks/useAnalytics';
 import {
   Users, UserCheck, Calendar, BookOpen, Clock, GraduationCap, DoorOpen,
@@ -12,6 +12,7 @@ import {
 import toast from 'react-hot-toast';
 import type { CargaPorDia, OcupacionEspacio } from '../services/analyticsService';
 import { RendimientoAcademico } from '../components/RendimientoAcademico';
+import { PageHero } from '../components/PageHero';
 
 const COLORES_CONTRATO = ['#2563eb', '#7c3aed', '#059669', '#d97706'];
 
@@ -103,13 +104,13 @@ export const Dashboard = () => {
     : 0;
 
   const kpis: KpiDef[] = [
-    { titulo: 'Docentes Activos', valor: resumen.total_docentes_activos, icon: Users, color: 'bg-blue-600' },
-    { titulo: 'Estudiantes Activos', valor: resumen.total_estudiantes_activos, icon: UserCheck, color: 'bg-green-600' },
-    { titulo: 'Asignaciones', valor: resumen.total_asignaciones_activas, subtitulo: 'Carga horaria vigente', icon: Calendar, color: 'bg-purple-600' },
-    { titulo: 'Programas Activos', valor: resumen.total_programas_activos, icon: GraduationCap, color: 'bg-indigo-600' },
-    { titulo: 'Horas Asignadas', valor: `${resumen.total_horas_asignadas}h`, subtitulo: `${porcentajeOcupacion}% de la capacidad`, icon: BookOpen, color: 'bg-orange-600' },
-    { titulo: 'Horas Disponibles', valor: `${resumen.total_horas_disponibles}h`, subtitulo: 'Capacidad sin asignar', icon: Clock, color: 'bg-teal-600' },
-    { titulo: 'Aulas Disponibles', valor: resumen.aulas_disponibles, subtitulo: 'Espacios operativos', icon: DoorOpen, color: 'bg-rose-600' },
+    { titulo: 'Docentes Activos', valor: resumen.total_docentes_activos, icon: Users, color: '#1e88e5' },
+    { titulo: 'Estudiantes Activos', valor: resumen.total_estudiantes_activos, icon: UserCheck, color: '#0f9d58' },
+    { titulo: 'Asignaciones', valor: resumen.total_asignaciones_activas, subtitulo: 'Carga horaria vigente', icon: Calendar, color: '#7c7cc9' },
+    { titulo: 'Programas Activos', valor: resumen.total_programas_activos, icon: GraduationCap, color: '#2e3192' },
+    { titulo: 'Horas Asignadas', valor: `${resumen.total_horas_asignadas}h`, subtitulo: `${porcentajeOcupacion}% de la capacidad`, icon: BookOpen, color: '#e08600' },
+    { titulo: 'Horas Disponibles', valor: `${resumen.total_horas_disponibles}h`, subtitulo: 'Capacidad sin asignar', icon: Clock, color: '#009688' },
+    { titulo: 'Aulas Disponibles', valor: resumen.aulas_disponibles, subtitulo: 'Espacios operativos', icon: DoorOpen, color: '#00b8d4' },
   ];
 
   const datosContrato = porContrato.map((c) => ({
@@ -126,63 +127,41 @@ export const Dashboard = () => {
   const claseAtenuada = isFetching ? 'opacity-60 transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300';
 
   return (
-    <div className="space-y-6">
-      {/* ENCABEZADO */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-4">
-          <div className="bg-indigo-100 p-3 rounded-xl">
-            <BarChart3 className="text-indigo-600" size={32} />
-          </div>
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-3xl font-bold text-gray-900">Panel de Control UNEM</h1>
-              {/* ✅ Badge "En vivo" con punto pulsante */}
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-600"></span>
-                </span>
-                En vivo
-              </span>
-            </div>
-            <p className="text-gray-600 mt-1">
-              Métricas operativas en tiempo real · Actualización automática cada 60 segundos
-            </p>
-            <div className="mt-1">
-              <UltimaActualizacion timestamp={dataUpdatedAt} />
-            </div>
-            {periodoVigente ? (
-              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                <Star size={14} fill="currentColor" />
-                Período vigente: <strong>{periodoVigente.nombre}</strong>
-                <span className="text-amber-600">
-                  ({periodoVigente.fecha_inicio} → {periodoVigente.fecha_fin})
-                </span>
-              </div>
-            ) : (
-              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-                <AlertCircle size={14} />
-                No hay período académico vigente configurado
-              </div>
-            )}
-          </div>
-        </div>
+    <div className="unem-page">
+      <PageHero
+        icon={BarChart3}
+        titulo="Panel de Control UNEM"
+        descripcion="Métricas operativas en tiempo real · actualización automática cada 60 segundos."
+        acciones={
+          <button
+            className="unem-btn"
+            onClick={handleRefresh}
+            disabled={isManualRefresh}
+            title="Volver a consultar todas las métricas desde la base de datos"
+          >
+            <RefreshCw size={15} className={isManualRefresh ? 'animate-spin' : ''} />
+            {isManualRefresh ? 'Actualizando...' : 'Actualizar'}
+          </button>
+        }
+      />
 
-        {/* ✅ BOTÓN ACTUALIZAR CON FEEDBACK VISUAL */}
-        <button
-          onClick={handleRefresh}
-          disabled={isManualRefresh}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-medium shadow-sm border ${
-            isManualRefresh
-              ? 'bg-indigo-50 border-indigo-300 text-indigo-700 cursor-wait'
-              : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-indigo-300'
-          } disabled:opacity-80`}
-          title="Volver a consultar todas las métricas desde la base de datos"
-        >
-          <RefreshCw size={16} className={isManualRefresh ? 'animate-spin' : ''} />
-          {isManualRefresh ? 'Actualizando...' : 'Actualizar'}
-        </button>
-      </div>
+      <section className="unem-card unem-card-pad">
+        <div className="unem-toolbar">
+          <span className="unem-chip unem-chip-ins">
+            <span className="unem-pulse"><i /><b /></span> En vivo
+          </span>
+          {periodoVigente ? (
+            <span className="unem-chip unem-chip-soft">
+              <Star size={13} /> Vigente: {periodoVigente.nombre} ({periodoVigente.fecha_inicio} → {periodoVigente.fecha_fin})
+            </span>
+          ) : (
+            <span className="unem-chip unem-chip-del">
+              <AlertCircle size={13} /> Sin período académico vigente
+            </span>
+          )}
+          <UltimaActualizacion timestamp={dataUpdatedAt} />
+        </div>
+      </section>
 
       {/* ✅ Barra de progreso indeterminada mientras refresca */}
       {isFetching && (
@@ -192,41 +171,31 @@ export const Dashboard = () => {
       )}
 
       {/* KPIs REALES */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ${claseAtenuada}`}>
+      <div className={`unem-kpis ${claseAtenuada}`}>
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           return (
-            <div key={kpi.titulo} className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{kpi.titulo}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">{kpi.valor}</p>
-                  {kpi.subtitulo && <p className="text-xs text-gray-400 mt-1">{kpi.subtitulo}</p>}
-                </div>
-                <div className={`${kpi.color} p-2.5 rounded-lg shrink-0`}>
-                  <Icon className="text-white" size={20} />
-                </div>
+            <article key={kpi.titulo} className="unem-kpi" style={{ ['--kpi-c' as never]: kpi.color } as CSSProperties}>
+              <div className="unem-kpi-top">
+                <span className="unem-kpi-l">{kpi.titulo}</span>
+                <span className="unem-kpi-i"><Icon size={16} /></span>
               </div>
-            </div>
+              <div className="unem-kpi-v">{kpi.valor}</div>
+              {kpi.subtitulo && <div className="unem-kpi-s">{kpi.subtitulo}</div>}
+            </article>
           );
         })}
 
-        <div className="bg-white rounded-xl shadow-sm border border-dashed border-amber-300 p-5">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Cobertura de Notas</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {coberturaNotas?.porcentaje_cobertura ?? 0}%
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                {coberturaNotas?.estudiantes_evaluados ?? 0} de {coberturaNotas?.estudiantes_activos ?? 0} estudiantes
-              </p>
-            </div>
-            <div className="bg-amber-500 p-2.5 rounded-lg shrink-0">
-              <ClipboardList className="text-white" size={20} />
-            </div>
+        <article className="unem-kpi" style={{ ['--kpi-c' as never]: '#e08600' } as CSSProperties}>
+          <div className="unem-kpi-top">
+            <span className="unem-kpi-l">Cobertura de Notas</span>
+            <span className="unem-kpi-i"><ClipboardList size={16} /></span>
           </div>
-        </div>
+          <div className="unem-kpi-v">{coberturaNotas?.porcentaje_cobertura ?? 0}%</div>
+          <div className="unem-kpi-s">
+            {coberturaNotas?.estudiantes_evaluados ?? 0} de {coberturaNotas?.estudiantes_activos ?? 0} estudiantes
+          </div>
+        </article>
       </div>
 
       {/* GRÁFICA 1: CARGA HORARIA REAL POR DÍA */}
