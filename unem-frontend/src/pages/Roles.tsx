@@ -209,7 +209,7 @@ export const Roles = () => {
                       <div className="grid grid-cols-4 gap-2 p-4">
                         {(['CRE', 'ACT', 'LEC', 'BOR'] as const).map(codigo => {
                           const p = permisos[codigo];
-                          const config = ALCANCE_CONFIG[p.alcance];
+                          const config = ALCANCE_CONFIG[p.alcance] ?? ALCANCE_CONFIG.NAD;
                           return (
                             <div key={codigo} className={`p-3 rounded-lg border ${
                               p.esPersonalizado ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50 border-gray-200'

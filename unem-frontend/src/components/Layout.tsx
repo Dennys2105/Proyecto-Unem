@@ -57,13 +57,14 @@ const REQ_MODULO: Record<string, [string, string]> = {
   '/malla':        ['malla', 'SP'],
   '/periodos':     ['periodos', 'SP'],
   '/secciones':    ['estudiantes', 'SP'],
-  '/docentes':     ['docentes', 'TODO'],
-  '/estudiantes':  ['estudiantes', 'TODO'],
+  '/docentes':     ['docentes', 'SP'],
+  '/estudiantes':  ['estudiantes', 'SP'],
   '/asignaciones': ['asig_carga', 'TODO'],
   '/espacios':     ['espacios', 'TODO'],
   '/notas':        ['notas', 'SP'],
   '/municipios':   ['municipios', 'LIM'],
   '/roles':        ['usuarios', 'LIM'],
+  '/auditoria':    ['aud_mov', 'LIM'],
 };
 
 const ROL_NOMBRE: Record<number, string> = {

@@ -52,7 +52,8 @@ def consultar_auditoria_avanzada(
     tabla: Optional[str] = Query(None, description="Filtrar por tabla afectada"),
     usuario: Optional[str] = Query(None, description="Filtrar por nombre de usuario"),
     fecha_inicio: Optional[date] = Query(None, description="Filtrar desde la fecha (YYYY-MM-DD)"),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("aud_mov", "LEC", "LIM"))
 ):
     query = """
         SELECT 

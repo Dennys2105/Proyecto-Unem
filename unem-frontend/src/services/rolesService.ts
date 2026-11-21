@@ -81,9 +81,10 @@ export const rolesService = {
       }
       const moduloData = modulosMap.get(d.modulo);
       const codigoPermiso = d.permiso as 'CRE' | 'ACT' | 'LEC' | 'BOR';
+      const alc = (d.alcance_efectivo ?? 'NAD') as 'TODO' | 'SP' | 'LIM' | 'NAD';
       moduloData.permisos[codigoPermiso] = {
-        activo: d.alcance_efectivo !== 'NAD',
-        alcance: d.alcance_efectivo as 'TODO' | 'SP' | 'LIM' | 'NAD',
+        activo: alc !== 'NAD',
+        alcance: alc,
         esPersonalizado: d.origen === 'Personalizado'
       };
     });
