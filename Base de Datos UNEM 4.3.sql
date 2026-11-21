@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict liNqN1ho5Zmf5jc3kQRBlgwQx8lBqyVFFN6ak2ZrLQCrfRkbBWzoxMJ16TzRIrH
+\restrict g7c4xvRAuuRNAPx9H6hNQsUzSBAL7eFCEFgdPf60FOHyAZ3wSxCfMYft0LjeO1l
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-21 09:24:35
+-- Started on 2026-11-21 09:27:14
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -5045,7 +5045,7 @@ SELECT pg_catalog.setval('academico.materias_id_mat_seq', 95, true);
 -- Name: notas_id_nota_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
-SELECT pg_catalog.setval('academico.notas_id_nota_seq', 83, true);
+SELECT pg_catalog.setval('academico.notas_id_nota_seq', 147, true);
 
 
 --
@@ -7420,11 +7420,11 @@ ALTER TABLE ONLY personas.docentes
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-21 09:24:36
+-- Completed on 2026-11-21 09:27:14
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict liNqN1ho5Zmf5jc3kQRBlgwQx8lBqyVFFN6ak2ZrLQCrfRkbBWzoxMJ16TzRIrH
+\unrestrict g7c4xvRAuuRNAPx9H6hNQsUzSBAL7eFCEFgdPf60FOHyAZ3wSxCfMYft0LjeO1l
 
