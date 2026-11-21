@@ -62,6 +62,41 @@ export interface FilaOcupacionDia { id_esp: number; aula: string; nombre_centro:
 export interface FilaGeografia { id_mun: number; municipio: string; estudiantes: number; docentes: number; espacios: number }
 export interface BinHistograma { bin: number; cantidad: number }
 
+/* ===== PREDICCIONES (Lote 5) ===== */
+export interface PuntoSerie {
+  id_per: number; periodo: string; anio: number; numero_periodo: number; tipo: string;
+  fecha_inicio: string; orden: number; evaluaciones: number; promedio: number; pct_aprobacion: number;
+}
+
+export interface PuntoProyeccion {
+  paso: number; etiqueta: string; promedio_proyectado: number; pct_aprobacion_proyectado: number;
+}
+
+export interface MateriaRiesgoPred {
+  cod_programa: string; materia: string; trayecto: number; periodo: number;
+  evaluados: number; promedio: number; reprobados: number; pct_aprobacion: number; nivel: string;
+}
+
+export interface EstudianteRiesgo {
+  id_est: number; cedula: string; estudiante: string; cod_programa: string;
+  promedio: number; materias_evaluadas: number; materias_reprobadas: number; nivel: string;
+}
+
+export interface PrediccionesData {
+  metodo: string;
+  n_periodos: number;
+  confiable: boolean;
+  aviso: string | null;
+  pendiente_promedio: number | null;
+  pendiente_aprobacion: number | null;
+  r2_promedio: number | null;
+  r2_aprobacion: number | null;
+  serie: PuntoSerie[];
+  proyeccion: PuntoProyeccion[];
+  materias_riesgo: MateriaRiesgoPred[];
+  estudiantes_riesgo: EstudianteRiesgo[];
+}
+
 export const analyticsService = {
   getResumen: async (): Promise<ResumenEstadistico> => (await api.get('/analytics/resumen')).data,
   getCargaPorDia: async (): Promise<CargaPorDia[]> => (await api.get('/analytics/carga-por-dia')).data,
@@ -83,4 +118,7 @@ export const analyticsService = {
     (await api.get('/analitica/ocupacion', { params: { id_dia: idDia } })).data,
   getGeografia: async (): Promise<FilaGeografia[]> => (await api.get('/analitica/geografia')).data,
   getHistograma: async (): Promise<BinHistograma[]> => (await api.get('/analitica/histograma')).data,
+
+  getPredicciones: async (idPro?: number, pasos = 2): Promise<PrediccionesData> =>
+    (await api.get('/analitica/predicciones', { params: { ...(idPro ? { id_pro: idPro } : {}), pasos } })).data,
 };

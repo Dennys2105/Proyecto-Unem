@@ -1,20 +1,21 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { analyticsService } from '../services/analyticsService';
 import type {
   PuntoTendencia, FilaTrayecto, FilaEje, FilaOcupacionDia, FilaGeografia, BinHistograma,
+  PrediccionesData, PuntoSerie, PuntoProyeccion, MateriaRiesgoPred, EstudianteRiesgo,
 } from '../services/analyticsService';
 import { useDias } from '../hooks/useDias';
 import {
-  BarChart3, TrendingUp, Layers, CalendarRange, MapPin, RefreshCw, Info,
+  BarChart3, TrendingUp, Layers, CalendarRange, MapPin, RefreshCw, Info, Sparkles,
 } from 'lucide-react';
 import {
   ComposedChart, Area, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell,
+  Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts';
 
-type Tab = 'tendencia' | 'trayectos' | 'ejes' | 'ocupacion' | 'geografia';
+type Tab = 'tendencia' | 'trayectos' | 'ejes' | 'ocupacion' | 'geografia' | 'predicciones';
 
 const AZUL = '#1E88E5';
 const INDIGO = '#2E3192';
@@ -28,6 +29,7 @@ const etiquetaBin = (b: number): string => `${(b - 1) * 2}–${b * 2}`;
 export const Analitica = (): ReactNode => {
   const [tab, setTab] = useState<Tab>('tendencia');
   const [idDia, setIdDia] = useState<number>(6); // 6 = Sábado por defecto
+  const [idProPred, setIdProPred] = useState<number | undefined>(undefined);
   const { dias } = useDias();
   const diasActivos = (dias ?? []).filter((d) => d.estatus === 'A');
   const diaNombre = diasActivos.find((d) => d.id_dia === idDia)?.dia ?? 'Día';
@@ -39,7 +41,29 @@ export const Analitica = (): ReactNode => {
   const qOcu = useQuery<FilaOcupacionDia[]>({ queryKey: ['ana', 'ocu', idDia], queryFn: () => analyticsService.getOcupacionPorDia(idDia), enabled: tab === 'ocupacion' });
   const qGeo = useQuery<FilaGeografia[]>({ queryKey: ['ana', 'geo'], queryFn: analyticsService.getGeografia, enabled: tab === 'geografia' });
 
-  const activa = tab === 'tendencia' ? qTen : tab === 'trayectos' ? qTra : tab === 'ejes' ? qEje : tab === 'ocupacion' ? qOcu : qGeo;
+  const qPre = useQuery<PrediccionesData>({
+    queryKey: ['ana', 'pre', idProPred],
+    queryFn: () => analyticsService.getPredicciones(idProPred),
+    enabled: tab === 'predicciones',
+  });
+
+  const activa = tab === 'tendencia' ? qTen : tab === 'trayectos' ? qTra : tab === 'ejes' ? qEje
+    : tab === 'ocupacion' ? qOcu : tab === 'geografia' ? qGeo : qPre;
+
+  const seriePred = useMemo(() => {
+    const d = qPre.data;
+    if (!d) return [];
+    const hist = d.serie.map((p: PuntoSerie) => ({
+      etiqueta: p.periodo, promedio: p.promedio, proyectado: null as number | null,
+    }));
+    const fut = d.proyeccion.map((p: PuntoProyeccion) => ({
+      etiqueta: p.etiqueta, promedio: null as number | null, proyectado: p.promedio_proyectado,
+    }));
+    if (hist.length > 0 && fut.length > 0) {
+      fut[0] = { ...fut[0], promedio: hist[hist.length - 1].promedio };
+    }
+    return [...hist, ...fut];
+  }, [qPre.data]);
 
   const bins = (qHis.data ?? []).map((b: BinHistograma) => ({ label: etiquetaBin(b.bin), cantidad: b.cantidad }));
   const trayectos = (qTra.data ?? []).map((t: FilaTrayecto) => ({ ...t, label: `${t.cod_programa} · T${t.trayecto}` }));
@@ -71,6 +95,7 @@ export const Analitica = (): ReactNode => {
         <button data-on={tab === 'ejes'} onClick={() => setTab('ejes')}><BarChart3 size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Ejes</button>
         <button data-on={tab === 'ocupacion'} onClick={() => setTab('ocupacion')}><CalendarRange size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Ocupación</button>
         <button data-on={tab === 'geografia'} onClick={() => setTab('geografia')}><MapPin size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Geografía</button>
+        <button data-on={tab === 'predicciones'} onClick={() => setTab('predicciones')}><Sparkles size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Predicciones</button>
       </div>
 
       {activa.isLoading ? (
@@ -200,6 +225,81 @@ export const Analitica = (): ReactNode => {
               <TablaGeo filas={qGeo.data ?? []} />
             </div>
           )}
+
+          {tab === 'predicciones' && qPre.data && (
+            <div className="unem-card unem-card-pad">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                <b style={{ fontSize: 12, color: 'var(--tx-2)' }}>Proyección de promedio y aprobación</b>
+                <select
+                  className="unem-select"
+                  value={idProPred ?? ''}
+                  onChange={(e) => setIdProPred(e.target.value ? Number(e.target.value) : undefined)}
+                >
+                  <option value="">Todos los programas</option>
+                  <option value="1">LPRI — Educación Primaria</option>
+                  <option value="2">LESP — Educación Especial</option>
+                </select>
+                <span className={`unem-chip ${qPre.data.confiable ? 'unem-chip-ins' : 'unem-chip-soft'}`}>
+                  {qPre.data.confiable ? 'Modelo confiable' : 'Estimación preliminar'}
+                </span>
+                <span className="unem-chip unem-chip-mut">{qPre.data.n_periodos} período(s)</span>
+                {qPre.data.r2_promedio !== null && (
+                  <span className="unem-chip unem-chip-mut">R² = {qPre.data.r2_promedio.toFixed(3)}</span>
+                )}
+              </div>
+
+              {qPre.data.aviso && (
+                <div className="unem-note" style={{ marginBottom: 12 }}>
+                  <Info size={16} /><span>{qPre.data.aviso}</span>
+                </div>
+              )}
+
+              <div style={{ height: 300, marginTop: 12 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={seriePred}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis dataKey="etiqueta" tick={{ fontSize: 11 }} />
+                    <YAxis domain={[0, 20]} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <ReferenceLine y={10} stroke="#dc2626" strokeDasharray="4 4" />
+                    <Line dataKey="promedio" name="Promedio histórico" stroke={INDIGO} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                    <Line dataKey="proyectado" name="Promedio proyectado" stroke={CIAN} strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              <p style={{ fontSize: 11.5, color: 'var(--tx-3)', marginTop: 10 }}>
+                {qPre.data.metodo}
+                {qPre.data.pendiente_promedio !== null && (
+                  <> · Pendiente del promedio: <b>{qPre.data.pendiente_promedio.toFixed(3)}</b> pts/período
+                    {qPre.data.pendiente_promedio >= 0 ? ' (tendencia al alza)' : ' (tendencia a la baja)'}</>
+                )}
+              </p>
+
+              {qPre.data.proyeccion.length > 0 && (
+                <div className="unem-table-wrap unem-scroll" style={{ marginTop: 14 }}>
+                  <table className="unem-table">
+                    <thead><tr><th>Escenario</th><th>Promedio proyectado</th><th>% Aprobación proyectado</th></tr></thead>
+                    <tbody>
+                      {qPre.data.proyeccion.map((p: PuntoProyeccion) => (
+                        <tr key={p.paso}>
+                          <td className="unem-strong">{p.etiqueta}</td>
+                          <td className="unem-mono unem-strong">{p.promedio_proyectado.toFixed(2)}</td>
+                          <td className="unem-mono">{p.pct_aprobacion_proyectado.toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <b style={{ fontSize: 12, color: 'var(--tx-2)', display: 'block', marginTop: 20 }}>Materias en riesgo académico</b>
+              <TablaRiesgoMaterias filas={qPre.data.materias_riesgo} />
+
+              <b style={{ fontSize: 12, color: 'var(--tx-2)', display: 'block', marginTop: 20 }}>Estudiantes en riesgo académico</b>
+              <TablaRiesgoEstudiantes filas={qPre.data.estudiantes_riesgo} />
+            </div>
+          )}
         </>
       )}
     </div>
@@ -269,6 +369,75 @@ const TablaGeo = ({ filas }: { filas: FilaGeografia[] }): ReactNode => (
       </tbody>
     </table>
   </div>
+);
+
+
+
+const BadgeRiesgo = ({ nivel }: { nivel: string }): ReactNode => (
+  <span className={`unem-chip ${nivel === 'ALTO' ? 'unem-chip-del' : nivel === 'MEDIO' ? 'unem-chip-soft' : 'unem-chip-ins'}`}>
+    {nivel}
+  </span>
+);
+
+const TablaRiesgoMaterias = ({ filas }: { filas: MateriaRiesgoPred[] }): ReactNode => (
+  filas.length === 0 ? (
+    <div className="unem-note" style={{ marginTop: 10 }}>
+      <Info size={16} /><span>Sin materias en riesgo: todas las materias evaluadas tienen aprobación total.</span>
+    </div>
+  ) : (
+    <div className="unem-table-wrap unem-scroll" style={{ marginTop: 10 }}>
+      <table className="unem-table">
+        <thead><tr>
+          <th>Programa</th><th>Materia</th><th>Trayecto</th><th>Evaluados</th>
+          <th>Promedio</th><th>Reprobados</th><th>% Aprob.</th><th>Riesgo</th>
+        </tr></thead>
+        <tbody>
+          {filas.map((f: MateriaRiesgoPred) => (
+            <tr key={`${f.cod_programa}-${f.materia}-${f.trayecto}-${f.periodo}`}>
+              <td className="unem-strong">{f.cod_programa}</td>
+              <td><span className="unem-ell" style={{ maxWidth: 260 }}>{f.materia}</span></td>
+              <td>T{f.trayecto} · P{f.periodo}</td>
+              <td>{f.evaluados}</td>
+              <td className="unem-mono unem-strong">{f.promedio.toFixed(2)}</td>
+              <td>{f.reprobados}</td>
+              <td className="unem-mono">{f.pct_aprobacion.toFixed(1)}%</td>
+              <td><BadgeRiesgo nivel={f.nivel} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+);
+
+const TablaRiesgoEstudiantes = ({ filas }: { filas: EstudianteRiesgo[] }): ReactNode => (
+  filas.length === 0 ? (
+    <div className="unem-note" style={{ marginTop: 10 }}>
+      <Info size={16} /><span>Sin estudiantes en riesgo académico según las notas oficiales cargadas.</span>
+    </div>
+  ) : (
+    <div className="unem-table-wrap unem-scroll" style={{ marginTop: 10 }}>
+      <table className="unem-table">
+        <thead><tr>
+          <th>Cédula</th><th>Estudiante</th><th>Programa</th>
+          <th>Materias</th><th>Reprobadas</th><th>Promedio</th><th>Riesgo</th>
+        </tr></thead>
+        <tbody>
+          {filas.map((f: EstudianteRiesgo) => (
+            <tr key={f.id_est}>
+              <td className="unem-mono">{f.cedula}</td>
+              <td className="unem-strong">{f.estudiante}</td>
+              <td>{f.cod_programa}</td>
+              <td>{f.materias_evaluadas}</td>
+              <td>{f.materias_reprobadas}</td>
+              <td className="unem-mono unem-strong">{f.promedio.toFixed(2)}</td>
+              <td><BadgeRiesgo nivel={f.nivel} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 );
 
 export const AnaliticaPage = Analitica;
