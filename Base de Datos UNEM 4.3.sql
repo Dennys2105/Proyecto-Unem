@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict QQag43LcYviHSvrYsiuZkkLKmpFjgdRecZPaq1TChzwdhI8ABJhIvxJFQDPOfcV
+\restrict ms50iVBmqcPdSU42eYh7bSeuysuMtAqOneIEdrxnehdpttNQ7q242PO9gV60ek4
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-21 16:27:07
+-- Started on 2026-11-21 18:22:28
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4157,7 +4157,7 @@ COPY academico.notas (id_nota, id_est, id_malla, id_per, nota, tipo_evaluacion, 
 
 COPY academico.periodos_academicos (id_per, nombre, anio, numero_periodo, tipo, fecha_inicio, fecha_fin, activo, estatus, creado, actualizar) FROM stdin;
 2	Semestre 2025-I	2025	1	Semestre	2025-02-01	2025-07-30	t	A	2026-10-03 10:55:20.264002-04	2026-10-03 10:55:20.264002-04
-1	Trimestre 2025-I	2025	1	Trimestre	2025-01-20	2025-04-30	t	A	2026-10-03 10:55:20.264002-04	2026-11-16 17:51:56.926229-04
+1	Trimestre 2025-I	2025	1	Trimestre	2025-01-20	2025-04-30	t	A	2026-10-03 10:55:20.264002-04	2026-11-21 17:17:20.199741-04
 \.
 
 
@@ -4829,6 +4829,38 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 708	\N	asig_carga_horarias	INSERT	\N	{"creado": "2026-11-21T16:23:01.268782-04:00", "id_dia": 6, "id_doc": 2, "id_esp": 15, "id_per": 1, "id_sec": 6, "estatus": "A", "id_asig": 10, "hora_fin": "11:00:00", "id_malla": 26, "actualizar": "2026-11-21T16:23:01.268782-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-21 16:23:01.268782-04	\N	A
 709	\N	docentes	UPDATE	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T16:23:01.268782-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 9, "horas_disponibles": 21}	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T16:23:01.268782-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 12, "horas_disponibles": 18}	2026-11-21 16:23:01.268782-04	\N	A
 710	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T15:46:28.277619-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T16:23:58.592085-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 16:23:58.576391-04	\N	A
+711	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T16:23:58.592085-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T16:38:32.47532-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 16:38:32.464432-04	\N	A
+712	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T15:45:42.491201-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T16:39:53.616161-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 16:39:53.606523-04	\N	A
+713	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T16:38:32.47532-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T16:55:37.59242-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 16:55:37.58229-04	\N	A
+714	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T16:39:53.616161-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T16:56:41.150212-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 16:56:41.145649-04	\N	A
+715	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T16:56:41.150212-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T17:12:42.641302-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:12:42.630643-04	\N	A
+716	1	periodos_academicos	UPDATE	{"anio": 2025, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2025-I", "estatus": "A", "fecha_fin": "2025-04-30", "actualizar": "2026-11-16T17:51:56.926229-04:00", "fecha_inicio": "2025-01-20", "numero_periodo": 1}	{"anio": 2025, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2025-I", "estatus": "I", "fecha_fin": "2025-04-30", "actualizar": "2026-11-21T17:17:16.799689-04:00", "fecha_inicio": "2025-01-20", "numero_periodo": 1}	2026-11-21 17:17:16.799689-04	127.0.0.1	A
+717	1	periodos_academicos	UPDATE	{"anio": 2025, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2025-I", "estatus": "I", "fecha_fin": "2025-04-30", "actualizar": "2026-11-21T17:17:16.799689-04:00", "fecha_inicio": "2025-01-20", "numero_periodo": 1}	{"anio": 2025, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2025-I", "estatus": "A", "fecha_fin": "2025-04-30", "actualizar": "2026-11-21T17:17:20.199741-04:00", "fecha_inicio": "2025-01-20", "numero_periodo": 1}	2026-11-21 17:17:20.199741-04	127.0.0.1	A
+718	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T17:12:42.641302-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T17:34:20.635618-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:34:20.620392-04	\N	A
+719	1	usuarios	INSERT	\N	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 4, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	2026-11-21 17:35:10.416941-04	127.0.0.1	A
+720	1	credenciales	INSERT	\N	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:35:10.416941-04	127.0.0.1	A
+721	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T17:35:31.034646-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:35:31.02587-04	\N	A
+722	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T15:44:39.544824-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T17:38:35.993085-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:38:35.976084-04	\N	A
+723	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T17:34:20.635618-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T17:47:06.498811-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:47:06.492441-04	\N	A
+724	1	usuarios	UPDATE	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 4, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 2, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	2026-11-21 17:50:27.629975-04	127.0.0.1	A
+725	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T17:35:31.034646-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T17:50:34.700691-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:50:34.690299-04	\N	A
+726	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T17:47:06.498811-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T17:51:25.127269-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 17:51:25.11736-04	\N	A
+727	1	usuarios	UPDATE	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 2, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 4, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	2026-11-21 18:03:00.428172-04	127.0.0.1	A
+728	1	usuarios	UPDATE	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 4, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 2, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	2026-11-21 18:06:50.333957-04	127.0.0.1	A
+729	1	permisos_usuario	INSERT	\N	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "A", "id_perm": 3}	2026-11-21 18:06:59.689735-04	127.0.0.1	A
+730	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T17:50:34.700691-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:07:07.654636-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 18:07:07.648388-04	\N	A
+731	1	permisos_usuario	UPDATE	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 3}	2026-11-21 18:07:33.323551-04	127.0.0.1	A
+732	1	permisos_usuario	UPDATE	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 3}	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "SP", "estatus": "A", "id_perm": 3}	2026-11-21 18:07:33.323551-04	127.0.0.1	A
+733	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:07:07.654636-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:07:36.775524-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 18:07:36.769757-04	\N	A
+734	1	permisos_usuario	UPDATE	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "SP", "estatus": "I", "id_perm": 3}	2026-11-21 18:07:57.888666-04	127.0.0.1	A
+735	1	permisos_usuario	INSERT	\N	{"id_pu": 10, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "A", "id_perm": 1}	2026-11-21 18:07:57.888666-04	127.0.0.1	A
+736	1	permisos_usuario	INSERT	\N	{"id_pu": 11, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "A", "id_perm": 2}	2026-11-21 18:07:57.888666-04	127.0.0.1	A
+737	1	permisos_usuario	UPDATE	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "SP", "estatus": "I", "id_perm": 3}	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "A", "id_perm": 3}	2026-11-21 18:07:57.888666-04	127.0.0.1	A
+738	1	permisos_usuario	INSERT	\N	{"id_pu": 13, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "A", "id_perm": 4}	2026-11-21 18:07:57.888666-04	127.0.0.1	A
+739	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:07:36.775524-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:08:01.202198-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 18:08:01.199741-04	\N	A
+740	\N	modulos	UPDATE	{"codigo": "roles", "id_mod": 1, "nombre": "Roles", "estatus": "A", "descripcion": "Gestión de roles del sistema"}	{"codigo": "roles", "id_mod": 1, "nombre": "Roles del sistema (catálogo)", "estatus": "A", "descripcion": "Tabla general.roles. NO controla la página del menú; esa se controla con el módulo Usuarios."}	2026-11-21 18:20:53.364982-04	\N	A
+741	\N	modulos	UPDATE	{"codigo": "usuarios", "id_mod": 9, "nombre": "Usuarios", "estatus": "A", "descripcion": "Gestión de usuarios del sistema"}	{"codigo": "usuarios", "id_mod": 9, "nombre": "Usuarios y Permisos (página del menú)", "estatus": "A", "descripcion": "Cuentas del sistema, matriz de permisos y overrides por usuario."}	2026-11-21 18:20:53.364982-04	\N	A
+742	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:08:01.202198-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:21:59.044864-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 18:21:59.028189-04	\N	A
 \.
 
 
@@ -4839,9 +4871,10 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 --
 
 COPY general.credenciales (id_cre, id_usu, password_hash, ultimo_acceso, intentos_fallidos, bloqueado_hasta) FROM stdin;
-2	2	$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs	2026-11-21 15:44:39.544824-04	0	\N
-1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-21 15:45:42.491201-04	0	\N
-3	3	$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU	2026-11-21 16:23:58.592085-04	0	\N
+3	3	$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU	2026-11-21 16:55:37.59242-04	0	\N
+2	2	$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs	2026-11-21 17:38:35.993085-04	0	\N
+1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-21 17:51:25.127269-04	0	\N
+4	4	$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE	2026-11-21 18:21:59.044864-04	0	\N
 \.
 
 
@@ -4868,7 +4901,6 @@ COPY general.dias_laborales (id_dia, dia, orden, estatus) FROM stdin;
 --
 
 COPY general.modulos (id_mod, codigo, nombre, descripcion, estatus) FROM stdin;
-1	roles	Roles	Gestión de roles del sistema	A
 2	malla	Malla Curricular	Gestión de la malla curricular	A
 3	materias	Materias	Gestión de unidades curriculares	A
 4	programas	Programas	Gestión de programas académicos	A
@@ -4876,7 +4908,6 @@ COPY general.modulos (id_mod, codigo, nombre, descripcion, estatus) FROM stdin;
 6	aud_mov	Auditoría	Consulta de bitácora de auditoría	A
 7	dias	Días Laborales	Gestión de días laborales	A
 8	municipios	Municipios	Gestión de municipios	A
-9	usuarios	Usuarios	Gestión de usuarios del sistema	A
 10	asig_carga	Asignación de Carga Horaria	Gestión de asignaciones de horario	A
 11	espacios	Espacios Físicos	Gestión de aulas y espacios	A
 12	disponibilidad	Disponibilidad Docente	Gestión de disponibilidad de docentes	A
@@ -4884,6 +4915,8 @@ COPY general.modulos (id_mod, codigo, nombre, descripcion, estatus) FROM stdin;
 14	estudiantes	Estudiantes	Gestión de estudiantes	A
 15	notas	Registro de Notas	Gestión de calificaciones de estudiantes	A
 16	periodos	Períodos Académicos	Gestión de períodos académicos	A
+1	roles	Roles del sistema (catálogo)	Tabla general.roles. NO controla la página del menú; esa se controla con el módulo Usuarios.	A
+9	usuarios	Usuarios y Permisos (página del menú)	Cuentas del sistema, matriz de permisos y overrides por usuario.	A
 \.
 
 
@@ -5117,6 +5150,10 @@ COPY general.permisos_usuario (id_pu, id_usu, id_mod, id_perm, alcance, estatus)
 5	1	4	3	TODO	I
 6	1	4	4	TODO	I
 7	2	14	1	TODO	I
+10	4	1	1	TODO	A
+11	4	1	2	TODO	A
+8	4	1	3	TODO	A
+13	4	1	4	TODO	A
 \.
 
 
@@ -5145,6 +5182,7 @@ COPY general.usuarios (id_usu, username, id_rol, estatus, creado, actualizar, em
 1	admin	1	A	2026-10-29 03:05:47.546227-04	2026-10-29 03:05:47.546404-04	\N
 3	docente1	4	A	2026-11-21 15:16:35.317659-04	2026-11-21 15:16:35.317659-04	docente1@unem.edu.ve
 2	coordinador1	3	A	2026-11-20 18:29:53.653537-04	2026-11-20 18:29:53.653537-04	coordinador1@unem.edu.ve
+4	carlo	2	A	2026-11-21 17:35:10.416941-04	2026-11-21 17:35:10.416941-04	carlo@gmail.com
 \.
 
 
@@ -5309,7 +5347,7 @@ SELECT pg_catalog.setval('academico.secciones_id_sec_seq', 6, true);
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 710, true);
+SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 742, true);
 
 
 --
@@ -5318,7 +5356,7 @@ SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 710, true);
 -- Name: credenciales_id_cre_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.credenciales_id_cre_seq', 3, true);
+SELECT pg_catalog.setval('general.credenciales_id_cre_seq', 4, true);
 
 
 --
@@ -5372,7 +5410,7 @@ SELECT pg_catalog.setval('general.permisos_rol_id_pr_seq', 175, true);
 -- Name: permisos_usuario_id_pu_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.permisos_usuario_id_pu_seq', 7, true);
+SELECT pg_catalog.setval('general.permisos_usuario_id_pu_seq', 13, true);
 
 
 --
@@ -5390,7 +5428,7 @@ SELECT pg_catalog.setval('general.roles_id_rol_seq', 5, true);
 -- Name: usuarios_id_usu_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.usuarios_id_usu_seq', 3, true);
+SELECT pg_catalog.setval('general.usuarios_id_usu_seq', 4, true);
 
 
 --
@@ -7648,11 +7686,11 @@ ALTER TABLE ONLY personas.docentes
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-21 16:27:08
+-- Completed on 2026-11-21 18:22:29
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict QQag43LcYviHSvrYsiuZkkLKmpFjgdRecZPaq1TChzwdhI8ABJhIvxJFQDPOfcV
+\unrestrict ms50iVBmqcPdSU42eYh7bSeuysuMtAqOneIEdrxnehdpttNQ7q242PO9gV60ek4
 

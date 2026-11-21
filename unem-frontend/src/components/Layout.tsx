@@ -41,7 +41,7 @@ const NAV: NavGroup[] = [
   ]},
   { title: 'Sistema', items: [
     { to: '/municipios', label: 'Municipios', icon: MapPin, hint: 'Catálogo del estado Táchira' },
-    { to: '/roles', label: 'Roles', icon: ShieldCheck, hint: 'Perfiles y matriz de permisos' },
+    { to: '/roles', label: 'Usuarios y Permisos', icon: ShieldCheck, hint: 'Cuentas, roles y matriz de permisos' },
     { to: '/auditoria', label: 'Auditoría', icon: ShieldAlert, hint: 'Bitácora forense de cambios' },
   ]},
 ];
