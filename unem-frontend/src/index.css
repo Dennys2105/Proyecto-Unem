@@ -387,6 +387,25 @@ body.unem-locked { overflow: hidden; }
 }
 .unem-content > * { max-width: 1560px; margin-inline: auto; }
 
+/* ══════════════════════════════════════════════════════════════
+   MODALES · el overlay fixed debe cubrir TODO el viewport.
+   Ningún ancestro puede crear "bloque de contención"
+   (transform / filter / backdrop-filter / perspective /
+   will-change / contain), o position:fixed queda encerrado
+   en la región de contenido y el modal se descuadra.
+   ══════════════════════════════════════════════════════════════ */
+.unem-shell,
+.unem-main,
+.unem-content,
+.unem-page {
+  transform: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  perspective: none !important;
+  will-change: auto !important;
+  contain: none !important;
+}
+
 .unem-statusbar {
   flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
   height: 30px; padding: 0 20px;

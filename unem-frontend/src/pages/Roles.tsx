@@ -223,10 +223,11 @@ export const Roles = () => {
               Los cambios de rol/permisos aplican cuando el usuario vuelve a iniciar sesión.
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="unem-check">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: '0 0 auto' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, fontWeight: 600, color: 'var(--tx-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
               <input
                 type="checkbox"
+                className="unem-check"
                 checked={mostrarInactivos}
                 onChange={(e) => setMostrarInactivos(e.target.checked)}
               />
