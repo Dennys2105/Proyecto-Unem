@@ -5,6 +5,7 @@ import type { EspacioFisico } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
 import { MapPin, Search, Filter, Users, Clock, CheckCircle, XCircle, Info, Plus, X, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PageHero } from '../components/PageHero';
 
 type Municipio = { id_mun: number; nombre: string };
 
@@ -178,98 +179,71 @@ export const EspaciosFisicos = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-start gap-4">
-          <div className="bg-indigo-100 p-3 rounded-xl">
-            <MapPin className="text-indigo-600" size={32} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Espacios Físicos</h1>
-            <p className="text-gray-600 mt-1">
-              Gestión de aulas, laboratorios y espacios de la universidad
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={abrirCrear}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium shadow-sm"
-        >
-          <Plus size={16} /> Nuevo Espacio
-        </button>
-      </div>
+    <div className="unem-page">
+      <PageHero
+        icon={MapPin}
+        titulo="Espacios Físicos"
+        descripcion="Aulas rotativas, laboratorios, auditorios y canchas. El retiro es lógico y exclusivo de Administrador / Vicerrector; el historial se conserva."
+        acciones={
+          <button className="unem-btn unem-btn-primary" onClick={abrirCrear}>
+            <Plus size={15} /> Nuevo Espacio
+          </button>
+        }
+      />
 
-      {/* Barra de Filtros */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o ubicación..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+      <section className="unem-card unem-card-pad">
+        <div className="unem-toolbar">
+          <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+            <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-3)' }} />
+            <input type="text" className="unem-input" style={{ paddingLeft: 34 }} placeholder="Buscar por nombre o ubicación…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           </div>
-          <select
-            value={filtroTipo}
-            onChange={(e) => setFiltroTipo(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
+          <select className="unem-select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
             <option value="">Todos los tipos</option>
             <option value="Aula">Aula</option>
             <option value="Laboratorio">Laboratorio</option>
             <option value="Auditorio">Auditorio</option>
             <option value="Cancha">Cancha</option>
           </select>
-          <select
-            value={filtroEstado}
-            onChange={(e) => setFiltroEstado(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
+          <select className="unem-select" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
             <option value="">Disponibilidad</option>
             <option value="true">Disponibles</option>
             <option value="false">No disponibles</option>
           </select>
-          <select
-            value={filtroEstatus}
-            onChange={(e) => setFiltroEstatus(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
+          <select className="unem-select" value={filtroEstatus} onChange={(e) => setFiltroEstatus(e.target.value)}>
             <option value="A">Activos</option>
             <option value="I">Retirados</option>
           </select>
-          <div className="flex items-center text-sm text-gray-500 gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-            <Filter size={16} />
-            <span>{espaciosFiltrados.length} espacios</span>
-          </div>
+          <span className="unem-chip unem-chip-mut"><Filter size={13} /> {espaciosFiltrados.length} espacio(s)</span>
         </div>
-      </div>
+      </section>
 
-      {/* Contenido agrupado por centro */}
       {isLoading ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="text-gray-500 mt-4">Cargando espacios...</p>
-        </div>
+        <section className="unem-card unem-card-pad">
+          {[0, 1, 2].map((i: number) => <div key={i} className="unem-skel" style={{ height: 72, marginBottom: 12 }} />)}
+        </section>
       ) : Object.keys(espaciosAgrupados).length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <MapPin className="mx-auto text-gray-300 mb-3" size={48} />
-          <p className="text-gray-500">No se encontraron espacios con los filtros actuales</p>
+        <div className="unem-empty">
+          <span className="unem-empty-i"><MapPin size={34} /></span>
+          <p>No se encontraron espacios con los filtros actuales.</p>
         </div>
       ) : (
         Object.entries(espaciosAgrupados).map(([centro, espaciosCentro]) => (
           <div key={centro} className="space-y-4">
             {/* Título del centro */}
-            <div className="bg-indigo-600 text-white rounded-lg px-5 py-3 flex items-center justify-between">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <MapPin size={20} />
+            <div
+              className="unem-card"
+              style={{
+                padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'linear-gradient(90deg, var(--indigo), #1b1f5c 60%, rgba(0,184,212,.35))',
+                border: 0,
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MapPin size={18} />
                 {centro}
               </h2>
-              <span className="text-sm bg-indigo-500 px-3 py-1 rounded-full">
-                {espaciosCentro.length} espacios
+              <span className="unem-chip" style={{ background: 'rgba(255,255,255,.16)', color: '#fff', borderColor: 'rgba(255,255,255,.28)' }}>
+                {espaciosCentro.length} espacio(s)
               </span>
             </div>
 
