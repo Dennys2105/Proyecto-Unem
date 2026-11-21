@@ -33,7 +33,7 @@ export const EspaciosFisicos = () => {
   const [form, setForm] = useState(FORM_INICIAL);
   const [porRetirar, setPorRetirar] = useState<EspacioFisico | null>(null);
   const [retirando, setRetirando] = useState(false);
-  const { esAdmin, esVicerrector } = useAuth();
+  const { esAdmin, esVicerrector, puede } = useAuth();
   const puedeRetirar = esAdmin || esVicerrector;
 
   // Cargar espacios
@@ -185,9 +185,11 @@ export const EspaciosFisicos = () => {
         titulo="Espacios Físicos"
         descripcion="Aulas rotativas, laboratorios, auditorios y canchas. El retiro es lógico y exclusivo de Administrador / Vicerrector; el historial se conserva."
         acciones={
-          <button className="unem-btn unem-btn-primary" onClick={abrirCrear}>
-            <Plus size={15} /> Nuevo Espacio
-          </button>
+          puede('espacios', 'CRE', 'TODO') && (
+            <button className="unem-btn unem-btn-primary" onClick={abrirCrear}>
+              <Plus size={15} /> Nuevo Espacio
+            </button>
+          )
         }
       />
 
@@ -369,12 +371,14 @@ export const EspaciosFisicos = () => {
                             )
                           ) : (
                             <>
-                              <button
-                                onClick={() => abrirEditar(esp)}
-                                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                              >
-                                <Edit size={14} /> Editar
-                              </button>
+                              {puede('espacios', 'ACT', 'TODO') && (
+                                <button
+                                  onClick={() => abrirEditar(esp)}
+                                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                                >
+                                  <Edit size={14} /> Editar
+                                </button>
+                              )}
                               {puedeRetirar && (
                                 <button
                                   onClick={() => setPorRetirar(esp)}

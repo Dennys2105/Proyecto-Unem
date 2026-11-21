@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session
 from typing import List, Optional, Any
 from app.models.unem_db_models import Nota
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import (
+    verificar_permiso, docente_del_usuario, materias_del_docente, secciones_del_docente,
+)
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_notas import (
     NotasCreate, NotasResponcive, NotasUpdate,
@@ -13,16 +15,25 @@ import app.service.notas_service as service
 router = APIRouter(prefix="/notas", tags=["Notas"])
 
 
-# --- READ ALL (enriquecido, devuelve activos e inactivos) ---
+# --- READ ALL (filtrado por alcance SP) ---
 @router.get("/", response_model=List[NotasResponcive])
 def leer_notas(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('notas', 'LEC', 'SP')),
 ):
+    alcance = usuario_actual.get("alcance", "TODO")
+    if alcance == "SP":
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            return []
+        mallas = materias_del_docente(session, id_doc)
+        if not mallas:
+            return []
+        return service.leer_todos_filtrado_por_mallas(session, mallas)
     return service.leer_todos(session)
 
 
-# --- ✅ ACTA: estudiantes de una sección con su nota ---
+# --- ACTA: estudiantes de una sección con su nota (filtrado SP) ---
 @router.get("/acta")
 def obtener_acta(
     id_sec: int = Query(..., description="Sección"),
@@ -32,6 +43,18 @@ def obtener_acta(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('notas', 'LEC', 'SP')),
 ):
+    alcance = usuario_actual.get("alcance", "TODO")
+    if alcance == "SP":
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            raise HTTPException(status_code=403, detail="Docente sin vínculo en el sistema.")
+        mallas_docente = materias_del_docente(session, id_doc)
+        if id_malla not in mallas_docente:
+            raise HTTPException(status_code=403, detail="Esta materia no está asignada a tu carga horaria.")
+        secciones_docente = secciones_del_docente(session, id_doc)
+        if id_sec not in secciones_docente:
+            raise HTTPException(status_code=403, detail="Esta sección no está en tus asignaciones.")
+
     filas = service.obtener_acta(session, id_sec, id_malla, id_per, tipo_evaluacion.value)
     if not filas:
         raise HTTPException(
@@ -41,7 +64,7 @@ def obtener_acta(
     return filas
 
 
-# --- ✅ ANÁLISIS ESTADÍSTICO ---
+# --- ANÁLISIS ESTADÍSTICO (filtrado SP) ---
 @router.get("/analisis")
 def analisis(
     cod_programa: Optional[str] = Query(None),
@@ -49,10 +72,19 @@ def analisis(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('notas', 'LEC', 'SP')),
 ):
+    alcance = usuario_actual.get("alcance", "TODO")
+    if alcance == "SP":
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            return []
+        mallas = materias_del_docente(session, id_doc)
+        if not mallas:
+            return []
+        return service.analisis_notas_filtrado(session, mallas, cod_programa, id_per)
     return service.analisis_notas(session, cod_programa, id_per)
 
 
-# --- READ ONE ---
+# --- READ ONE (verificación de propiedad SP) ---
 @router.get("/{nota_id}", response_model=NotasResponcive)
 def leer_nota_id(
     nota_id: int,
@@ -62,6 +94,16 @@ def leer_nota_id(
     dato = service.obtener_enriquecida(session, nota_id)
     if not dato:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
+
+    alcance = usuario_actual.get("alcance", "TODO")
+    if alcance == "SP":
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            raise HTTPException(status_code=403, detail="Acceso denegado.")
+        mallas = materias_del_docente(session, id_doc)
+        if dato.get("id_malla") not in mallas:
+            raise HTTPException(status_code=403, detail="Esta nota no pertenece a tus materias asignadas.")
+
     return dato
 
 

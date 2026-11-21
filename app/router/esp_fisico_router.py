@@ -27,7 +27,7 @@ def listar_espacios(
     busqueda: Optional[str] = Query(None, description="Buscar por nombre o ubicación"),
     estatus: Optional[str] = Query('A', description="A=activos, I=retirados, vacío=todos"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("espacios", "LEC", "TODO"))
+    usuario_actual: dict = Depends(verificar_permiso("espacios", "LEC", "SP"))
 ):
     query = """
         SELECT 

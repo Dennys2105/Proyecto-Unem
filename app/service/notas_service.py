@@ -45,6 +45,101 @@ def leer_todos(session: Session) -> List[Dict[str, Any]]:
     return [_fila_a_dict(r) for r in rows]
 
 
+def leer_todos_filtrado_por_mallas(
+    session: Session, mallas: list[int]
+) -> list[dict]:
+    if not mallas:
+        return []
+    placeholders = ", ".join(f":m{i}" for i in range(len(mallas)))
+    params = {f"m{i}": m for i, m in enumerate(mallas)}
+    statement = text(
+        _SELECT_ENRIQUECIDO
+        + f" WHERE n.id_malla IN ({placeholders}) ORDER BY n.id_nota DESC"
+    ).params(**params)
+    rows = session.exec(statement).mappings().all()
+    return [_fila_a_dict(r) for r in rows]
+
+
+def analisis_notas_filtrado(
+    session: Session, mallas: list[int],
+    cod_programa: Optional[str] = None, id_per: Optional[int] = None,
+) -> list[dict]:
+    if not mallas:
+        return []
+    placeholders = ", ".join(f":m{i}" for i in range(len(mallas)))
+    params = {f"m{i}": m for i, m in enumerate(mallas)}
+
+    query = f"""
+        WITH definitivas AS (
+            SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
+                n.id_est, n.id_malla, n.id_per, n.nota, n.tipo_evaluacion
+            FROM academico.notas n
+            WHERE n.estatus = 'A'
+              AND n.tipo_evaluacion IN ('Final', 'Recuperación')
+            ORDER BY n.id_est, n.id_malla, n.id_per,
+                CASE n.tipo_evaluacion
+                    WHEN 'Recuperación' THEN 1
+                    ELSE 2
+                END
+        )
+        SELECT
+            p.codigo AS cod_programa,
+            p.nombre AS programa,
+            mc.trayecto,
+            mc.periodo,
+            pa.nombre AS periodo_academico,
+            m.codigo AS cod_materia,
+            m.nombre AS materia,
+            eje.codigo AS cod_eje,
+            eje.nombre AS eje_formativo,
+            count(*) AS total_estudiantes_evaluados,
+            round(avg(d.nota), 2) AS promedio,
+            min(d.nota) AS nota_minima,
+            max(d.nota) AS nota_maxima,
+            round(stddev(d.nota), 2) AS desviacion_estandar,
+            count(CASE WHEN d.nota >= 10 THEN 1 ELSE NULL END) AS aprobados,
+            count(CASE WHEN d.nota < 10 THEN 1 ELSE NULL END) AS reprobados,
+            round(
+                count(CASE WHEN d.nota >= 10 THEN 1 ELSE NULL END)::numeric
+                / count(*)::numeric * 100,
+                2
+            ) AS porcentaje_aprobacion
+        FROM definitivas d
+        JOIN personas.estudiantes e ON e.id_est = d.id_est
+        JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
+        JOIN academico.materias m ON m.id_mat = mc.id_mat
+        JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
+        JOIN academico.programas p ON p.id_pro = mc.id_pro
+        JOIN academico.periodos_academicos pa ON pa.id_per = d.id_per
+        WHERE e.estatus = 'A'
+          AND mc.estatus = 'A'
+          AND d.id_malla IN ({placeholders})
+    """
+    if cod_programa:
+        query += " AND p.codigo = :cod_programa"
+        params["cod_programa"] = cod_programa
+    if id_per:
+        query += " AND d.id_per = :id_per"
+        params["id_per"] = id_per
+    query += """
+        GROUP BY p.codigo, p.nombre, mc.trayecto, mc.periodo, pa.nombre,
+            m.codigo, m.nombre, eje.codigo, eje.nombre
+        ORDER BY programa, trayecto, periodo, materia
+    """
+
+    rows = session.exec(text(query).params(**params)).mappings().all()
+    resultado = []
+    for r in rows:
+        d = dict(r)
+        for campo in (
+            "promedio", "nota_minima", "nota_maxima",
+            "desviacion_estandar", "porcentaje_aprobacion",
+        ):
+            d[campo] = float(d[campo]) if d.get(campo) is not None else None
+        resultado.append(d)
+    return resultado
+
+
 def obtener_enriquecida(session: Session, nota_id: int) -> Optional[Dict[str, Any]]:
     statement = text(_SELECT_ENRIQUECIDO + " WHERE n.id_nota = :id").params(id=nota_id)
     row = session.exec(statement).mappings().first()

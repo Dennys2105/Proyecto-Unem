@@ -48,23 +48,34 @@ const NAV: NavGroup[] = [
 
 const FLAT: NavItem[] = NAV.flatMap((g: NavGroup): NavItem[] => g.items);
 
-// Módulo y alcance mínimo que exige el backend para poder LEER cada página.
-// Si una ruta no aparece aquí, es visible para cualquier usuario autenticado.
-const REQ_MODULO: Record<string, [string, string]> = {
-  '/programas':    ['malla', 'SP'],
-  '/ejes':         ['malla', 'SP'],
-  '/materias':     ['materias', 'SP'],
-  '/malla':        ['malla', 'SP'],
-  '/periodos':     ['periodos', 'SP'],
-  '/secciones':    ['estudiantes', 'SP'],
-  '/docentes':     ['docentes', 'SP'],
-  '/estudiantes':  ['estudiantes', 'SP'],
-  '/asignaciones': ['asig_carga', 'SP'],
-  '/espacios':     ['espacios', 'TODO'],
-  '/notas':        ['notas', 'SP'],
-  '/municipios':   ['municipios', 'LIM'],
-  '/roles':        ['usuarios', 'LIM'],
-  '/auditoria':    ['aud_mov', 'LIM'],
+// Mapa de páginas visibles por rol (id_rol del JWT).
+// ADMIN (1) ve todo; el resto tiene su lista explícita.
+const PAGINAS_POR_ROL: Record<number, Set<string>> = {
+  1: new Set([
+    '/dashboard', '/analitica',
+    '/programas', '/ejes', '/materias', '/malla', '/periodos', '/secciones',
+    '/docentes', '/estudiantes',
+    '/asignaciones', '/espacios', '/dias', '/notas',
+    '/municipios', '/roles', '/auditoria',
+  ]),
+  2: new Set([ // VICERRECTOR: todo menos gestión de cuentas
+    '/dashboard', '/analitica',
+    '/programas', '/ejes', '/materias', '/malla', '/periodos', '/secciones',
+    '/docentes', '/estudiantes',
+    '/asignaciones', '/espacios', '/dias', '/notas',
+    '/municipios',
+  ]),
+  3: new Set([ // COORDINADOR: operación académica completa
+    '/dashboard', '/analitica',
+    '/programas', '/ejes', '/materias', '/malla', '/periodos', '/secciones',
+    '/docentes', '/estudiantes',
+    '/asignaciones', '/espacios', '/dias', '/notas',
+    '/municipios',
+  ]),
+  4: new Set([ // DOCENTE: solo lo suyo
+    '/dashboard',
+    '/asignaciones', '/espacios', '/notas', '/estudiantes',
+  ]),
 };
 
 const ROL_NOMBRE: Record<number, string> = {
@@ -162,15 +173,16 @@ const Palette = ({ items, onClose }: { items: NavItem[]; onClose: () => void }):
 export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
   const loc = useLocation();
   const nav = useNavigate();
-  const { puede, username, idRol } = useAuth();
+  const { username, idRol } = useAuth();
 
-  // Solo mostramos los módulos que el usuario puede leer (y ocultamos grupos vacíos)
   const navVisible: NavGroup[] = NAV
     .map((g: NavGroup): NavGroup => ({
       ...g,
       items: g.items.filter((i: NavItem): boolean => {
-        const req = REQ_MODULO[i.to];
-        return !req || puede(req[0], 'LEC', req[1]);
+        const paginasDelRol = PAGINAS_POR_ROL[idRol ?? 0];
+        // ADMIN ve todo; los demás roles solo ven sus páginas explícitas
+        if (idRol === 1) return true;
+        return paginasDelRol ? paginasDelRol.has(i.to) : false;
       }),
     }))
     .filter((g: NavGroup): boolean => g.items.length > 0);

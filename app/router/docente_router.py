@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session
 from app.config.db_conection import get_session
-from app.dependencies.auth_deps import requerir_rol, recurso_propietario, obtener_usuario_actual,verificar_permiso
+from app.dependencies.auth_deps import requerir_rol, recurso_propietario, obtener_usuario_actual,verificar_permiso, docente_del_usuario, es_docente_sp
 from app.models.unem_db_models import Docente
 from app.schemas.esq_docente import DocenteCreate,DocenteReplace,DocenteResponse,DocenteUpdate
 import app.service.docentes_service as service
@@ -28,7 +28,14 @@ def crear_docente(docente_in: DocenteCreate, session: Session = Depends(get_sess
 
 # --- READ ALL ---
 @router.get("/", response_model=List[DocenteResponse])
-def leer_docentes(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('docentes','LEC','TODO'))):
+def leer_docentes(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('docentes','LEC','SP'))):
+    # DOCENTE con SP: solo su propia ficha (no ve a otros docentes)
+    if es_docente_sp(usuario_actual):
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            return []
+        dato = service.obtener_dato_por_id(id_doc, session)
+        return [dato] if dato else []
     return service.leer_todos(session)
 
 # --- READ ONE ---

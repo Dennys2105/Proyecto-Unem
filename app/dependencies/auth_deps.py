@@ -40,7 +40,7 @@ def verificar_permiso(modulo: str, accion: str, alcance_requerido: str = "SP"):
     
     def dependencia_verificadora(usuario = Depends(obtener_usuario_actual)):
         if usuario.get("rol") == 1:  # Si es administrador, se le permite todo
-            return {"id_usu": usuario.get("id"), "alcance": "TODO"}
+            return {"id_usu": usuario.get("id"), "alcance": "TODO", "rol": usuario.get("rol")}
         
         llave_permiso = f"{modulo}:{accion}"
         permisos_usuario = usuario.get("scopes", {}) 
@@ -52,6 +52,60 @@ def verificar_permiso(modulo: str, accion: str, alcance_requerido: str = "SP"):
                 detail=f"Acceso denegado. No cuentas con el alcance necesario ({accion}) en el módulo '{modulo}'."
             )
             
-        return {"id_usu": usuario.get("id"), "alcance": alcance_usuario}
+        return {"id_usu": usuario.get("id"), "alcance": alcance_usuario, "rol": usuario.get("rol")}
         
     return dependencia_verificadora
+
+# ============================================================
+# HELPER: Filtrado por propiedad del recurso (Fase 3)
+# ============================================================
+def docente_del_usuario(usuario: dict, session) -> int | None:
+    """
+    Retorna el id_doc del docente vinculado al usuario actual,
+    o None si el usuario no es docente (rol != 4) o no tiene vínculo.
+    Se usa para filtrar queries cuando el alcance es SP (Solo Propio).
+    """
+    if usuario.get("rol") != 4:
+        return None
+    id_usu = usuario.get("id") or usuario.get("id_usu")
+    if not id_usu:
+        return None
+    from sqlmodel import text
+    row = session.exec(
+        text("SELECT id_doc FROM personas.docentes WHERE id_usu = :u AND estatus = 'A'")
+        .params(u=id_usu)
+    ).first()
+    return row[0] if row else None
+
+
+def materias_del_docente(session, id_doc: int) -> list[int]:
+    """Retorna los id_malla de las materias asignadas al docente."""
+    from sqlmodel import text
+    rows = session.exec(
+        text("""
+            SELECT DISTINCT id_malla
+            FROM horarios.asig_carga_horarias
+            WHERE id_doc = :d AND estatus = 'A' AND id_malla IS NOT NULL
+        """).params(d=id_doc)
+    ).all()
+    return [r[0] for r in rows]
+
+
+def secciones_del_docente(session, id_doc: int) -> list[int]:
+    """Retorna los id_sec de las secciones donde el docente tiene asignaciones."""
+    from sqlmodel import text
+    rows = session.exec(
+        text("""
+            SELECT DISTINCT id_sec
+            FROM horarios.asig_carga_horarias
+            WHERE id_doc = :d AND estatus = 'A' AND id_sec IS NOT NULL
+        """).params(d=id_doc)
+    ).all()
+    return [r[0] for r in rows]
+
+
+def es_docente_sp(usuario: dict) -> bool:
+    """True solo si el usuario es DOCENTE (rol 4) con alcance SP.
+    El filtrado por propiedad aplica únicamente a ese caso; un coordinador
+    con alcance SP sigue viendo listados completos (gestiona toda la sede)."""
+    return usuario.get("rol") == 4 and usuario.get("alcance") == "SP"

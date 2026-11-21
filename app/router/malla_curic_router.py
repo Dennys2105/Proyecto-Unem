@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, text
 from typing import Optional, List
 from pydantic import BaseModel
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import (
+    verificar_permiso, docente_del_usuario, materias_del_docente, es_docente_sp,
+)
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
 router = APIRouter(prefix="/mallas", tags=["Malla Curricular"])
@@ -61,6 +63,16 @@ def listar_mallas(
     if id_pro:
         query += " AND mc.id_pro = :id_pro"
         params["id_pro"] = id_pro
+    if es_docente_sp(usuario_actual):
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            return []
+        ids = set(materias_del_docente(session, id_doc))
+        if not ids:
+            return []
+        placeholders = ", ".join(f":malla{i}" for i in range(len(ids)))
+        query += f" AND mc.id_malla IN ({placeholders})"
+        params.update({f"malla{i}": id_malla for i, id_malla in enumerate(ids)})
 
     query += " ORDER BY mc.id_pro, mc.trayecto, mc.periodo, mc.orden"
     

@@ -6,7 +6,7 @@ from app.dependencies.session_auditable import get_session_auditable as get_sess
 from app.schemas.esq_seccion import SeccionCreate,SeccionReplace,SeccionResponse,SeccionUpdate
 import app.service.seccion_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual,recurso_propietario, verificar_permiso
+from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual,recurso_propietario, verificar_permiso, docente_del_usuario, secciones_del_docente, es_docente_sp
 
 router= APIRouter(
     prefix="/seccion",
@@ -26,6 +26,16 @@ def crear_seccion(seccion_in: SeccionCreate, session: Session = Depends(get_sess
 # --- READ ALL ---
 @router.get("/", response_model=List[SeccionResponse])
 def leer_seccion(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','LEC','SP'))):
+    # DOCENTE con SP: solo sus secciones
+    if es_docente_sp(usuario_actual):
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            return []
+        secs = secciones_del_docente(session, id_doc)
+        if not secs:
+            return []
+        statement = select(Seccion).where(Seccion.id_sec.in_(secs)).order_by(Seccion.codigo)
+        return session.exec(statement).all()
     statement = select(Seccion).order_by(Seccion.codigo)
     return session.exec(statement).all()
 

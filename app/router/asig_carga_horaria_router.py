@@ -4,7 +4,7 @@ from sqlmodel import Session, text
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaReplace,AsigCargaHorariaResponse,AsigCargaHorariaUpdate
 import app.service.asig_carga_hor_service as service
-from app.dependencies.auth_deps import recurso_propietario, verificar_permiso
+from app.dependencies.auth_deps import recurso_propietario, verificar_permiso, docente_del_usuario, es_docente_sp
 from app.dependencies.asig_hor_deps import validar_conflictos_horarios, validar_disponibilidad_docente
 
 router= APIRouter(
@@ -58,6 +58,12 @@ def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Dep
 # --- READ ALL ---
 @router.get("/", response_model=List[AsigCargaHorariaResponse])
 def leer_carga_horaria(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','LEC','SP'))):
+    # DOCENTE con SP: solo su propio horario
+    if es_docente_sp(usuario_actual):
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            return []
+        return [a for a in service.leer_todos(session) if a.id_doc == id_doc]
     return service.leer_todos(session)
 
 # --- READ ONE ---

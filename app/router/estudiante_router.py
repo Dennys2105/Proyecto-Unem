@@ -7,7 +7,7 @@ from app.dependencies.session_auditable import get_session_auditable as get_sess
 from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,EstudianteResponse,EstudianteUpdate
 import app.service.estudiante_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
-from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual,verificar_permiso
+from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual,verificar_permiso, docente_del_usuario, secciones_del_docente, es_docente_sp
 from sqlmodel import select
 
 router= APIRouter(
@@ -38,9 +38,19 @@ def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends
 # --- READ ALL ---
 @router.get("/", response_model=List[EstudianteResponse])
 def leer_estudiantes(
-    session: Session = Depends(get_session), 
-    usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'LEC', 'TODO'))
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'LEC', 'SP'))
 ):
+    # DOCENTE con SP: solo estudiantes de SUS secciones
+    if es_docente_sp(usuario_actual):
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if id_doc is None:
+            return []
+        secs = secciones_del_docente(session, id_doc)
+        if not secs:
+            return []
+        statement = select(Estudiante).where(Estudiante.id_sec.in_(secs)).order_by(Estudiante.id_est)
+        return session.exec(statement).all()
     statement = select(Estudiante).order_by(Estudiante.id_est)
     return session.exec(statement).all()
 
