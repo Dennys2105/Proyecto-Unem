@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Shield, User, Save, X, Plus, KeyRound, UserX, UserCheck, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHero } from '../components/PageHero';
+import { createPortal } from 'react-dom';
 
 const ALCANCE_CONFIG = {
   TODO: { color: 'bg-green-100 text-green-700 border-green-300', label: 'Total' },
@@ -358,7 +359,7 @@ export const Roles = () => {
       </div>
 
       {/* Modal Nuevo Usuario */}
-      {modalCrear && (
+      {modalCrear && createPortal(
         <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
@@ -434,11 +435,12 @@ export const Roles = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal Reset de Contraseña */}
-      {usuarioReset && (
+      {usuarioReset && createPortal(
         <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
@@ -470,11 +472,12 @@ export const Roles = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal de Gestión de Permisos (lógica original intacta) */}
-      {isModalOpen && usuarioSeleccionado && (
+      {isModalOpen && usuarioSeleccionado && createPortal(
         <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
@@ -588,7 +591,8 @@ export const Roles = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

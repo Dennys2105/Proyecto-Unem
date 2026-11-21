@@ -1,5 +1,6 @@
-from sqlmodel import Session
-from typing import Optional
+from sqlmodel import Session, select
+from sqlalchemy import or_
+from typing import List, Optional
 from app.models.unem_db_models import Estudiante,Usuario,Municipio,Programa, Seccion
 from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,EstudianteResponse,EstudianteUpdate
 from app.service.base_services import (
@@ -36,3 +37,55 @@ def existe_llave_foranea_pro(session: Session, id: int) -> Programa:
 
 def existe_llave_foranea_sec(session: Session, id: int) -> Seccion:
     return obtener_por_id(session,Seccion,id)
+
+
+def leer_por_secciones(
+    session: Session,
+    secciones: list[int],
+    id_sec: Optional[int] = None,
+    busqueda: Optional[str] = None
+) -> List[Estudiante]:
+    """Lee estudiantes de las secciones especificadas, con filtros opcionales."""
+    query = select(Estudiante).where(
+        Estudiante.id_sec.in_(secciones),
+        Estudiante.estatus == 'A'
+    )
+
+    if id_sec:
+        query = query.where(Estudiante.id_sec == id_sec)
+
+    if busqueda:
+        busqueda_lower = f"%{busqueda.lower()}%"
+        query = query.where(
+            or_(
+                Estudiante.cedula.ilike(busqueda_lower),
+                Estudiante.nombre.ilike(busqueda_lower),
+                Estudiante.apellido.ilike(busqueda_lower)
+            )
+        )
+
+    return session.exec(query.order_by(Estudiante.apellido, Estudiante.nombre)).all()
+
+
+def leer_todos_con_filtros(
+    session: Session,
+    id_sec: Optional[int] = None,
+    busqueda: Optional[str] = None
+) -> List[Estudiante]:
+    """Lee todos los estudiantes con filtros opcionales."""
+    query = select(Estudiante).where(Estudiante.estatus == 'A')
+
+    if id_sec:
+        query = query.where(Estudiante.id_sec == id_sec)
+
+    if busqueda:
+        busqueda_lower = f"%{busqueda.lower()}%"
+        query = query.where(
+            or_(
+                Estudiante.cedula.ilike(busqueda_lower),
+                Estudiante.nombre.ilike(busqueda_lower),
+                Estudiante.apellido.ilike(busqueda_lower)
+            )
+        )
+
+    return session.exec(query.order_by(Estudiante.apellido, Estudiante.nombre)).all()

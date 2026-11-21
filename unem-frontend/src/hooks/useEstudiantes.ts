@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { estudianteService } from '../services/estudianteService';
 import type { EstudianteCreate, EstudianteUpdate } from '../types/models';
 
 export const useEstudiantes = () => {
+  const [filtroSeccion, setFiltroSeccion] = useState<number | undefined>(undefined);
+  const [busqueda, setBusqueda] = useState<string>('');
   const queryClient = useQueryClient();
 
-  const { data: estudiantes, isLoading } = useQuery({
-    queryKey: ['estudiantes'],
-    queryFn: estudianteService.getAll,
+  const { data: estudiantes, isLoading, refetch } = useQuery({
+    queryKey: ['estudiantes', filtroSeccion, busqueda],
+    queryFn: () => estudianteService.getEstudiantesFiltrados(filtroSeccion, busqueda),
   });
 
   const createMutation = useMutation({
@@ -35,6 +38,11 @@ export const useEstudiantes = () => {
   return {
     estudiantes,
     isLoading,
+    refetch,
+    filtroSeccion,
+    setFiltroSeccion,
+    busqueda,
+    setBusqueda,
     createEstudiante: createMutation.mutate,
     updateEstudiante: updateMutation.mutate,
     deleteEstudiante: deleteMutation.mutate,

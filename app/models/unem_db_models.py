@@ -414,6 +414,7 @@ class AsigCargaHoraria(SQLModel, table=True):
     id_dia: int = Field(foreign_key="general.dias_laborales.id_dia")
     id_per: int = Field(foreign_key="academico.periodos_academicos.id_per")
     id_malla: int = Field(foreign_key="academico.malla_curricular.id_malla")
+    id_sec: Optional[int] = Field(default=None, foreign_key="academico.secciones.id_sec")
     hora_inicio : time
     hora_fin : time
     tipo_actividad: str = Field(max_length=20)

@@ -1,6 +1,8 @@
 from fastapi import Depends, HTTPException, status
 from app.service.auth_service import verificar_token
 from fastapi.security import OAuth2PasswordBearer
+from sqlmodel import Session, select
+from typing import Optional
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/usuario/login")
 
@@ -59,25 +61,6 @@ def verificar_permiso(modulo: str, accion: str, alcance_requerido: str = "SP"):
 # ============================================================
 # HELPER: Filtrado por propiedad del recurso (Fase 3)
 # ============================================================
-def docente_del_usuario(usuario: dict, session) -> int | None:
-    """
-    Retorna el id_doc del docente vinculado al usuario actual,
-    o None si el usuario no es docente (rol != 4) o no tiene vínculo.
-    Se usa para filtrar queries cuando el alcance es SP (Solo Propio).
-    """
-    if usuario.get("rol") != 4:
-        return None
-    id_usu = usuario.get("id") or usuario.get("id_usu")
-    if not id_usu:
-        return None
-    from sqlmodel import text
-    row = session.exec(
-        text("SELECT id_doc FROM personas.docentes WHERE id_usu = :u AND estatus = 'A'")
-        .params(u=id_usu)
-    ).first()
-    return row[0] if row else None
-
-
 def materias_del_docente(session, id_doc: int) -> list[int]:
     """Retorna los id_malla de las materias asignadas al docente."""
     from sqlmodel import text
@@ -109,3 +92,21 @@ def es_docente_sp(usuario: dict) -> bool:
     El filtrado por propiedad aplica únicamente a ese caso; un coordinador
     con alcance SP sigue viendo listados completos (gestiona toda la sede)."""
     return usuario.get("rol") == 4 and usuario.get("alcance") == "SP"
+
+
+def docente_del_usuario(usuario: dict, session: Session) -> Optional[int]:
+    """
+    Obtiene el id_doc del docente vinculado al usuario autenticado.
+    Retorna None si el usuario no es docente o no tiene vínculo.
+    """
+    from app.models.unem_db_models import Docente
+
+    id_usu = usuario.get("id") or usuario.get("id_usu")
+    if not id_usu:
+        return None
+
+    docente = session.exec(
+        select(Docente).where(Docente.id_usu == id_usu, Docente.estatus == 'A')
+    ).first()
+
+    return docente.id_doc if docente else None

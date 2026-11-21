@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
 from sqlmodel import Session
-from app.models.unem_db_models import Estudiante
+from app.models.unem_db_models import Estudiante, AsigCargaHoraria
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
 from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,EstudianteResponse,EstudianteUpdate
@@ -38,21 +38,31 @@ def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends
 # --- READ ALL ---
 @router.get("/", response_model=List[EstudianteResponse])
 def leer_estudiantes(
+    id_sec: Optional[int] = Query(None, description="Filtrar por sección"),
+    busqueda: Optional[str] = Query(None, description="Buscar por cédula o nombre"),
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'LEC', 'SP'))
 ):
-    # DOCENTE con SP: solo estudiantes de SUS secciones
-    if es_docente_sp(usuario_actual):
+    alcance = usuario_actual.get("alcance", "TODO")
+
+    if alcance == "SP":
         id_doc = docente_del_usuario(usuario_actual, session)
         if id_doc is None:
             return []
-        secs = secciones_del_docente(session, id_doc)
-        if not secs:
+
+        secciones_docente = session.exec(
+            select(AsigCargaHoraria.id_sec)
+            .where(AsigCargaHoraria.id_doc == id_doc, AsigCargaHoraria.estatus == 'A')
+            .distinct()
+        ).all()
+
+        secciones_docente = [seccion for seccion in secciones_docente if seccion is not None]
+        if not secciones_docente:
             return []
-        statement = select(Estudiante).where(Estudiante.id_sec.in_(secs)).order_by(Estudiante.id_est)
-        return session.exec(statement).all()
-    statement = select(Estudiante).order_by(Estudiante.id_est)
-    return session.exec(statement).all()
+
+        return service.leer_por_secciones(session, list(secciones_docente), id_sec, busqueda)
+
+    return service.leer_todos_con_filtros(session, id_sec, busqueda)
 
 # --- READ ONE ---
 @router.get("/{estudiante_id}", response_model=EstudianteResponse)

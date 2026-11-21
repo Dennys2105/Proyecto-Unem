@@ -5,7 +5,7 @@ import pandas as pd
 from html import escape
 from fastapi import APIRouter, Depends, HTTPException, status,Query
 from fastapi.responses import StreamingResponse
-from sqlmodel import Session,text
+from sqlmodel import Session, text, select
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment,Border,Side
 from openpyxl.utils import get_column_letter
@@ -37,7 +37,93 @@ def _membrete_img(ancho_mm: float = 190.0) -> str:
     except Exception:
         return ''
     
-###Exels
+# ============================================================
+# HELPER: Excel institucional (membrete real + título + autofiltro)
+# Replica en el servidor el mismo acabado del Excel de horario (ExcelJS)
+# ============================================================
+def _hoja_institucional(
+    headers: list,
+    rows: list,
+    titulo: str,
+    subtitulos: list,
+    nombre_hoja: str = "Reporte",
+    anchos: list = None,
+) -> io.BytesIO:
+    from openpyxl import Workbook
+    from openpyxl.drawing.image import Image as XlImage
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.properties import PageSetupProperties
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = nombre_hoja[:31]
+    ncols = max(len(headers), 1)
+
+    try:
+        with open(_MEMBRETE_PATH, "rb") as f:
+            data = f.read()
+        w, h = PILImage.open(io.BytesIO(data)).size
+        alto_px = 88
+        img = XlImage(io.BytesIO(data))
+        img.width = int(alto_px * w / h)
+        img.height = alto_px
+        ws.add_image(img, "A1")
+    except Exception:
+        pass
+    for r in range(1, 5):
+        ws.row_dimensions[r].height = 22
+
+    ws.merge_cells(start_row=5, start_column=1, end_row=5, end_column=ncols)
+    ct = ws.cell(row=5, column=1, value=titulo)
+    ct.font = Font(bold=True, size=14, color="FF1F4E78")
+    ct.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[5].height = 24
+    ws.merge_cells(start_row=6, start_column=1, end_row=6, end_column=ncols)
+    cs = ws.cell(row=6, column=1, value="   ·   ".join([str(s) for s in subtitulos]))
+    cs.font = Font(size=10, color="FF555555")
+    cs.alignment = Alignment(horizontal="center", vertical="center")
+
+    thin = Side(style="thin")
+    hair = Side(style="hair")
+    borde = Border(top=thin, bottom=thin, left=thin, right=thin)
+    borde_h = Border(top=hair, bottom=hair, left=hair, right=hair)
+    for i, nom in enumerate(headers, start=1):
+        c = ws.cell(row=8, column=i, value=nom)
+        c.fill = PatternFill(start_color="FF1F4E78", end_color="FF1F4E78", fill_type="solid")
+        c.font = Font(bold=True, size=11, color="FFFFFFFF")
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = borde
+    ws.row_dimensions[8].height = 20
+
+    for ri, fila in enumerate(rows):
+        for ci, val in enumerate(fila, start=1):
+            c = ws.cell(row=9 + ri, column=ci, value=val)
+            c.alignment = Alignment(vertical="center", wrap_text=True)
+            c.border = borde_h
+            if ri % 2 == 1:
+                c.fill = PatternFill(start_color="FFDCE6F1", end_color="FFDCE6F1", fill_type="solid")
+
+    if anchos:
+        for i, wd in enumerate(anchos, start=1):
+            ws.column_dimensions[get_column_letter(i)].width = wd
+    else:
+        for i in range(1, ncols + 1):
+            ws.column_dimensions[get_column_letter(i)].width = 18
+
+    ws.auto_filter.ref = f"A8:{get_column_letter(ncols)}{8 + len(rows)}"
+    ws.freeze_panes = "A9"
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
 @router.get("/exportar-notas", summary="Generar Notas")
 def exportar_inventario(
     id_malla: int,
@@ -46,8 +132,6 @@ def exportar_inventario(
     id_sec: Optional[int] = Query(None, description="Sección del estudiante (id_sec)"),
     session: Session = Depends(get_session)
 ):
-    # 1. Preparar datos con Pandas
-    #    El acta se identifica por MALLA + PERÍODO (no por estudiante).
     sql = """
         SELECT
             e.cedula,
@@ -68,63 +152,52 @@ def exportar_inventario(
         sql += " AND e.id_sec = :id_sec"
         params["id_sec"] = id_sec
     sql += " ORDER BY e.apellido ASC, e.nombre ASC, n.fecha_registro DESC"
-
     result = session.execute(text(sql), params)
-    df = pd.DataFrame(result.fetchall(), columns=result.keys())
+    filas = result.fetchall()
 
-    for col in df.columns:
-        if pd.api.types.is_datetime64tz_dtype(df[col]):
-            df[col] = df[col].dt.tz_convert(None)
+    meta = session.execute(text("""
+        SELECT m.nombre AS materia, p.codigo AS programa
+        FROM academico.malla_curricular mc
+        JOIN academico.materias m ON m.id_mat = mc.id_mat
+        JOIN academico.programas p ON p.id_pro = mc.id_pro
+        WHERE mc.id_malla = :m
+    """), {"m": id_malla}).first()
+    per = session.execute(
+        text("SELECT nombre FROM academico.periodos_academicos WHERE id_per = :p"),
+        {"p": id_per},
+    ).first()
 
-    # Manejar DataFrame vacío por si no hay registros
-    if df.empty:
-        df = pd.DataFrame(columns=["cedula", "estudiante", "nota", "tipo_evaluacion", "observaciones", "fecha_registro"])
-
-    # 2. Crear un buffer de memoria y usar pd.ExcelWriter con openpyxl
-    excel_buffer = io.BytesIO()
-
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Notas')
-
-        # 3. Acceder al libro y a la hoja activa para aplicar estilos con openpyxl
-        workbook = writer.book
-        worksheet = writer.sheets['Notas']
-
-        # Estilos para los encabezados (Fila 1)
-        header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-        header_font = Font(color="FFFFFF", bold=True, name="Calibri", size=11)
-        header_alignment = Alignment(horizontal="center", vertical="center")
-
-        for col in range(1, len(df.columns) + 1):
-            cell = worksheet.cell(row=1, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
-
-        # 4. Auto-ajustar el ancho de las columnas dinámicamente
-        for col in worksheet.columns:
-            max_length = 0
-            col_letter = get_column_letter(col[0].column)
-
-            for cell in col:
-                try:
-                    if cell.value:
-                        max_length = max(max_length, len(str(cell.value)))
-                except:
-                    pass
-
-            worksheet.column_dimensions[col_letter].width = max(max_length + 4, 12)
-
-    # 5. ¡Importante! Rebobinar el buffer al inicio antes de retornarlo
-    excel_buffer.seek(0)
-    nombre_archivo = f"reporte_notas_{id_malla}_periodo_{id_per}.xlsx"
-
-    # 6. Retornar como StreamingResponse para la descarga en FastAPI
+    headers = ["Cédula", "Estudiante", "Nota", "Evaluación", "Observaciones", "Fecha registro"]
+    rows = [
+        [
+            f[0],
+            f[1],
+            float(f[2]) if f[2] is not None else None,
+            f[3],
+            f[4] or "",
+            str(f[5]) if f[5] else "",
+        ]
+        for f in filas
+    ]
+    subtitulos = [
+        f"Materia: {meta[0] if meta else id_malla}",
+        f"Programa: {meta[1] if meta else '—'}",
+        f"Período: {per[0] if per else id_per}",
+        f"Generado: {datetime.now().strftime('%d/%m/%Y')}",
+    ]
+    excel_buffer = _hoja_institucional(
+        headers, rows,
+        "ACTA DE CALIFICACIONES",
+        subtitulos,
+        "Notas",
+        [14, 42, 10, 14, 46, 22],
+    )
+    nombre_archivo = f"acta_notas_{id_malla}_{id_per}.xlsx"
     return StreamingResponse(
         excel_buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={nombre_archivo}"}
-    )    
+    )
 
 @router.get("/estudiantes/seccion/exel", summary= "descargar estudiantes de cada seccion")
 def descargar_list_estudiante_exel(
@@ -497,4 +570,51 @@ def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_sessio
         pdf_buffer,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="ficha_docente_{cedula}.pdf"'}
+    )
+
+
+@router.get("/estudiantes/seccion/excel", summary="Exportar estudiantes de una sección a Excel")
+def exportar_estudiantes_seccion(
+    id_sec: int,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(obtener_usuario_actual)
+):
+    sec = session.execute(text("""
+        SELECT s.codigo, p.codigo AS prog, p.nombre AS prog_nombre
+        FROM academico.secciones s
+        JOIN academico.programas p ON p.id_pro = s.id_pro
+        WHERE s.id_sec = :i
+    """), {"i": id_sec}).first()
+    if not sec:
+        raise HTTPException(status_code=404, detail="Sección no encontrada")
+
+    filas = session.execute(text("""
+        SELECT e.cedula, e.apellido, e.nombre, e.trayecto
+        FROM personas.estudiantes e
+        WHERE e.id_sec = :s AND e.estatus = 'A'
+        ORDER BY e.apellido ASC, e.nombre ASC
+    """), {"s": id_sec}).fetchall()
+    if not filas:
+        raise HTTPException(status_code=404, detail="No hay estudiantes activos en esta sección")
+
+    headers = ["Cédula", "Apellido", "Nombre", "Trayecto", "Asistencia", "Observaciones"]
+    rows = [[f[0], f[1], f[2], f[3], "", ""] for f in filas]
+    subtitulos = [
+        f"Sección: {sec[0]}",
+        f"Programa: {sec[1]} — {sec[2]}",
+        f"Estudiantes: {len(rows)}",
+        f"Generado: {datetime.now().strftime('%d/%m/%Y')}",
+    ]
+    excel_buffer = _hoja_institucional(
+        headers, rows,
+        "LISTA DE CONTROL DE ASISTENCIA",
+        subtitulos,
+        "Asistencia",
+        [16, 30, 30, 10, 14, 32],
+    )
+    filename = f"asistencia_{sec[0]}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return StreamingResponse(
+        excel_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )

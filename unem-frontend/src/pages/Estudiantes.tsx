@@ -8,9 +8,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Estudiante, EstudianteCreate, EstudianteUpdate } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
+import { estudianteService } from '../services/estudianteService';
 import {
   GraduationCap, Search, Plus, X, AlertCircle, Info,
-  Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown
+  Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHero } from '../components/PageHero';
@@ -79,6 +80,8 @@ export const Estudiantes = () => {
   const [filtroTrayecto, setFiltroTrayecto] = useState<string>('');
   const [filtroEstado, setFiltroEstado] = useState<string>('A');
   const [busqueda, setBusqueda] = useState<string>('');
+  const [filtroSeccion, setFiltroSeccion] = useState<number | ''>('');
+  const [descargandoLista, setDescargandoLista] = useState(false);
 
   // ✅ Estado de ordenamiento (por defecto: ID ascendente)
   const [sortKey, setSortKey] = useState<SortKey>('id_est');
@@ -183,6 +186,7 @@ export const Estudiantes = () => {
       const estatus = e.estatus ?? 'A';
       if (filtroMunicipio && e.id_mun?.toString() !== filtroMunicipio) return false;
       if (filtroTrayecto && e.trayecto.toString() !== filtroTrayecto) return false;
+      if (filtroSeccion && e.id_sec !== filtroSeccion) return false;
       if (filtroEstado && estatus !== filtroEstado) return false;
       if (busqueda) {
         const texto = `${e.cedula} ${e.nombre} ${e.apellido}`.toLowerCase();
@@ -207,7 +211,7 @@ export const Estudiantes = () => {
     });
 
     return ordenados;
-  }, [estudiantes, filtroMunicipio, filtroTrayecto, filtroEstado, busqueda, sortKey, sortDir]);
+  }, [estudiantes, filtroMunicipio, filtroTrayecto, filtroSeccion, filtroEstado, busqueda, sortKey, sortDir]);
 
   const getNombreMunicipio = (row: Estudiante): string => {
     if (row.municipio?.nombre) return row.municipio.nombre;
@@ -344,6 +348,41 @@ export const Estudiantes = () => {
             <option value="I">Solo retirados</option>
             <option value="">Todos los estados</option>
           </select>
+          <select
+            className="unem-select"
+            value={filtroSeccion}
+            onChange={(e) => setFiltroSeccion(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value="">Todas las secciones</option>
+            {listaSecciones.map((s) => (
+              <option key={s.id_sec} value={s.id_sec}>
+                {s.codigo} - {s.programa?.codigo || `Prog. ${s.id_pro}`}
+              </option>
+            ))}
+          </select>
+          {filtroSeccion && (
+            <button
+              onClick={async () => {
+                setDescargandoLista(true);
+                try {
+                  await estudianteService.descargarListaAsistencia(filtroSeccion as number);
+                  toast.success('Lista de asistencia descargada', { icon: '📋' });
+                } catch (error: unknown) {
+                  const detail = (error as { response?: { data?: { detail?: string } } })
+                    ?.response?.data?.detail;
+                  toast.error(detail || 'Error al descargar la lista');
+                } finally {
+                  setDescargandoLista(false);
+                }
+              }}
+              disabled={descargandoLista}
+              className="unem-btn"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              <FileSpreadsheet size={16} />
+              {descargandoLista ? 'Descargando...' : 'Lista de Asistencia'}
+            </button>
+          )}
           {puede('estudiantes', 'CRE', 'TODO') && (
             <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
               <Plus size={15} /> Nuevo Estudiante
