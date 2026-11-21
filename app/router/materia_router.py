@@ -24,7 +24,7 @@ def listar_materias(
     busqueda: Optional[str] = Query(None, description="Buscar por código o nombre"),
     id_eje: Optional[int] = Query(None, description="Filtrar por eje formativo"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("materias", "LEC", "TODO"))
+    usuario_actual: dict = Depends(verificar_permiso("materias", "LEC", "SP"))
 ):
     # Consulta base con JOINs para traer nombres de ejes y conteo de programas
     query = """

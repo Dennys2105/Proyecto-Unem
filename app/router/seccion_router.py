@@ -25,7 +25,7 @@ def crear_seccion(seccion_in: SeccionCreate, session: Session = Depends(get_sess
 
 # --- READ ALL ---
 @router.get("/", response_model=List[SeccionResponse])
-def leer_seccion(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','LEC','TODO'))):
+def leer_seccion(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','LEC','SP'))):
     statement = select(Seccion).order_by(Seccion.codigo)
     return session.exec(statement).all()
 

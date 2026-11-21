@@ -21,7 +21,7 @@ def crear_eje_formativo(eje_in: EjeCreate, session: Session = Depends(get_sessio
 
 # --- READ ALL ---
 @router.get("/", response_model=List[EjeResposive])
-def leer_ejes_formativos(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('malla', 'LEC', 'TODO'))):
+def leer_ejes_formativos(session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('malla', 'LEC', 'SP'))):
     return service.leer_todos(session)
 
 # --- READ ONE ---

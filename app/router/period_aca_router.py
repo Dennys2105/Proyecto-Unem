@@ -12,7 +12,7 @@ router = APIRouter(prefix="/periodos", tags=["Periodos Académicos"])
 @router.get("/", response_model=List[PeriodoResponse])
 def leer_periodos(
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso('periodos', 'LEC', 'TODO'))
+    usuario_actual: dict = Depends(verificar_permiso('periodos', 'LEC', 'SP'))
 ):
     return service.obtener_todos(session)
 

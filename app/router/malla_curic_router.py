@@ -36,7 +36,7 @@ class MallaRead(BaseModel):
 def listar_mallas(
     id_pro: Optional[int] = Query(None, description="Filtrar por programa"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso("malla", "LEC", "TODO"))
+    usuario_actual: dict = Depends(verificar_permiso("malla", "LEC", "SP"))
 ):
     # ✅ Consulta corregida: ahora incluye pre.unidades_creditos
     query = """
