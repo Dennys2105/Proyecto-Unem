@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { rolesService } from '../services/rolesService';
 import type { Usuario, MatrizPermiso } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
-import { Shield, User, Save, X, Plus, KeyRound, UserX, UserCheck, Eye, EyeOff } from 'lucide-react';
+import { Shield, User, Save, X, Plus, KeyRound, UserX, UserCheck, Eye, EyeOff, Link as LinkIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageHero } from '../components/PageHero';
 import { createPortal } from 'react-dom';
@@ -23,7 +23,7 @@ const ROLES_NOMBRES: Record<number, string> = {
 };
 
 const ROLES_ASIGNABLES: number[] = [1, 2, 3, 4]; // 5 = reservado, sin acceso
-const FORM_INICIAL = { username: '', email: '', password: '', id_rol: 3 };
+const FORM_INICIAL = { username: '', email: '', password: '', id_rol: 3, id_doc: '' as number | '' };
 
 export const Roles = () => {
   const { puede, idUsuario } = useAuth();
@@ -42,6 +42,12 @@ export const Roles = () => {
   const [form, setForm] = useState(FORM_INICIAL);
   const [verPass, setVerPass] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // Catálogo de docentes sin vínculo (para el selector cuando rol = 4)
+  const [docentesLibres, setDocentesLibres] = useState<any[]>([]);
+  // Modal de vincular docente a usuario existente
+  const [usuarioVincular, setUsuarioVincular] = useState<Usuario | null>(null);
+  const [idDocVincular, setIdDocVincular] = useState<number | ''>('');
+  const [vinculando, setVinculando] = useState(false);
 
   // Reset de contraseña
   const [usuarioReset, setUsuarioReset] = useState<Usuario | null>(null);
@@ -54,6 +60,15 @@ export const Roles = () => {
   useEffect(() => {
     cargarUsuarios();
   }, [mostrarInactivos]);
+
+  // Cargar docentes libres cuando se abre el modal de crear o el de vincular
+  useEffect(() => {
+    if (modalCrear || usuarioVincular) {
+      rolesService.getDocentesSinVinculo()
+        .then(setDocentesLibres)
+        .catch(() => setDocentesLibres([]));
+    }
+  }, [modalCrear, usuarioVincular]);
 
   const cargarUsuarios = async () => {
     try {
@@ -77,10 +92,22 @@ export const Roles = () => {
     if (form.password.length < 8) {
       toast.error('La contraseña debe tener al menos 8 caracteres'); return;
     }
+    const esDocente = form.id_rol === 4;
+    if (esDocente && !form.id_doc) {
+      toast.error('Debes seleccionar una ficha de docente para vincular a este usuario'); return;
+    }
     setGuardando(true);
     try {
-      await rolesService.crearUsuario({ username, email, password: form.password, id_rol: form.id_rol });
-      toast.success(`Usuario "${username}" creado correctamente`, { icon: '✅' });
+      await rolesService.crearUsuario({
+        username, email, password: form.password, id_rol: form.id_rol,
+        ...(esDocente ? { id_doc: Number(form.id_doc) } : {}),
+      });
+      toast.success(
+        esDocente
+          ? `Usuario "${username}" creado y vinculado al docente ✅`
+          : `Usuario "${username}" creado correctamente`,
+        { icon: '✅', duration: 4000 }
+      );
       setModalCrear(false);
       setForm(FORM_INICIAL);
       setVerPass(false);
@@ -121,6 +148,34 @@ export const Roles = () => {
       toast.error(error?.response?.data?.detail ?? 'No se pudo actualizar el usuario', { duration: 6000 });
     } finally {
       setProcesandoId(null);
+    }
+  };
+
+  // ---------- Vincular / desvincular docente ----------
+  const confirmarVinculo = async () => {
+    if (!usuarioVincular) return;
+    setVinculando(true);
+    try {
+      await rolesService.vincularDocente(
+        usuarioVincular.id_usu,
+        idDocVincular === '' ? null : Number(idDocVincular)
+      );
+      toast.success(
+        idDocVincular === ''
+          ? `Usuario ${usuarioVincular.username} desvinculado`
+          : `Usuario ${usuarioVincular.username} vinculado al docente ✅`,
+        { duration: 4000 }
+      );
+      setUsuarioVincular(null);
+      setIdDocVincular('');
+      await cargarUsuarios();
+      rolesService.getDocentesSinVinculo()
+        .then(setDocentesLibres)
+        .catch(() => setDocentesLibres([]));
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail ?? 'No se pudo actualizar el vínculo', { duration: 6000 });
+    } finally {
+      setVinculando(false);
     }
   };
 
@@ -326,6 +381,16 @@ export const Roles = () => {
                         )}
                         {puedeEditar && (
                           <>
+                            {u.id_rol === 4 && (
+                              <button
+                                onClick={() => { setUsuarioVincular(u); setIdDocVincular(''); }}
+                                disabled={ocupado}
+                                title="Vincular a ficha de docente"
+                                className="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition disabled:opacity-50"
+                              >
+                                <LinkIcon size={14} />
+                              </button>
+                            )}
                             <button
                               onClick={() => { setUsuarioReset(u); setNuevaPass(''); }}
                               disabled={ocupado}
@@ -412,7 +477,7 @@ export const Roles = () => {
                 <label className="block text-sm font-medium text-gray-700">Rol *</label>
                 <select
                   value={form.id_rol}
-                  onChange={(e) => setForm({ ...form, id_rol: Number(e.target.value) })}
+                  onChange={(e) => setForm({ ...form, id_rol: Number(e.target.value), id_doc: '' })}
                   className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   {ROLES_ASIGNABLES.map((r: number) => (
@@ -421,6 +486,35 @@ export const Roles = () => {
                 </select>
                 <p className="text-xs text-gray-500">El rol Estudiante está reservado (sin acceso al sistema).</p>
               </div>
+              {form.id_rol === 4 && (
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Ficha de docente a vincular *
+                  </label>
+                  <select
+                    value={form.id_doc}
+                    onChange={(e) => setForm({ ...form, id_doc: e.target.value ? Number(e.target.value) : '' })}
+                    className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">Selecciona un docente sin usuario…</option>
+                    {docentesLibres.map((d) => (
+                      <option key={d.id_doc} value={d.id_doc}>
+                        {d.cedula_nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500">
+                    Solo se listan docentes activos que aún no tienen un usuario vinculado.
+                    El vínculo es obligatorio para el rol Docente (un docente = una cuenta).
+                  </p>
+                  {docentesLibres.length === 0 && (
+                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                      <b>Sin docentes libres.</b> Todos los docentes activos ya tienen usuario.
+                      Desvincula uno desde su fila o registra un docente nuevo primero.
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button onClick={() => setModalCrear(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium">
                   Cancelar
@@ -468,6 +562,63 @@ export const Roles = () => {
                   className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 transition text-sm font-medium flex items-center gap-2"
                 >
                   <KeyRound size={16} /> {reseteando ? 'Guardando...' : 'Resetear'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Vincular / Desvincular docente a usuario existente */}
+      {usuarioVincular && createPortal(
+        <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <LinkIcon size={18} /> Vínculo con docente
+              </h2>
+              <button
+                onClick={() => setUsuarioVincular(null)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                Usuario <b>{usuarioVincular.username}</b> (rol {ROLES_NOMBRES[usuarioVincular.id_rol]}).
+                Selecciona una ficha de docente para vincular, o deja vacío para desvincular.
+              </p>
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Ficha de docente</label>
+                <select
+                  value={idDocVincular}
+                  onChange={(e) => setIdDocVincular(e.target.value ? Number(e.target.value) : '')}
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">— Sin vínculo (desvincular) —</option>
+                  {docentesLibres.map((d) => (
+                    <option key={d.id_doc} value={d.id_doc}>{d.cedula_nombre}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Un docente no puede estar vinculado a dos usuarios. Solo se muestran los libres.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setUsuarioVincular(null)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmarVinculo}
+                  disabled={vinculando}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition text-sm font-medium flex items-center gap-2"
+                >
+                  <Save size={16} /> {vinculando ? 'Guardando…' : 'Guardar vínculo'}
                 </button>
               </div>
             </div>

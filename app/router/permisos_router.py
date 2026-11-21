@@ -262,6 +262,7 @@ class UsuarioCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
     id_rol: int
+    id_doc: Optional[int] = None  # Solo obligatorio cuando id_rol = 4 (DOCENTE)
 
 class UsuarioPatch(BaseModel):
     id_rol: Optional[int] = None
@@ -290,6 +291,22 @@ def crear_usuario(
     if datos.id_rol == 5:
         raise HTTPException(status_code=400, detail="El rol Estudiante está reservado: los estudiantes no acceden al sistema.")
 
+    if datos.id_rol == 4:
+        if datos.id_doc is None:
+            raise HTTPException(status_code=400, detail="Para un usuario con rol Docente debes seleccionar una ficha de docente.")
+        doc = session.exec(text("""
+            SELECT id_doc, cedula, nombre, apellido, id_usu
+            FROM personas.docentes WHERE id_doc = :d AND estatus = 'A'
+        """).params(d=datos.id_doc)).first()
+        if not doc:
+            raise HTTPException(status_code=400, detail="El docente seleccionado no existe o está retirado.")
+        if doc[4] is not None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"El docente {doc[2]} {doc[3]} ({doc[1]}) ya está vinculado a otro usuario. "
+                       "Desvincúlalo primero o elige otro."
+            )
+
     nuevo = session.exec(text("""
         INSERT INTO general.usuarios (username, email, id_rol, estatus)
         VALUES (:u, :e, :r, 'A')
@@ -300,6 +317,12 @@ def crear_usuario(
         INSERT INTO general.credenciales (id_usu, password_hash, intentos_fallidos)
         VALUES (:i, :h, 0)
     """).params(i=id_usu, h=get_password_hash(datos.password)))
+
+    if datos.id_rol == 4 and datos.id_doc is not None:
+        session.exec(text("""
+            UPDATE personas.docentes SET id_usu = :u WHERE id_doc = :d
+        """).params(u=id_usu, d=datos.id_doc))
+
     session.commit()
     return UsuarioSimple(id_usu=id_usu, username=username, id_rol=datos.id_rol, rol=rol[0], estatus='A')
 
@@ -362,3 +385,71 @@ def resetear_password(
     """).params(h=get_password_hash(datos.password), i=id_usu))
     session.commit()
     return {"message": "Contraseña actualizada y cuenta desbloqueada."}
+
+
+# ============================================================
+# CATÁLOGO DE DOCENTES SIN VINCULAR (para el selector de creación)
+# ============================================================
+@router.get("/docentes-sin-vinculo")
+def docentes_sin_vinculo(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "LEC", "TODO")),
+):
+    """Docentes activos que NO tienen un usuario vinculado (id_usu IS NULL)."""
+    rows = session.exec(text("""
+        SELECT id_doc, cedula, nombre, apellido
+        FROM personas.docentes
+        WHERE estatus = 'A' AND id_usu IS NULL
+        ORDER BY apellido, nombre
+    """)).all()
+    return [
+        {"id_doc": r[0], "cedula": r[1], "nombre": f"{r[2]} {r[3]}", "cedula_nombre": f"{r[1]} · {r[2]} {r[3]}"}
+        for r in rows
+    ]
+
+
+# ============================================================
+# VINCULAR / DESVINCULAR DOCENTE a un usuario YA EXISTENTE
+# ============================================================
+@router.patch("/usuarios/{id_usu}/vincular-docente")
+def vincular_docente(
+    id_usu: int,
+    id_doc: Optional[int] = None,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("usuarios", "ACT", "TODO")),
+):
+    """Vincula un usuario existente a una ficha de docente (o lo desvincula si id_doc es None)."""
+    usu = session.exec(text(
+        "SELECT id_usu, id_rol, username FROM general.usuarios WHERE id_usu = :i"
+    ).params(i=id_usu)).first()
+    if not usu:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    if usu[1] != 4:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo se pueden vincular docentes a usuarios con rol DOCENTE."
+        )
+
+    if id_doc is None:
+        session.exec(text("""
+            UPDATE personas.docentes SET id_usu = NULL WHERE id_usu = :u
+        """).params(u=id_usu))
+        session.commit()
+        return {"message": f"Usuario {usu[2]} desvinculado de cualquier ficha de docente."}
+
+    doc = session.exec(text("""
+        SELECT id_doc, cedula, nombre, apellido, id_usu
+        FROM personas.docentes WHERE id_doc = :d AND estatus = 'A'
+    """).params(d=id_doc)).first()
+    if not doc:
+        raise HTTPException(status_code=400, detail="El docente seleccionado no existe o está retirado.")
+    if doc[4] is not None and doc[4] != id_usu:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El docente {doc[2]} {doc[3]} ya está vinculado a otro usuario."
+        )
+
+    session.exec(text("UPDATE personas.docentes SET id_usu = NULL WHERE id_usu = :u").params(u=id_usu))
+    session.exec(text("UPDATE personas.docentes SET id_usu = :u WHERE id_doc = :d").params(u=id_usu, d=id_doc))
+    session.commit()
+    return {"message": f"Usuario {usu[2]} vinculado al docente {doc[2]} {doc[3]} ({doc[1]})."}

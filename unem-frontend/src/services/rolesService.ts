@@ -18,6 +18,14 @@ export interface UsuarioCreatePayload {
   email: string;
   password: string;
   id_rol: number;
+  id_doc?: number;
+}
+
+export interface DocenteSinVinculo {
+  id_doc: number;
+  cedula: string;
+  nombre: string;
+  cedula_nombre: string;
 }
 
 export interface UsuarioPatchPayload {
@@ -51,6 +59,17 @@ export const rolesService = {
   // 1b. Crear usuario (usuario + credencial con hash)
   crearUsuario: async (payload: UsuarioCreatePayload): Promise<void> => {
     await api.post('/permisos/usuarios', payload);
+  },
+  // Docentes sin usuario vinculado (para el selector)
+  getDocentesSinVinculo: async (): Promise<DocenteSinVinculo[]> => {
+    const res = await api.get('/permisos/docentes-sin-vinculo');
+    return res.data;
+  },
+  // Vincular / desvincular docente a un usuario existente
+  vincularDocente: async (idUsu: number, idDoc: number | null): Promise<void> => {
+    await api.patch(`/permisos/usuarios/${idUsu}/vincular-docente`, null, {
+      params: idDoc !== null ? { id_doc: idDoc } : {},
+    });
   },
 
   // 1c. Cambiar rol y/o activar/desactivar
