@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict HXeSkSf0jD6Jim0uNFOIUubZ8EJl6ek8vbmi9mQMDX4rGjK9mPsJT6GERbth4tG
+\restrict QQag43LcYviHSvrYsiuZkkLKmpFjgdRecZPaq1TChzwdhI8ABJhIvxJFQDPOfcV
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-21 14:58:13
+-- Started on 2026-11-21 16:27:07
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4754,6 +4754,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 589	\N	notas	DELETE	{"nota": 13.25, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 12, "id_per": 3, "estatus": "A", "id_nota": 168, "id_malla": 27, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 590	\N	notas	DELETE	{"nota": 14.25, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 12, "id_per": 4, "estatus": "A", "id_nota": 169, "id_malla": 27, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 591	\N	notas	DELETE	{"nota": 11.75, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 13, "id_per": 3, "estatus": "A", "id_nota": 170, "id_malla": 27, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
+698	\N	usuarios	INSERT	\N	{"email": "docente1@unem.edu.ve", "creado": "2026-11-21T15:16:35.317659-04:00", "id_rol": 4, "id_usu": 3, "estatus": "A", "username": "docente1", "actualizar": "2026-11-21T15:16:35.317659-04:00"}	2026-11-21 15:16:35.317659-04	\N	A
 592	\N	notas	DELETE	{"nota": 12.75, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 13, "id_per": 4, "estatus": "A", "id_nota": 171, "id_malla": 27, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 593	\N	notas	DELETE	{"nota": 13.25, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 7, "id_per": 3, "estatus": "A", "id_nota": 172, "id_malla": 27, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 594	\N	notas	DELETE	{"nota": 14.25, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 7, "id_per": 4, "estatus": "A", "id_nota": 173, "id_malla": 27, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
@@ -4771,6 +4772,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 606	\N	notas	DELETE	{"nota": 13.50, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 13, "id_per": 4, "estatus": "A", "id_nota": 185, "id_malla": 28, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 607	\N	notas	DELETE	{"nota": 14.00, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 7, "id_per": 3, "estatus": "A", "id_nota": 186, "id_malla": 28, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 608	\N	notas	DELETE	{"nota": 15.00, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 7, "id_per": 4, "estatus": "A", "id_nota": 187, "id_malla": 28, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
+699	\N	credenciales	INSERT	\N	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 15:16:35.317659-04	\N	A
 609	\N	notas	DELETE	{"nota": 13.25, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 10, "id_per": 3, "estatus": "A", "id_nota": 188, "id_malla": 28, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 610	\N	notas	DELETE	{"nota": 14.25, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 10, "id_per": 4, "estatus": "A", "id_nota": 189, "id_malla": 28, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
 611	\N	notas	DELETE	{"nota": 13.25, "creado": "2026-11-21T10:52:32.92759-04:00", "id_est": 8, "id_per": 3, "estatus": "A", "id_nota": 190, "id_malla": 29, "actualizar": "2026-11-21T10:52:32.92759-04:00", "observaciones": "Histórico demo — serie para proyección", "fecha_registro": "2026-11-21T10:52:32.92759-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-21 10:55:31.979413-04	\N	A
@@ -4816,6 +4818,17 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 648	1	usuarios	UPDATE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 4, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 2, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	2026-11-21 13:58:56.902489-04	127.0.0.1	A
 650	1	usuarios	UPDATE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 2, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 3, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	2026-11-21 13:59:15.455026-04	127.0.0.1	A
 652	1	usuarios	UPDATE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 3, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 4, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	2026-11-21 13:59:29.743295-04	127.0.0.1	A
+700	\N	docentes	UPDATE	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": null, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-15T22:43:40.539145-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 6, "horas_disponibles": 24}	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T15:16:35.317659-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 6, "horas_disponibles": 24}	2026-11-21 15:16:35.317659-04	\N	A
+701	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T13:59:31.501754-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T15:44:39.544824-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 15:44:39.537884-04	\N	A
+702	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T13:50:01.98306-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T15:45:42.491201-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 15:45:42.488946-04	\N	A
+703	1	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 15:46:11.617581-04	127.0.0.1	A
+704	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T15:46:28.277619-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 15:46:28.275434-04	\N	A
+705	1	usuarios	UPDATE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 4, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 3, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	2026-11-21 15:50:10.377793-04	127.0.0.1	A
+706	\N	asig_carga_horarias	INSERT	\N	{"creado": "2026-11-21T16:23:01.268782-04:00", "id_dia": 5, "id_doc": 2, "id_esp": 14, "id_per": 2, "id_sec": 5, "estatus": "A", "id_asig": 9, "hora_fin": "17:00:00", "id_malla": 74, "actualizar": "2026-11-21T16:23:01.268782-04:00", "hora_inicio": "14:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-21 16:23:01.268782-04	\N	A
+707	\N	docentes	UPDATE	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T15:16:35.317659-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 6, "horas_disponibles": 24}	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T16:23:01.268782-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 9, "horas_disponibles": 21}	2026-11-21 16:23:01.268782-04	\N	A
+708	\N	asig_carga_horarias	INSERT	\N	{"creado": "2026-11-21T16:23:01.268782-04:00", "id_dia": 6, "id_doc": 2, "id_esp": 15, "id_per": 1, "id_sec": 6, "estatus": "A", "id_asig": 10, "hora_fin": "11:00:00", "id_malla": 26, "actualizar": "2026-11-21T16:23:01.268782-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-21 16:23:01.268782-04	\N	A
+709	\N	docentes	UPDATE	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T16:23:01.268782-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 9, "horas_disponibles": 21}	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T16:23:01.268782-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 12, "horas_disponibles": 18}	2026-11-21 16:23:01.268782-04	\N	A
+710	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T15:46:28.277619-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T16:23:58.592085-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 16:23:58.576391-04	\N	A
 \.
 
 
@@ -4826,8 +4839,9 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 --
 
 COPY general.credenciales (id_cre, id_usu, password_hash, ultimo_acceso, intentos_fallidos, bloqueado_hasta) FROM stdin;
-1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-21 13:50:01.98306-04	0	\N
-2	2	$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs	2026-11-21 13:59:31.501754-04	0	\N
+2	2	$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs	2026-11-21 15:44:39.544824-04	0	\N
+1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-21 15:45:42.491201-04	0	\N
+3	3	$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU	2026-11-21 16:23:58.592085-04	0	\N
 \.
 
 
@@ -5047,25 +5061,18 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 120	3	8	3	TODO	A
 121	3	9	3	SP	A
 122	3	9	2	SP	A
-123	4	13	3	SP	A
-124	4	14	3	SP	A
 125	4	14	2	SP	A
-126	4	10	3	SP	A
 127	4	11	3	SP	A
-129	4	2	3	SP	A
 130	4	3	3	SP	A
 131	4	4	3	SP	A
-132	4	5	3	SP	A
 133	4	7	3	TODO	A
 134	4	8	3	TODO	A
 135	4	9	3	SP	A
 136	4	9	2	SP	A
 156	2	6	1	NAD	A
-112	3	15	3	TODO	A
 137	2	15	3	TODO	A
 157	2	6	2	NAD	A
 158	2	6	3	NAD	A
-128	4	15	3	SP	A
 147	4	15	2	SP	A
 148	4	16	3	TODO	A
 146	2	16	3	TODO	A
@@ -5080,12 +5087,19 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 103	3	14	3	TODO	A
 102	3	13	2	SP	I
 104	3	14	2	SP	I
-105	3	10	3	TODO	A
 163	3	6	4	NAD	A
 164	4	12	1	SP	A
 165	4	12	2	SP	A
 166	4	12	4	SP	A
 167	4	10	1	SP	A
+128	4	15	3	SP	A
+123	4	13	3	SP	A
+124	4	14	3	SP	A
+126	4	10	3	SP	A
+132	4	5	3	SP	A
+129	4	2	3	SP	A
+112	3	15	3	TODO	A
+105	3	10	3	TODO	A
 \.
 
 
@@ -5129,7 +5143,8 @@ COPY general.roles (id_rol, rol, descripcion, estatus) FROM stdin;
 
 COPY general.usuarios (id_usu, username, id_rol, estatus, creado, actualizar, email) FROM stdin;
 1	admin	1	A	2026-10-29 03:05:47.546227-04	2026-10-29 03:05:47.546404-04	\N
-2	coordinador1	4	A	2026-11-20 18:29:53.653537-04	2026-11-20 18:29:53.653537-04	coordinador1@unem.edu.ve
+3	docente1	4	A	2026-11-21 15:16:35.317659-04	2026-11-21 15:16:35.317659-04	docente1@unem.edu.ve
+2	coordinador1	3	A	2026-11-20 18:29:53.653537-04	2026-11-20 18:29:53.653537-04	coordinador1@unem.edu.ve
 \.
 
 
@@ -5147,6 +5162,8 @@ COPY horarios.asig_carga_horarias (id_asig, id_doc, id_esp, id_dia, id_malla, id
 6	2	1	3	8	1	07:00:00	08:00:00	Carga Académica	Asignación directa	A	2026-11-12 22:54:26.031262-04	2026-11-12 22:54:26.031291-04	\N
 7	1	11	2	4	1	07:00:00	11:00:00	Carga Académica	Asignación directa	A	2026-11-13 02:56:20.453382-04	2026-11-13 02:56:20.453395-04	\N
 8	4	3	5	3	2	07:00:00	08:00:00	Carga Académica	Asignación directa	A	2026-11-18 01:36:18.511075-04	2026-11-18 01:36:18.511082-04	\N
+9	2	14	5	74	2	14:00:00	17:00:00	Carga Académica	\N	A	2026-11-21 16:23:01.268782-04	2026-11-21 16:23:01.268782-04	5
+10	2	15	6	26	1	08:00:00	11:00:00	Carga Académica	\N	A	2026-11-21 16:23:01.268782-04	2026-11-21 16:23:01.268782-04	6
 \.
 
 
@@ -5195,7 +5212,7 @@ COPY personas.disponibilidad_docente (id_disp, id_doc, id_dia, hora_inicio, hora
 COPY personas.docentes (id_doc, id_usu, cedula, nombre, apellido, id_mun, especialidad, tipo_contrato, horas_max_sem, horas_asignadas, horas_disponibles, telefono, estatus, creado, actualizar, observaciones, foto_url) FROM stdin;
 3	\N	V-11492534	IRIS MARISOL	RAMIREZ HERNANDEZ	23	Educación Especial	Estipendio	20	0	20	04161740853	A	2026-11-13 16:20:59.408443-04	2026-11-17 18:09:32.72661-04	\N	\N
 4	\N	V-13792150	ERIKA DE LA CONSOLACION	VARELA SAYAGO	23	Educación Primaria	Estipendio	20	1	19	04264937637	A	2026-11-13 16:55:56.866854-04	2026-11-17 21:36:18.469709-04	\N	\N
-2	\N	V-87654321	Carlos	Rodríguez López	23	Educación Especial	Contratado	30	6	24	04249876543	A	2026-10-03 10:55:20.264002-04	2026-11-15 22:43:40.539145-04	\N	\N
+2	3	V-87654321	Carlos	Rodríguez López	23	Educación Especial	Contratado	30	12	18	04249876543	A	2026-10-03 10:55:20.264002-04	2026-11-21 16:23:01.268782-04	\N	\N
 1	\N	V-12345678	María	González	23	Educación Primaria	Estipendio	20	6	14	04149998877	A	2026-10-03 10:55:20.264002-04	2026-11-16 20:13:23.095142-04	\N	\N
 \.
 
@@ -5292,7 +5309,7 @@ SELECT pg_catalog.setval('academico.secciones_id_sec_seq', 6, true);
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 697, true);
+SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 710, true);
 
 
 --
@@ -5301,7 +5318,7 @@ SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 697, true);
 -- Name: credenciales_id_cre_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.credenciales_id_cre_seq', 2, true);
+SELECT pg_catalog.setval('general.credenciales_id_cre_seq', 3, true);
 
 
 --
@@ -5346,7 +5363,7 @@ SELECT pg_catalog.setval('general.permisos_id_perm_seq', 4, true);
 -- Name: permisos_rol_id_pr_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.permisos_rol_id_pr_seq', 167, true);
+SELECT pg_catalog.setval('general.permisos_rol_id_pr_seq', 175, true);
 
 
 --
@@ -5373,7 +5390,7 @@ SELECT pg_catalog.setval('general.roles_id_rol_seq', 5, true);
 -- Name: usuarios_id_usu_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.usuarios_id_usu_seq', 2, true);
+SELECT pg_catalog.setval('general.usuarios_id_usu_seq', 3, true);
 
 
 --
@@ -5382,7 +5399,7 @@ SELECT pg_catalog.setval('general.usuarios_id_usu_seq', 2, true);
 -- Name: asig_carga_horarias_id_asig_seq; Type: SEQUENCE SET; Schema: horarios; Owner: postgres
 --
 
-SELECT pg_catalog.setval('horarios.asig_carga_horarias_id_asig_seq', 8, true);
+SELECT pg_catalog.setval('horarios.asig_carga_horarias_id_asig_seq', 10, true);
 
 
 --
@@ -7631,11 +7648,11 @@ ALTER TABLE ONLY personas.docentes
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-21 14:58:13
+-- Completed on 2026-11-21 16:27:08
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict HXeSkSf0jD6Jim0uNFOIUubZ8EJl6ek8vbmi9mQMDX4rGjK9mPsJT6GERbth4tG
+\unrestrict QQag43LcYviHSvrYsiuZkkLKmpFjgdRecZPaq1TChzwdhI8ABJhIvxJFQDPOfcV
 
