@@ -199,82 +199,54 @@ def exportar_inventario(
         headers={"Content-Disposition": f"attachment; filename={nombre_archivo}"}
     )
 
-@router.get("/estudiantes/seccion/exel", summary= "descargar estudiantes de cada seccion")
-def descargar_list_estudiante_exel(
-    codigo_seccion: str,
-    session:Session = Depends(get_session)
-    
+@router.get("/seccion/exel", summary="Exportar estudiantes por sección a Excel institucional")
+def exportar_estudiantes_seccion_v2(
+    id_sec: int = Query(..., description="ID de la sección"),
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
 ):
-    query = text("""
-        SELECT 
-            e.cedula,
-            e.nombre,
-            e.apellido,
-            e.trayecto,
-            s.codigo AS seccion_codigo,
-            p.nombre AS programa_academico
+    """Excel con formato institucional (membrete, título, autofiltro, cebra)."""
+    # 1) Datos de la sección y programa
+    sec = session.execute(text("""
+        SELECT s.codigo, p.codigo AS prog, p.nombre AS prog_nombre
+        FROM academico.secciones s
+        JOIN academico.programas p ON p.id_pro = s.id_pro
+        WHERE s.id_sec = :i
+    """), {"i": id_sec}).first()
+    if not sec:
+        raise HTTPException(status_code=404, detail="Sección no encontrada")
+
+    # 2) Estudiantes activos de esa sección
+    filas = session.execute(text("""
+        SELECT e.cedula, e.apellido, e.nombre, e.trayecto
         FROM personas.estudiantes e
-        INNER JOIN academico.secciones s ON e.id_sec = s.id_sec
-        LEFT JOIN academico.programas p ON e.id_pro = p.id_pro
-        WHERE s.codigo = :codigo_seccion AND e.estatus = 'A'
-        ORDER BY e.apellido ASC, e.nombre ASC;
-    """)
-    result = session.execute(query, {"codigo_seccion": codigo_seccion})
-    
-    df = pd.DataFrame(result.fetchall(), columns=result.keys())
-    
-    for col in df.columns:
-        if pd.api.types.is_datetime64tz_dtype(df[col]):
-            df[col] = df[col].dt.tz_convert(None)
-    
-    # (Opcional pero recomendado): Manejar DataFrame vacío por si no hay registros
-    if df.empty:
-        # Puedes retornar un error o un excel vacío según prefieras
-        df = pd.DataFrame(columns=["cedula", "nombre", "apellido", "trayecto", "seccion","programa_academico"])
+        WHERE e.id_sec = :s AND e.estatus = 'A'
+        ORDER BY e.apellido ASC, e.nombre ASC
+    """), {"s": id_sec}).fetchall()
+    if not filas:
+        raise HTTPException(status_code=404, detail="No hay estudiantes activos en esta sección")
 
-    # 2. Crear un buffer de memoria y usar pd.ExcelWriter con openpyxl
-    excel_buffer = io.BytesIO()
-    
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Seccion')
-        
-        # 3. Acceder al libro y a la hoja activa para aplicar estilos con openpyxl
-        workbook = writer.book
-        worksheet = writer.sheets['Seccion']
-        
-        # Estilos para los encabezados (Fila 1)
-        header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-        header_font = Font(color="FFFFFF", bold=True, name="Calibri", size=11)
-        header_alignment = Alignment(horizontal="center", vertical="center")
-        
-        for col in range(1, len(df.columns) + 1):
-            cell = worksheet.cell(row=1, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
-
-        # 4. Auto-ajustar el ancho de las columnas dinámicamente
-        for col in worksheet.columns:
-            max_length = 0
-            col_letter = get_column_letter(col[0].column)
-            
-            for cell in col:
-                try:
-                    if cell.value:
-                        max_length = max(max_length, len(str(cell.value)))
-                except:
-                    pass
-            
-            worksheet.column_dimensions[col_letter].width = max(max_length + 4, 12)
-    # 5. ¡Importante! Rebobinar el buffer al inicio antes de retornarlo
-    excel_buffer.seek(0)
-    nombre_archivo = f"seccion_{codigo_seccion}.xlsx"
-
-    # 6. Retornar como StreamingResponse para la descarga en FastAPI
+    # 3) Construir Excel con el helper institucional
+    headers = ["Cédula", "Apellido", "Nombre", "Trayecto"]
+    rows = [[f[0], f[1], f[2], f[3]] for f in filas]
+    subtitulos = [
+        f"Sección: {sec[0]}",
+        f"Programa: {sec[1]} — {sec[2]}",
+        f"Total estudiantes: {len(rows)}",
+        f"Generado: {datetime.now().strftime('%d/%m/%Y')}",
+    ]
+    excel_buffer = _hoja_institucional(
+        headers, rows,
+        "LISTADO DE ESTUDIANTES POR SECCIÓN",
+        subtitulos,
+        "Estudiantes",
+        [16, 32, 32, 10],
+    )
+    filename = f"estudiantes_{sec[0]}_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return StreamingResponse(
         excel_buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={nombre_archivo}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
@@ -370,6 +342,8 @@ def descargar_horario_docente_pdf(
     cedula: str = Query(..., description="Cédula exacta del docente (ej: V-14567890)"),
     session: Session = Depends(get_session)
 ):
+    _validar_asignaciones_docente(session, cedula)
+
     # 1. Consultar la vista de horario completo
     query = text("""
         SELECT 
@@ -439,8 +413,34 @@ def descargar_horario_docente_pdf(
     )
     
 
+def _validar_asignaciones_docente(session: Session, cedula: str) -> None:
+    id_doc = session.execute(text("""
+        SELECT id_doc
+        FROM personas.docentes
+        WHERE cedula = :c
+    """), {"c": cedula}).scalar()
+    if id_doc is None:
+        raise HTTPException(status_code=404, detail="No se encontró docente para esta cédula.")
+
+    asignaciones = session.execute(text("""
+        SELECT COUNT(*) FROM horarios.asig_carga_horarias
+        WHERE id_doc = :d AND estatus = 'A'
+    """), {"d": id_doc}).scalar()
+
+    if asignaciones == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "El docente no tiene asignaciones de carga horaria activas. "
+                "Asigne materias antes de generar reportes."
+            ),
+        )
+
+
 @router.get("/ficha-docente-pdf/{cedula}", summary="Generar Ficha de Organización Académica en PDF")
 def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_session)):
+    _validar_asignaciones_docente(session, cedula)
+
     query = text("""
         SELECT 
             cedula, nombre_completo_docente, tipo_contrato,

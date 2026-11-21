@@ -116,9 +116,9 @@ def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, ses
 
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
-@router.delete("/{carga_horaria_id}", status_code=status.HTTP_200_OK)
-def eliminar_carga_horaria(carga_id: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','BOR','TODO'))):
-    db_dato = service.obtener_dato_por_id(carga_id, session)
+@router.delete("/{id_asig}", status_code=status.HTTP_200_OK)
+def eliminar_asignacion(id_asig: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','BOR','TODO'))):
+    db_dato = service.obtener_dato_por_id(id_asig, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carga Horaria no encontrada")
     service.eliminar(session=session, db_dato=db_dato)
