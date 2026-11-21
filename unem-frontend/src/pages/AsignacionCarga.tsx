@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAsignaciones } from '../hooks/useAsignaciones';
 import { useDocentes } from '../hooks/useDocentes';
 import { useMallas } from '../hooks/useMallas';
@@ -12,6 +13,7 @@ import { z } from 'zod';
 import { isAxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import { exportToExcel, exportHorarioDocente, generateGeneralPNFPDF } from '../utils/exportUtils';
+import { descargarHorarioDocente, descargarFichaDocente } from '../utils/descargas';
 import { 
   FileSpreadsheet, FileText, X, User, Building, Calendar, 
   Clock, AlertTriangle, CheckCircle 
@@ -21,7 +23,7 @@ import { useAuth } from '../hooks/useAuth';
 import { ordenarNaturalPor } from '../utils/ordenarNatural';
 import { PageHero } from '../components/PageHero';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Las descargas del backend usan el cliente axios con Bearer (utils/descargas).
 
 const asignacionSchema = z.object({
   id_doc: z.string().min(1, 'Selecciona un docente'),
@@ -177,9 +179,7 @@ export const AsignacionCargaPage = () => {
       toast.error('El docente seleccionado no tiene cédula registrada');
       return;
     }
-    const url = `${API_BASE_URL}/exportar/Horario_docente/pdf?cedula=${encodeURIComponent(docente.cedula)}`;
-    window.open(url, '_blank');
-    toast.success('Generando horario visual desde el servidor...');
+    void descargarHorarioDocente(docente.cedula);
   };
 
   const handleDescargarFichaPDF = () => {
@@ -188,9 +188,7 @@ export const AsignacionCargaPage = () => {
       toast.error('El docente seleccionado no tiene cédula registrada');
       return;
     }
-    const url = `${API_BASE_URL}/exportar/ficha-docente-pdf/${encodeURIComponent(docente.cedula)}`;
-    window.open(url, '_blank');
-    toast.success('Generando ficha académica desde el servidor...');
+    void descargarFichaDocente(docente.cedula);
   };
 
     const handleGenerarPDFGeneral = () => {
@@ -502,7 +500,7 @@ export const AsignacionCargaPage = () => {
       )}
 
       {/* MODAL DE REPORTES (CONECTADO AL BACKEND) */}
-      {isReportModalOpen && (
+      {isReportModalOpen && createPortal(
         <div className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-2xl">
             <div className="flex justify-between items-center mb-6">
@@ -588,7 +586,7 @@ export const AsignacionCargaPage = () => {
             )}
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Modal de Eliminación */}
       {deleteConfirm && (
