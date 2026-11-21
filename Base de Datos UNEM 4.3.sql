@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict 5JnoFpB2sYhSalcB1ZfO5l95BJshR3wSKZBciIcRb76kpTgiaaurD1e4Axg1aDA
+\restrict ZAi85VweHJKUZ79pArWFDW8X2Pxi0zLSsf9ENhzU8mj4qpEB9hcysWXdD37E81h
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-20 23:16:33
+-- Started on 2026-11-20 23:18:12
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4196,6 +4196,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 109	\N	malla_curricular	UPDATE	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 20, "id_pro": 1, "estatus": "A", "periodo": 5, "id_malla": 20, "trayecto": 2, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 20, "id_pro": 1, "estatus": "A", "periodo": 2, "id_malla": 20, "trayecto": 2, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 110	\N	malla_curricular	UPDATE	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 20, "id_pro": 1, "estatus": "A", "periodo": 5, "id_malla": 20, "trayecto": 2, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 20, "id_pro": 1, "estatus": "A", "periodo": 2, "id_malla": 20, "trayecto": 2, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 111	\N	malla_curricular	UPDATE	{"orden": 1, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 21, "id_pro": 1, "estatus": "A", "periodo": 6, "id_malla": 21, "trayecto": 2, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 1, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 21, "id_pro": 1, "estatus": "A", "periodo": 3, "id_malla": 21, "trayecto": 2, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
+409	\N	permisos_rol	UPDATE	{"id_pr": 102, "id_mod": 13, "id_rol": 3, "alcance": "SP", "estatus": "A", "id_perm": 2}	{"id_pr": 102, "id_mod": 13, "id_rol": 3, "alcance": "SP", "estatus": "I", "id_perm": 2}	2026-11-20 23:17:01.594141-04	\N	A
 30	\N	dias_laborales	UPDATE	{"dia": "Lunes", "orden": 1, "id_dia": 1, "estatus": "I"}	{"dia": "Lunes", "orden": 1, "id_dia": 1, "estatus": "A"}	2026-11-15 12:11:45.327079-04	\N	A
 31	\N	dias_laborales	UPDATE	{"dia": "Lunes", "orden": 1, "id_dia": 1, "estatus": "I"}	{"dia": "Lunes", "orden": 1, "id_dia": 1, "estatus": "A"}	2026-11-15 12:11:45.327079-04	\N	A
 32	\N	dias_laborales	UPDATE	{"dia": "Martes", "orden": 2, "id_dia": 2, "estatus": "I"}	{"dia": "Martes", "orden": 2, "id_dia": 2, "estatus": "A"}	2026-11-15 12:11:45.807384-04	\N	A
@@ -4507,6 +4508,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 405	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T19:15:22.223346-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T22:33:22.690875-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-20 22:33:22.68869-04	\N	A
 406	2	notas	UPDATE	{"nota": 8.75, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 12, "id_malla": 74, "actualizar": "2026-11-20T01:13:08.697868-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	{"nota": 8.75, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 5, "id_per": 2, "estatus": "I", "id_nota": 12, "id_malla": 74, "actualizar": "2026-11-20T22:35:10.803523-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	2026-11-20 22:35:10.803523-04	127.0.0.1	A
 407	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-20T22:26:07.024889-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-20T22:38:38.728901-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-20 22:38:38.727887-04	\N	A
+410	\N	permisos_rol	UPDATE	{"id_pr": 104, "id_mod": 14, "id_rol": 3, "alcance": "SP", "estatus": "A", "id_perm": 2}	{"id_pr": 104, "id_mod": 14, "id_rol": 3, "alcance": "SP", "estatus": "I", "id_perm": 2}	2026-11-20 23:17:01.594141-04	\N	A
 \.
 
 
@@ -4724,9 +4726,7 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 99	2	3	1	TODO	A
 100	2	3	2	TODO	A
 101	3	13	3	SP	A
-102	3	13	2	SP	A
 103	3	14	3	SP	A
-104	3	14	2	SP	A
 105	3	10	3	SP	A
 106	3	10	1	TODO	A
 107	3	10	2	TODO	A
@@ -4767,6 +4767,8 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 154	3	15	4	TODO	A
 155	3	10	4	TODO	A
 86	2	6	3	LIM	A
+102	3	13	2	SP	I
+104	3	14	2	SP	I
 \.
 
 
@@ -4966,7 +4968,7 @@ SELECT pg_catalog.setval('academico.secciones_id_sec_seq', 6, true);
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 408, true);
+SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 410, true);
 
 
 --
@@ -7305,11 +7307,11 @@ ALTER TABLE ONLY personas.docentes
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-20 23:16:33
+-- Completed on 2026-11-20 23:18:12
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 5JnoFpB2sYhSalcB1ZfO5l95BJshR3wSKZBciIcRb76kpTgiaaurD1e4Axg1aDA
+\unrestrict ZAi85VweHJKUZ79pArWFDW8X2Pxi0zLSsf9ENhzU8mj4qpEB9hcysWXdD37E81h
 
