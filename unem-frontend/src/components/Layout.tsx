@@ -57,9 +57,9 @@ const REQ_MODULO: Record<string, [string, string]> = {
   '/malla':        ['malla', 'SP'],
   '/periodos':     ['periodos', 'SP'],
   '/secciones':    ['estudiantes', 'SP'],
-  '/docentes':     ['docentes', 'TODO'],
-  '/estudiantes':  ['estudiantes', 'TODO'],
-  '/asignaciones': ['asig_carga', 'TODO'],
+  '/docentes':     ['docentes', 'SP'],
+  '/estudiantes':  ['estudiantes', 'SP'],
+  '/asignaciones': ['asig_carga', 'SP'],
   '/espacios':     ['espacios', 'TODO'],
   '/notas':        ['notas', 'SP'],
   '/municipios':   ['municipios', 'LIM'],
@@ -183,8 +183,8 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   const current: NavItem | undefined = useMemo(
-    () => FLAT.find((i: NavItem) => loc.pathname.startsWith(i.to)),
-    [loc.pathname]
+    () => flatVisible.find((i: NavItem) => loc.pathname.startsWith(i.to)) ?? FLAT.find((i: NavItem) => loc.pathname.startsWith(i.to)),
+    [loc.pathname, flatVisible]
   );
 
   useEffect(() => {
