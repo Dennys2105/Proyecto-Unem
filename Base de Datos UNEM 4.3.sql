@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict fHBVBVCSLwNgeLyvIVJlM815dMPmRMGZko7f1aYvLPxEpvnjem1XaowOiM6KnED
+\restrict liNqN1ho5Zmf5jc3kQRBlgwQx8lBqyVFFN6ak2ZrLQCrfRkbBWzoxMJ16TzRIrH
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-20 23:54:39
+-- Started on 2026-11-21 09:24:35
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4082,6 +4082,13 @@ COPY academico.materias (id_mat, codigo, nombre, id_eje, unidades_creditos, desc
 --
 
 COPY academico.notas (id_nota, id_est, id_malla, id_per, nota, tipo_evaluacion, observaciones, fecha_registro, estatus, creado, actualizar) FROM stdin;
+29	9	27	1	8.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+30	9	28	1	11.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+31	9	29	1	14.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+33	12	27	1	17.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+34	12	28	1	8.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+35	12	29	1	11.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+37	13	27	1	12.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
 1	7	26	1	18.00	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
 2	8	26	1	15.50	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
 3	9	26	1	12.00	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
@@ -4090,11 +4097,55 @@ COPY academico.notas (id_nota, id_est, id_malla, id_per, nota, tipo_evaluacion, 
 6	12	26	1	14.25	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
 10	3	74	2	18.25	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
 11	4	74	2	11.00	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
+38	13	28	1	15.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
 8	1	74	2	16.00	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
+39	13	29	1	18.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
 9	2	74	2	13.50	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
+41	7	27	1	18.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+42	7	28	1	9.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+43	7	29	1	12.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+45	10	27	1	15.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+46	10	28	1	18.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
 13	6	74	2	17.50	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-20 01:09:24.253805-04
+47	10	29	1	9.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+49	2	75	2	15.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
 7	13	26	1	19.00	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	A	2026-11-13 16:55:56.866854-04	2026-11-20 01:35:58.829939-04
 12	5	74	2	8.75	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	I	2026-11-17 00:01:05.65978-04	2026-11-20 22:35:10.803523-04
+21	8	27	1	13.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+22	8	28	1	16.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+23	8	29	1	19.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+25	11	27	1	10.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+26	11	28	1	13.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+27	11	29	1	16.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+50	2	76	2	18.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+51	2	77	2	9.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+52	2	78	2	12.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+53	2	79	2	15.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+55	3	75	2	8.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+56	3	76	2	11.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+57	3	77	2	14.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+58	3	78	2	17.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+59	3	79	2	8.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+61	4	75	2	13.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+62	4	76	2	16.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+63	4	77	2	19.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+64	4	78	2	10.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+65	4	79	2	13.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+67	5	75	2	18.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+68	5	76	2	9.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+69	5	77	2	12.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+70	5	78	2	15.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+71	5	79	2	18.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+73	6	75	2	11.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+74	6	76	2	14.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+75	6	77	2	17.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+76	6	78	2	8.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+77	6	79	2	11.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+79	1	75	2	10.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+80	1	76	2	13.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+81	1	77	2	16.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+82	1	78	2	19.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
+83	1	79	2	10.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
 \.
 
 
@@ -4515,6 +4566,63 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 414	\N	permisos_rol	UPDATE	{"id_pr": 101, "id_mod": 13, "id_rol": 3, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 101, "id_mod": 13, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 3}	2026-11-20 23:48:34.584831-04	\N	A
 415	\N	permisos_rol	UPDATE	{"id_pr": 103, "id_mod": 14, "id_rol": 3, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 103, "id_mod": 14, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 3}	2026-11-20 23:48:34.584831-04	\N	A
 416	\N	permisos_rol	UPDATE	{"id_pr": 105, "id_mod": 10, "id_rol": 3, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 105, "id_mod": 10, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 3}	2026-11-20 23:48:48.111534-04	\N	A
+417	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T23:36:01.35986-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-21T00:03:58.350688-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 00:03:58.345359-04	\N	A
+418	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-21T00:03:58.350688-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-21T00:30:53.287009-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 00:30:53.271464-04	\N	A
+419	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-20T23:40:51.159603-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T00:32:18.477299-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 00:32:18.467538-04	\N	A
+420	1	estudiantes	UPDATE	{"cedula": "V-12516920", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 1, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "JAHYDDY GUADALUPE", "estatus": "A", "apellido": "HANTUCH MENDOZA", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T15:52:10.975223-04:00"}	{"cedula": "V-12516920", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 1, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "JAHYDDY GUADALUPE", "estatus": "I", "apellido": "HANTUCH MENDOZA", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T00:32:26.984184-04:00"}	2026-11-21 00:32:26.984184-04	127.0.0.1	A
+421	1	estudiantes	UPDATE	{"cedula": "V-12516920", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 1, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "JAHYDDY GUADALUPE", "estatus": "I", "apellido": "HANTUCH MENDOZA", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T00:32:26.984184-04:00"}	{"cedula": "V-12516920", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 1, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "JAHYDDY GUADALUPE", "estatus": "A", "apellido": "HANTUCH MENDOZA", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T00:32:30.593315-04:00"}	2026-11-21 00:32:30.593315-04	127.0.0.1	A
+422	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T00:32:18.477299-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T00:49:59.609507-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 00:49:59.593884-04	\N	A
+423	\N	notas	INSERT	\N	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 21, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+424	\N	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 22, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+425	\N	notas	INSERT	\N	{"nota": 19.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 23, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+426	\N	notas	INSERT	\N	{"nota": 10.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 25, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+427	\N	notas	INSERT	\N	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 26, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+428	\N	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 27, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+429	\N	notas	INSERT	\N	{"nota": 8.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 29, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+430	\N	notas	INSERT	\N	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 30, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+431	\N	notas	INSERT	\N	{"nota": 14.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 31, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+432	\N	notas	INSERT	\N	{"nota": 17.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 33, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+433	\N	notas	INSERT	\N	{"nota": 8.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 34, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+434	\N	notas	INSERT	\N	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 35, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+435	\N	notas	INSERT	\N	{"nota": 12.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 37, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+436	\N	notas	INSERT	\N	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 38, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+437	\N	notas	INSERT	\N	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 39, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+438	\N	notas	INSERT	\N	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 41, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+439	\N	notas	INSERT	\N	{"nota": 9.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 42, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+440	\N	notas	INSERT	\N	{"nota": 12.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 43, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+441	\N	notas	INSERT	\N	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 45, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+442	\N	notas	INSERT	\N	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 46, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+443	\N	notas	INSERT	\N	{"nota": 9.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 47, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+444	\N	notas	INSERT	\N	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 49, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+445	\N	notas	INSERT	\N	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 50, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+446	\N	notas	INSERT	\N	{"nota": 9.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 51, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+447	\N	notas	INSERT	\N	{"nota": 12.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 52, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+448	\N	notas	INSERT	\N	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 53, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+449	\N	notas	INSERT	\N	{"nota": 8.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 55, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+450	\N	notas	INSERT	\N	{"nota": 11.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 56, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+451	\N	notas	INSERT	\N	{"nota": 14.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 57, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+452	\N	notas	INSERT	\N	{"nota": 17.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 58, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+453	\N	notas	INSERT	\N	{"nota": 8.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 59, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+454	\N	notas	INSERT	\N	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 61, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+455	\N	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 62, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+456	\N	notas	INSERT	\N	{"nota": 19.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 63, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+457	\N	notas	INSERT	\N	{"nota": 10.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 64, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+458	\N	notas	INSERT	\N	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 65, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+459	\N	notas	INSERT	\N	{"nota": 18.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 67, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+460	\N	notas	INSERT	\N	{"nota": 9.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 68, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+461	\N	notas	INSERT	\N	{"nota": 12.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 69, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+462	\N	notas	INSERT	\N	{"nota": 15.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 70, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+463	\N	notas	INSERT	\N	{"nota": 18.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 71, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+464	\N	notas	INSERT	\N	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 73, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+465	\N	notas	INSERT	\N	{"nota": 14.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 74, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+466	\N	notas	INSERT	\N	{"nota": 17.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 75, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+467	\N	notas	INSERT	\N	{"nota": 8.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 76, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+468	\N	notas	INSERT	\N	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 77, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+469	\N	notas	INSERT	\N	{"nota": 10.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 79, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+470	\N	notas	INSERT	\N	{"nota": 13.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 80, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+471	\N	notas	INSERT	\N	{"nota": 16.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 81, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+472	\N	notas	INSERT	\N	{"nota": 19.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 82, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
+473	\N	notas	INSERT	\N	{"nota": 10.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 83, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	2026-11-21 09:23:06.684512-04	\N	A
 \.
 
 
@@ -4525,8 +4633,8 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 --
 
 COPY general.credenciales (id_cre, id_usu, password_hash, ultimo_acceso, intentos_fallidos, bloqueado_hasta) FROM stdin;
-2	2	$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg	2026-11-20 23:36:01.35986-04	0	\N
-1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-20 23:40:51.159603-04	0	\N
+2	2	$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg	2026-11-21 00:30:53.287009-04	0	\N
+1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-21 00:49:59.609507-04	0	\N
 \.
 
 
@@ -4900,7 +5008,7 @@ COPY personas.estudiantes (id_est, id_usu, cedula, id_mun, nombre, apellido, id_
 13	\N	V-21003553	23	ANNY YOHANA	SANABRIA ONTIVEROS	1	6	3	A	2026-11-13 16:55:56.866854-04	2026-11-15 11:38:05.916871-04	\N
 7	\N	V-13171134	23	DAYGNE YUBISAY	TREJO MORALES	1	6	3	A	2026-11-13 16:55:56.866854-04	2026-11-15 11:38:11.129673-04	\N
 10	\N	V-7873867	23	NIRIA ZULAY	COLINA GONZALEZ	1	6	3	A	2026-11-13 16:55:56.866854-04	2026-11-15 11:38:45.167368-04	\N
-1	\N	V-12516920	23	JAHYDDY GUADALUPE	HANTUCH MENDOZA	2	5	3	A	2026-11-13 16:20:59.408443-04	2026-11-15 15:52:10.975223-04	\N
+1	\N	V-12516920	23	JAHYDDY GUADALUPE	HANTUCH MENDOZA	2	5	3	A	2026-11-13 16:20:59.408443-04	2026-11-21 00:32:30.593315-04	\N
 \.
 
 
@@ -4937,7 +5045,7 @@ SELECT pg_catalog.setval('academico.materias_id_mat_seq', 95, true);
 -- Name: notas_id_nota_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
-SELECT pg_catalog.setval('academico.notas_id_nota_seq', 19, true);
+SELECT pg_catalog.setval('academico.notas_id_nota_seq', 83, true);
 
 
 --
@@ -4973,7 +5081,7 @@ SELECT pg_catalog.setval('academico.secciones_id_sec_seq', 6, true);
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 416, true);
+SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 473, true);
 
 
 --
@@ -7312,11 +7420,11 @@ ALTER TABLE ONLY personas.docentes
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-20 23:54:39
+-- Completed on 2026-11-21 09:24:36
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict fHBVBVCSLwNgeLyvIVJlM815dMPmRMGZko7f1aYvLPxEpvnjem1XaowOiM6KnED
+\unrestrict liNqN1ho5Zmf5jc3kQRBlgwQx8lBqyVFFN6ak2ZrLQCrfRkbBWzoxMJ16TzRIrH
 
