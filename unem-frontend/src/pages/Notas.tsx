@@ -15,6 +15,7 @@ import {
   FileSpreadsheet, List, CheckCircle2, XCircle, MinusCircle, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PageHero } from '../components/PageHero';
 
 const TIPOS_EVALUACION = ['Final'];
 
@@ -403,50 +404,33 @@ export const NotasPage = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* ENCABEZADO */}
-      <div className="flex items-start gap-4">
-        <div className="bg-indigo-100 p-3 rounded-xl"><ClipboardList className="text-indigo-600" size={32} /></div>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">Registro de Calificaciones</h1>
-          <p className="text-gray-600 mt-1 max-w-3xl">
-            Carga masiva por acta (sección + materia + período) o gestión individual.
-            Escala venezolana <strong>0-20</strong>; se aprueba con <strong>10</strong> o más.
-            Las notas anuladas se conservan para auditoría.
-          </p>
-        </div>
-      </div>
+    <div className="unem-page">
+      <PageHero
+        icon={ClipboardList}
+        titulo="Registro de Calificaciones"
+        descripcion={<>Carga masiva por acta (sección + materia + período) o gestión individual. Escala venezolana <b>0–20</b>; se aprueba con <b>10</b> o más. Las notas anuladas se conservan para auditoría.</>}
+      />
 
       {/* PESTAÑAS */}
-      <div className="flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => setTab('acta')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
-            tab === 'acta' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <FileSpreadsheet size={16} /> Acta de Calificaciones
+      <div className="unem-seg" style={{ alignSelf: 'flex-start' }}>
+        <button data-on={tab === 'acta'} onClick={() => setTab('acta')}>
+          <FileSpreadsheet size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Acta de Calificaciones
         </button>
-        <button
-          onClick={() => setTab('listado')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition ${
-            tab === 'listado' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <List size={16} /> Listado ({notas?.length ?? 0})
+        <button data-on={tab === 'listado'} onClick={() => setTab('listado')}>
+          <List size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Listado ({notas?.length ?? 0})
         </button>
       </div>
 
       {/* ================= PESTAÑA ACTA ================= */}
       {tab === 'acta' && (
         <>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
-            <div className="flex gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-              <Info size={18} className="shrink-0 mt-0.5" />
-              <p>
-               Selecciona la sección y la materia: el sistema traerá <strong>todos sus estudiantes activos</strong>.
-                Las casillas vacías se omiten (no borran notas existentes). Guardar dos veces <strong>actualiza</strong>, no duplica.
-              </p>
+          <div className="unem-card unem-card-pad" style={{ display: 'grid', gap: 16 }}>
+            <div className="unem-note">
+              <Info size={16} />
+              <span>
+                Selecciona la sección y la materia: el sistema traerá <b>todos sus estudiantes activos</b>.
+                Las casillas vacías se omiten (no borran notas existentes). Guardar dos veces <b>actualiza</b>, no duplica.
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -694,85 +678,83 @@ export const NotasPage = () => {
       {/* ================= PESTAÑA LISTADO ================= */}
       {tab === 'listado' && (
         <>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <section className="unem-card unem-card-pad">
+            <div className="unem-toolbar">
+              <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+                <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-3)' }} />
                 <input
                   type="text"
-                  placeholder="Buscar por cédula, estudiante o materia..."
+                  className="unem-input"
+                  style={{ paddingLeft: 34 }}
+                  placeholder="Buscar por cédula, estudiante o materia…"
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <select value={filtroPrograma} onChange={(e) => setFiltroPrograma(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <select className="unem-select" value={filtroPrograma} onChange={(e) => setFiltroPrograma(e.target.value)}>
                 <option value="">Todos los programas</option>
                 {listaProgramas.map((p) => <option key={p.id_pro} value={p.codigo}>{p.codigo}</option>)}
               </select>
-              <select value={filtroPeriodo} onChange={(e) => setFiltroPeriodo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <select className="unem-select" value={filtroPeriodo} onChange={(e) => setFiltroPeriodo(e.target.value)}>
                 <option value="">Todos los períodos</option>
                 {listaPeriodos.map((p) => <option key={p.id_per} value={p.id_per}>{p.nombre}</option>)}
               </select>
-              <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <select className="unem-select" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
                 <option value="">Toda evaluación</option>
                 {TIPOS_EVALUACION.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
-              <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <select className="unem-select" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
                 <option value="A">Solo vigentes</option>
                 <option value="I">Solo anuladas</option>
                 <option value="">Todos los estados</option>
               </select>
             </div>
-          </div>
+          </section>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {isLoading ? (
-              <div className="p-12 text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
-                <p className="text-gray-500 mt-4">Cargando calificaciones...</p>
-              </div>
-            ) : notasFiltradas.length === 0 ? (
-              <div className="p-12 text-center">
-                <ClipboardList className="mx-auto text-gray-300 mb-3" size={48} />
-                <p className="text-gray-500 font-medium">No se encontraron calificaciones</p>
-                <p className="text-gray-400 text-sm mt-1">Usa la pestaña "Acta de Calificaciones" para cargar notas.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
+          {isLoading ? (
+            <section className="unem-card unem-card-pad">
+              {[0, 1, 2, 3, 4].map((i: number) => <div key={i} className="unem-skel" style={{ height: 40, marginBottom: 10 }} />)}
+            </section>
+          ) : notasFiltradas.length === 0 ? (
+            <div className="unem-empty">
+              <span className="unem-empty-i"><ClipboardList size={34} /></span>
+              <p>No se encontraron calificaciones.</p>
+              <p style={{ fontSize: 12, color: 'var(--tx-3)' }}>Usa la pestaña «Acta de Calificaciones» para cargar notas.</p>
+            </div>
+          ) : (
+            <div className="unem-table-wrap unem-scroll">
+              <table className="unem-table">
+                <thead>
+                  <tr>
+                    {columns.map((col) => (
+                      <th key={col.key}>
+                        {col.sortable ? (
+                          <button className="unem-th-btn" onClick={() => toggleSort(col.key as SortKey)}>
+                            {col.label}<SortIcon colKey={col.key as SortKey} />
+                          </button>
+                        ) : col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {notasFiltradas.map((n: Nota) => (
+                    <tr key={n.id_nota}>
                       {columns.map((col) => (
-                        <th key={col.key} className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">
-                          {col.sortable ? (
-                            <button onClick={() => toggleSort(col.key as SortKey)} className="inline-flex items-center gap-1 hover:text-indigo-700 transition uppercase">
-                              {col.label}<SortIcon colKey={col.key as SortKey} />
-                            </button>
-                          ) : col.label}
-                        </th>
+                        <td key={col.key}>
+                          {col.render ? col.render((n as any)[col.key], n) : String((n as any)[col.key] ?? '—')}
+                        </td>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {notasFiltradas.map((n: Nota) => (
-                      <tr key={n.id_nota} className="hover:bg-gray-50 transition">
-                        {columns.map((col) => (
-                          <td key={col.key} className="px-4 py-3 text-sm text-gray-700">
-                            {col.render ? col.render((n as any)[col.key], n) : String((n as any)[col.key] ?? '—')}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-          <p className="text-xs text-gray-500 text-center">
+          <p style={{ fontSize: 11.5, color: 'var(--tx-3)', textAlign: 'center' }}>
             Mostrando {notasFiltradas.length} de {notas?.length ?? 0} calificaciones registradas
-            {' · '}Ordenado por <span className="font-semibold">{sortKey === 'id_nota' ? 'ID' : sortKey === 'nota' ? 'Nota' : 'Estudiante'}</span> ({sortDir === 'asc' ? 'ascendente' : 'descendente'})
+            {' · '}Ordenado por <b>{sortKey === 'id_nota' ? 'ID' : sortKey === 'nota' ? 'Nota' : 'Estudiante'}</b> ({sortDir === 'asc' ? 'ascendente' : 'descendente'})
           </p>
         </>
       )}

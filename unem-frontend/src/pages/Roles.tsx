@@ -4,6 +4,7 @@ import type { Usuario, MatrizPermiso } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
 import { Shield, User, Save, X, Plus, KeyRound, UserX, UserCheck, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PageHero } from '../components/PageHero';
 
 const ALCANCE_CONFIG = {
   TODO: { color: 'bg-green-100 text-green-700 border-green-300', label: 'Total' },
@@ -206,45 +207,37 @@ export const Roles = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="flex items-start gap-4">
-        <div className="bg-indigo-100 p-3 rounded-xl">
-          <Shield className="text-indigo-600" size={32} />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestión de Usuarios y Permisos</h1>
-          <p className="text-gray-600 mt-1">
-            Administra los usuarios del sistema y sus permisos personalizados
-          </p>
-        </div>
-      </div>
+    <div className="unem-page">
+      <PageHero
+        icon={Shield}
+        titulo="Gestión de Usuarios y Permisos"
+        descripcion="Cuentas del sistema, roles y permisos personalizados por usuario. El Administrador conserva acceso total por diseño."
+      />
 
       {/* Tabla de Usuarios */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+      <div className="unem-card" style={{ overflow: 'hidden' }}>
+        <div className="unem-toolbar" style={{ justifyContent: 'space-between', borderBottom: '1px solid var(--line-2)', padding: '14px 18px' }}>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Usuarios del Sistema</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <b style={{ fontSize: 14, color: 'var(--tx-1)' }}>Usuarios del Sistema</b>
+            <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--tx-3)' }}>
               Los cambios de rol/permisos aplican cuando el usuario vuelve a iniciar sesión.
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+            <label className="unem-check">
               <input
                 type="checkbox"
                 checked={mostrarInactivos}
                 onChange={(e) => setMostrarInactivos(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
               />
               Mostrar inactivos
             </label>
             {puedeCrear && (
               <button
+                className="unem-btn unem-btn-primary"
                 onClick={() => { setForm(FORM_INICIAL); setVerPass(false); setModalCrear(true); }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm"
               >
-                <Plus size={16} /> Nuevo Usuario
+                <Plus size={15} /> Nuevo Usuario
               </button>
             )}
           </div>

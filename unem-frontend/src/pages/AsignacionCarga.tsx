@@ -19,6 +19,7 @@ import {
 import type { AsignacionCarga, AsignacionCreate, AsignacionUpdate } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
 import { ordenarNaturalPor } from '../utils/ordenarNatural';
+import { PageHero } from '../components/PageHero';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -243,68 +244,65 @@ export const AsignacionCargaPage = () => {
   }, [asignacionesFiltradas]);
 
   return (
-    <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Asignación de Carga Horaria</h1>
-          <p className="text-gray-600 mt-1">Gestione las asignaciones, evite solapamientos y genere reportes</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {puedeEditar && (
-            <button onClick={openCreateModal} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm">
-              <Calendar size={16} /> Nueva Asignación
+    <div className="unem-page">
+      <PageHero
+        icon={Calendar}
+        titulo="Asignación de Carga Horaria"
+        descripcion="Docente · materia · aula · hora. El sistema bloquea solapamientos de docente y de espacio, y recalcula las horas automáticamente."
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            {puedeEditar && (
+              <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
+                <Calendar size={15} /> Nueva Asignación
+              </button>
+            )}
+            <button className="unem-btn" onClick={() => setIsReportModalOpen(true)}>
+              <FileText size={15} /> Reportes PDF
             </button>
-          )}
-          <button onClick={() => setIsReportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm font-medium shadow-sm">
-            <FileText size={16} /> Reportes PDF
-          </button>
-          <button 
-            onClick={() => exportToExcel(
-              (asignaciones || []).map(a => {
-                const doc = docentes?.find(d => d.id_doc === a.id_doc);
-                const malla = mallas?.find(m => m.id_malla === a.id_malla);
-                const esp = espacios?.find(e => e.id_esp === a.id_esp);
-                return {
-                  'ID': a.id_asig,
-                  'Docente': doc ? `${doc.nombre} ${doc.apellido}` : 'N/A',
-                  'Materia': malla?.materia?.nombre || 'N/A',
-                  'Programa': malla?.programa?.codigo || 'N/A',
-                  'Día': dias?.find(d => d.id_dia === a.id_dia)?.dia || 'N/A',
-                  'Inicio': a.hora_inicio?.slice(0, 5) || 'N/A',
-                  'Fin': a.hora_fin?.slice(0, 5) || 'N/A',
-                  'Espacio': esp ? `${esp.ubicacion} - ${esp.nombre_centro}` : 'N/A',
-                  'Tipo': a.tipo_actividad || 'Carga Académica',
-                };
-              }), 
-              'Reporte_Carga_Horaria'
-            )} 
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium shadow-sm"
-          >
-            <FileSpreadsheet size={16} /> Excel
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={() => exportToExcel(
+                (asignaciones || []).map(a => {
+                  const doc = docentes?.find(d => d.id_doc === a.id_doc);
+                  const malla = mallas?.find(m => m.id_malla === a.id_malla);
+                  const esp = espacios?.find(e => e.id_esp === a.id_esp);
+                  return {
+                    'ID': a.id_asig,
+                    'Docente': doc ? `${doc.nombre} ${doc.apellido}` : 'N/A',
+                    'Materia': malla?.materia?.nombre || 'N/A',
+                    'Programa': malla?.programa?.codigo || 'N/A',
+                    'Día': dias?.find(d => d.id_dia === a.id_dia)?.dia || 'N/A',
+                    'Inicio': a.hora_inicio?.slice(0, 5) || 'N/A',
+                    'Fin': a.hora_fin?.slice(0, 5) || 'N/A',
+                    'Espacio': esp ? `${esp.ubicacion} - ${esp.nombre_centro}` : 'N/A',
+                    'Tipo': a.tipo_actividad || 'Carga Académica',
+                  };
+                }),
+                'Reporte_Carga_Horaria'
+              )}
+              className="unem-btn"
+            >
+              <FileSpreadsheet size={16} /> Excel
+            </button>
+          </div>
+        }
+      />
 
       {/* Filtros Rápidos */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="flex items-center gap-2 text-gray-600">
-            <Clock size={18} className="text-blue-600" />
-            <span className="font-medium">Vista Horario Semanal</span>
-          </div>
-          <div className="flex gap-2 w-full md:w-auto">
-            <select value={filtroDocente} onChange={(e) => setFiltroDocente(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-48">
-              <option value="">Todos los docentes</option>
-              {docentes?.map(d => <option key={d.id_doc} value={d.id_doc}>{d.nombre} {d.apellido}</option>)}
-            </select>
-            <select value={filtroEspacio} onChange={(e) => setFiltroEspacio(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-48">
-              <option value="">Todos los espacios</option>
-              {espacios?.map(e => <option key={e.id_esp} value={e.id_esp}>{e.ubicacion}</option>)}
-            </select>
-          </div>
+      <section className="unem-card unem-card-pad">
+        <div className="unem-toolbar">
+          <span className="unem-chip unem-chip-upd">
+            <Clock size={13} /> Vista Horario Semanal
+          </span>
+          <select className="unem-select" value={filtroDocente} onChange={(e) => setFiltroDocente(e.target.value)}>
+            <option value="">Todos los docentes</option>
+            {docentes?.map(d => <option key={d.id_doc} value={d.id_doc}>{d.nombre} {d.apellido}</option>)}
+          </select>
+          <select className="unem-select" value={filtroEspacio} onChange={(e) => setFiltroEspacio(e.target.value)}>
+            <option value="">Todos los espacios</option>
+            {espacios?.map(e => <option key={e.id_esp} value={e.id_esp}>{e.ubicacion}</option>)}
+          </select>
         </div>
-      </div>
+      </section>
 
       {/* VISTA HORARIO SEMANAL VISUAL */}
       {isLoading ? (

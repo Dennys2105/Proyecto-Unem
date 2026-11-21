@@ -199,9 +199,9 @@ export const Dashboard = () => {
       </div>
 
       {/* GRÁFICA 1: CARGA HORARIA REAL POR DÍA */}
-      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 ${claseAtenuada}`}>
+      <div className={`unem-card unem-card-pad ${claseAtenuada}`}>
         <div className="flex items-center gap-2 mb-1">
-          <BarChart3 className="text-blue-600" size={22} />
+          <BarChart3 size={22} style={{ color: 'var(--info)' }} />
           <h2 className="text-xl font-bold text-gray-900">Carga Horaria Semanal por Día</h2>
         </div>
         <p className="text-sm text-gray-500 mb-6">
@@ -233,9 +233,9 @@ export const Dashboard = () => {
 
       {/* FILA: CONTRATOS + PROGRAMAS */}
       <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${claseAtenuada}`}>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="unem-card unem-card-pad">
           <div className="flex items-center gap-2 mb-1">
-            <PieIcon className="text-purple-600" size={22} />
+            <PieIcon size={22} style={{ color: 'var(--indigo-lt)' }} />
             <h2 className="text-lg font-bold text-gray-900">Docentes por Tipo de Contrato</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">Distribución real del personal activo.</p>
@@ -278,9 +278,9 @@ export const Dashboard = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="unem-card unem-card-pad">
           <div className="flex items-center gap-2 mb-1">
-            <GraduationCap className="text-indigo-600" size={22} />
+            <GraduationCap size={22} style={{ color: 'var(--indigo)' }} />
             <h2 className="text-lg font-bold text-gray-900">Estudiantes por Programa</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">Matrícula activa en programas vigentes.</p>
@@ -316,9 +316,9 @@ export const Dashboard = () => {
       </div>
 
       {/* OCUPACIÓN DE ESPACIOS */}
-      <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 ${claseAtenuada}`}>
+      <div className={`unem-card unem-card-pad ${claseAtenuada}`}>
         <div className="flex items-center gap-2 mb-1">
-          <Building2 className="text-rose-600" size={22} />
+          <Building2 size={22} style={{ color: 'var(--violet)' }} />
           <h2 className="text-xl font-bold text-gray-900">Ranking de Ocupación de Espacios</h2>
         </div>
         <p className="text-sm text-gray-500 mb-6">
