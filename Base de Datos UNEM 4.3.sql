@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict lVWSCFnXyLfB4PW9mMPJp8qlHmxujF7Jnp7LnA7M8RBdffl5kBf8K2gIpOUDVdK
+\restrict DvXXxErlQS6ieMHyhw4dlxZB602gVBkDeJVB7e7V7JQXAVtXsJtFze8BimIIFpe
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-20 21:58:18
+-- Started on 2026-11-20 22:24:13
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -4303,6 +4303,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 150	\N	malla_curricular	UPDATE	{"orden": 3, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 40, "id_pro": 1, "estatus": "A", "periodo": 10, "id_malla": 40, "trayecto": 4, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 3, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 40, "id_pro": 1, "estatus": "A", "periodo": 1, "id_malla": 40, "trayecto": 4, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 151	\N	malla_curricular	UPDATE	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 41, "id_pro": 1, "estatus": "A", "periodo": 10, "id_malla": 41, "trayecto": 4, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 41, "id_pro": 1, "estatus": "A", "periodo": 1, "id_malla": 41, "trayecto": 4, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 152	\N	malla_curricular	UPDATE	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 41, "id_pro": 1, "estatus": "A", "periodo": 10, "id_malla": 41, "trayecto": 4, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 41, "id_pro": 1, "estatus": "A", "periodo": 1, "id_malla": 41, "trayecto": 4, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
+403	\N	permisos_rol	INSERT	\N	{"id_pr": 155, "id_mod": 10, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 4}	2026-11-20 22:18:59.282952-04	\N	A
 153	\N	malla_curricular	UPDATE	{"orden": 1, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 42, "id_pro": 1, "estatus": "A", "periodo": 11, "id_malla": 42, "trayecto": 4, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 1, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 42, "id_pro": 1, "estatus": "A", "periodo": 2, "id_malla": 42, "trayecto": 4, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 154	\N	malla_curricular	UPDATE	{"orden": 1, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 42, "id_pro": 1, "estatus": "A", "periodo": 11, "id_malla": 42, "trayecto": 4, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 1, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 42, "id_pro": 1, "estatus": "A", "periodo": 2, "id_malla": 42, "trayecto": 4, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 155	\N	malla_curricular	UPDATE	{"orden": 2, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 43, "id_pro": 1, "estatus": "A", "periodo": 11, "id_malla": 43, "trayecto": 4, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 2, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 43, "id_pro": 1, "estatus": "A", "periodo": 2, "id_malla": 43, "trayecto": 4, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
@@ -4760,6 +4761,7 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 146	2	16	3	TODO	A
 153	3	16	3	SP	A
 154	3	15	4	TODO	A
+155	3	10	4	TODO	A
 \.
 
 
@@ -4959,7 +4961,7 @@ SELECT pg_catalog.setval('academico.secciones_id_sec_seq', 6, true);
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 402, true);
+SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 403, true);
 
 
 --
@@ -5013,7 +5015,7 @@ SELECT pg_catalog.setval('general.permisos_id_perm_seq', 4, true);
 -- Name: permisos_rol_id_pr_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.permisos_rol_id_pr_seq', 154, true);
+SELECT pg_catalog.setval('general.permisos_rol_id_pr_seq', 155, true);
 
 
 --
@@ -7298,11 +7300,11 @@ ALTER TABLE ONLY personas.docentes
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-20 21:58:18
+-- Completed on 2026-11-20 22:24:13
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lVWSCFnXyLfB4PW9mMPJp8qlHmxujF7Jnp7LnA7M8RBdffl5kBf8K2gIpOUDVdK
+\unrestrict DvXXxErlQS6ieMHyhw4dlxZB602gVBkDeJVB7e7V7JQXAVtXsJtFze8BimIIFpe
 
