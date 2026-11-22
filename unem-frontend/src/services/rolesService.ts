@@ -1,5 +1,5 @@
 import api from '../lib/axios';
-import type { Usuario, MatrizPermiso } from '../types/models';
+import type { Rol, RolCreate, RolUpdate, Usuario, MatrizPermiso } from '../types/models';
 
 interface BackendPermisoEfectivo {
   id_usu: number;
@@ -43,6 +43,25 @@ const PERMISO_CODE_TO_ID: Record<string, number> = {
 const celdaVacia = () => ({ activo: false, alcance: 'NAD' as const, esPersonalizado: false });
 
 export const rolesService = {
+  getAll: async (): Promise<Rol[]> => {
+    const response = await api.get('/roles/');
+    return response.data;
+  },
+
+  create: async (data: RolCreate): Promise<Rol> => {
+    const response = await api.post('/roles/', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: RolUpdate): Promise<Rol> => {
+    const response = await api.patch(`/roles/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/roles/${id}`);
+  },
+
   // 1. Usuarios (activos por defecto; opcionalmente incluye inactivos)
   getAllUsuarios: async (incluirInactivos = false): Promise<Usuario[]> => {
     const response = await api.get('/permisos/usuarios', { params: { incluir_inactivos: incluirInactivos } });

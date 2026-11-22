@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { rolService } from '../services/rolService';
+import { rolesService } from '../services/rolesService';
 import type { RolCreate, RolUpdate } from '../types/models';
 
 export const useRoles = () => {
@@ -7,11 +7,11 @@ export const useRoles = () => {
 
   const { data: roles, isLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: rolService.getAll,
+    queryFn: rolesService.getAll,
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: RolCreate) => rolService.create(data),
+    mutationFn: (data: RolCreate) => rolesService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
     },
@@ -19,14 +19,14 @@ export const useRoles = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: RolUpdate }) =>
-      rolService.update(id, data),
+      rolesService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => rolService.delete(id),
+    mutationFn: (id: number) => rolesService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
     },

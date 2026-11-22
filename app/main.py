@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config.db_conection import engine, get_session
 from app.router.roles_route import router as roles_router
@@ -70,3 +74,24 @@ app.include_router(permisos_router)
 app.include_router(exportar)
 app.include_router(reportes_seguridad_router)
 app.include_router(analitica_router)
+
+# ============================================================
+# SERVICIO DEL FRONTEND ESTÁTICO (para Opción A: .bat)
+# ============================================================
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "unem-frontend" / "dist"
+
+if FRONTEND_DIST.is_dir():
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        if full_path.startswith(("api", "docs", "redoc", "openapi.json")):
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+        frontend_root = FRONTEND_DIST.resolve()
+        file_path = (frontend_root / full_path).resolve()
+        if frontend_root in file_path.parents and file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(frontend_root / "index.html"))
