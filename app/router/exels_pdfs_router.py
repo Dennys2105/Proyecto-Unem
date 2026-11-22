@@ -305,7 +305,7 @@ HTML_TEMPLATE = """
     <table class="horario" cellspacing="0" cellpadding="0">
         <colgroup>
             <col style="width: 10%;" />
-            {% for dia in dias %}<col style="width: 15%;" />{% endfor %}
+            {% for dia in dias %}<col style="width: {{ ancho_columna_dia }}%;" />{% endfor %}
         </colgroup>
         <thead>
             <tr>
@@ -344,15 +344,31 @@ def descargar_horario_docente_pdf(
 ):
     _validar_asignaciones_docente(session, cedula)
 
-    # 1. Consultar la vista de horario completo
+    dias_activos = session.execute(text("""
+        SELECT dia
+        FROM general.dias_laborales
+        WHERE estatus = 'A'
+        ORDER BY orden
+    """)).scalars().all()
+    dias_semana = [str(dia).strip().capitalize() for dia in dias_activos]
+    if not dias_semana:
+        raise HTTPException(status_code=404, detail="No hay días laborales activos.")
+
+    # 1. Consultar la vista de horario completo solo para días activos
     query = text("""
         SELECT 
             cedula, nombre_completo_docente, tipo_contrato,
             cod_programa, cod_materia, materia, uc,
             periodo_academico, dia, hora_inicio, hora_fin,
             espacio_fisico, nombre_centro, tipo_actividad
-        FROM personas.vw_horario_completo_docente
-        WHERE cedula = :cedula
+        FROM personas.vw_horario_completo_docente AS horario
+        WHERE horario.cedula = :cedula
+          AND EXISTS (
+              SELECT 1
+              FROM general.dias_laborales AS dia_activo
+              WHERE dia_activo.estatus = 'A'
+                AND dia_activo.dia = horario.dia
+          )
         ORDER BY hora_inicio ASC
     """).params(cedula=cedula)
 
@@ -367,7 +383,6 @@ def descargar_horario_docente_pdf(
     # Crear etiqueta de rango horario (ej: "08:00 - 10:00")
     df["bloque"] = df["hora_inicio"].astype(str).str[:5] + " - " + df["hora_fin"].astype(str).str[:5]
     
-    dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
     bloques_unicos = df["bloque"].unique().tolist()
 
     # Construir diccionario estructurado: matriz[bloque][dia] = [lista_de_clases]
@@ -385,6 +400,7 @@ def descargar_horario_docente_pdf(
         "contrato": primer_reg["tipo_contrato"],
         "periodo": primer_reg["periodo_academico"],
         "dias": dias_semana,
+        "ancho_columna_dia": 90 / len(dias_semana),
         "matriz": matriz
     }
 

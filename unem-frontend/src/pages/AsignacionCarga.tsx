@@ -63,7 +63,7 @@ export const AsignacionCargaPage = () => {
   const [filtroDocente, setFiltroDocente] = useState<string>('');
   const [filtroEspacio, setFiltroEspacio] = useState<string>('');
 
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<AsignacionFormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<AsignacionFormData>({
     resolver: zodResolver(asignacionSchema),
   });
 
@@ -449,10 +449,15 @@ export const AsignacionCargaPage = () => {
 
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-700">Sección (Opcional)</label>
-                  <select {...register('id_sec')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <select {...register('id_sec', { onChange: (event) => {
+                    const selectedSection = secciones?.find((section) => section.id_sec.toString() === event.target.value);
+                    if (selectedSection?.id_per) setValue('id_per', selectedSection.id_per.toString());
+                  } })} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     <option value="">Sin sección específica</option>
                     {(secciones ?? []).filter((s) => s.estatus === 'A').map((s) => (
-                      <option key={s.id_sec} value={s.id_sec}>{s.codigo} (T{s.trayecto}-P{s.periodo})</option>
+                      <option key={s.id_sec} value={s.id_sec} disabled={!s.id_per || s.periodo_finalizado}>
+                        {s.codigo} (T{s.trayecto}-P{s.periodo}) · {s.periodo_academico?.nombre || (s.periodo_finalizado ? 'Finalizado' : 'Sin período')}
+                      </option>
                     ))}
                   </select>
                 </div>

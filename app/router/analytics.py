@@ -5,6 +5,7 @@ from datetime import date
 from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual
 from app.config.db_conection import get_session 
 from app.models.model_read_only import VwResumenEstadisticoRead,VwPermisosEfectivosRead,VwMovimientosRead,VwHorarioCompletoDocenteRead, VwDocentesPorContratoRead, VwDocentesPorProgramaMunicipioRead, VwAnalisisNotas
+from app.service.notas_reglas import SQL_NOTA_MINIMA_APROBATORIA
 router = APIRouter(prefix="/analytics", tags=["Analítica y Reportes"])
 
 #No se a implementado la funcion de autenticacion para facilitar las pruebas 
@@ -369,6 +370,33 @@ def periodo_vigente(
     }
 
 
+@router.get("/periodos-vigentes")
+def periodos_vigentes(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(obtener_usuario_actual)
+):
+    """Devuelve los períodos vigentes de cada tipo."""
+    statement = text("""
+        SELECT id_per, nombre, anio, numero_periodo, tipo, fecha_inicio, fecha_fin
+        FROM academico.periodos_academicos
+        WHERE activo = true AND estatus = 'A'
+        ORDER BY tipo, anio DESC, numero_periodo DESC
+    """)
+    rows = session.exec(statement).mappings().all()
+    return [
+        {
+            "id_per": row["id_per"],
+            "nombre": row["nombre"],
+            "anio": int(row["anio"]),
+            "numero_periodo": int(row["numero_periodo"]),
+            "tipo": row["tipo"],
+            "fecha_inicio": str(row["fecha_inicio"]),
+            "fecha_fin": str(row["fecha_fin"]),
+        }
+        for row in rows
+    ]
+
+
 @router.get("/cobertura-notas")
 def cobertura_notas(
     session: Session = Depends(get_session),
@@ -417,8 +445,12 @@ def rendimiento_academico(
     cte = f"""
         WITH definitivas AS (
             SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
-                   n.id_est, n.id_malla, n.id_per, n.nota
+                   n.id_est, n.id_malla, n.id_per, n.nota,
+                   {SQL_NOTA_MINIMA_APROBATORIA} AS nota_minima_aprobatoria
             FROM academico.notas n
+            JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
+            JOIN academico.materias m ON m.id_mat = mc.id_mat
+            JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
             WHERE n.estatus = 'A'
               AND n.tipo_evaluacion IN ('Final', 'Recuperación')
               {filtro}
@@ -436,15 +468,13 @@ def rendimiento_academico(
             COALESCE(round(stddev(nota), 2), 0)                        AS desviacion_estandar,
             COALESCE(min(nota), 0)                                     AS nota_minima,
             COALESCE(max(nota), 0)                                     AS nota_maxima,
-            count(CASE WHEN nota >= 10 THEN 1 END)                     AS aprobados,
-            count(CASE WHEN nota <  10 THEN 1 END)                     AS reprobados,
-            COALESCE(round(count(CASE WHEN nota >= 10 THEN 1 END)::numeric
+            count(CASE WHEN nota >= nota_minima_aprobatoria THEN 1 END) AS aprobados,
+            count(CASE WHEN nota < nota_minima_aprobatoria THEN 1 END)  AS reprobados,
+            COALESCE(round(count(CASE WHEN nota >= nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2), 0)               AS porcentaje_aprobacion,
             count(CASE WHEN nota >= 18 THEN 1 END)                     AS r_excelencia,
-            count(CASE WHEN nota >= 15 AND nota < 18 THEN 1 END)       AS r_notable,
-            count(CASE WHEN nota >= 10 AND nota < 15 THEN 1 END)       AS r_aprobado,
-            count(CASE WHEN nota >=  5 AND nota < 10 THEN 1 END)       AS r_reprobado,
-            count(CASE WHEN nota <   5 THEN 1 END)                     AS r_critico
+            count(CASE WHEN nota >= nota_minima_aprobatoria AND nota < 18 THEN 1 END) AS r_aprobado,
+            count(CASE WHEN nota < nota_minima_aprobatoria THEN 1 END) AS r_reprobado
         FROM definitivas
     """).params(**params)).mappings().first()
 
@@ -462,10 +492,8 @@ def rendimiento_academico(
 
     distribucion = [
         {"rango": "Excelencia (18-20)", "cantidad": int(row["r_excelencia"] or 0), "color": "#059669"},
-        {"rango": "Notable (15-17)",    "cantidad": int(row["r_notable"] or 0),    "color": "#2563eb"},
-        {"rango": "Aprobado (10-14)",   "cantidad": int(row["r_aprobado"] or 0),   "color": "#7c3aed"},
-        {"rango": "Reprobado (5-9)",    "cantidad": int(row["r_reprobado"] or 0),  "color": "#d97706"},
-        {"rango": "Crítico (0-4)",      "cantidad": int(row["r_critico"] or 0),    "color": "#dc2626"},
+        {"rango": "Aprobado (mínimo según eje)", "cantidad": int(row["r_aprobado"] or 0), "color": "#7c3aed"},
+        {"rango": "Reprobado (mínimo según eje)", "cantidad": int(row["r_reprobado"] or 0), "color": "#d97706"},
     ]
 
     # --- 2. Cobertura de evaluación ---
@@ -489,8 +517,8 @@ def rendimiento_academico(
                count(*)                        AS evaluaciones,
                count(DISTINCT d.id_est)        AS estudiantes,
                round(avg(d.nota), 2)           AS promedio,
-               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2)    AS porcentaje_aprobacion
         FROM definitivas d
         JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
@@ -702,11 +730,15 @@ def info_sistema(
 # distribución geográfica e histograma fino de notas.
 # ============================================================
 
-_CTE_DEFINITIVAS = """
+_CTE_DEFINITIVAS = f"""
     WITH definitivas AS (
         SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
-               n.id_est, n.id_malla, n.id_per, n.nota
+               n.id_est, n.id_malla, n.id_per, n.nota,
+               {SQL_NOTA_MINIMA_APROBATORIA} AS nota_minima_aprobatoria
         FROM academico.notas n
+        JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
+        JOIN academico.materias m ON m.id_mat = mc.id_mat
+        JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
         WHERE n.estatus = 'A'
           AND n.tipo_evaluacion IN ('Final', 'Recuperación')
         ORDER BY n.id_est, n.id_malla, n.id_per,
@@ -727,8 +759,8 @@ def tendencia_academica(
                count(*)                          AS evaluaciones,
                count(DISTINCT d.id_est)          AS estudiantes,
                round(avg(d.nota), 2)             AS promedio,
-               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2)    AS pct_aprobacion
         FROM definitivas d
         JOIN academico.periodos_academicos pa ON pa.id_per = d.id_per
@@ -761,8 +793,8 @@ def desempeno_por_trayecto(
                count(*)                          AS evaluaciones,
                count(DISTINCT d.id_est)          AS estudiantes,
                round(avg(d.nota), 2)             AS promedio,
-               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2)    AS pct_aprobacion
         FROM definitivas d
         JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
@@ -794,8 +826,8 @@ def desempeno_por_eje(
                count(DISTINCT m.id_mat)          AS materias,
                count(*)                          AS evaluaciones,
                round(avg(d.nota), 2)             AS promedio,
-               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2)    AS pct_aprobacion
         FROM definitivas d
         JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla

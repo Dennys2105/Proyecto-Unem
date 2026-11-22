@@ -34,8 +34,8 @@ export const useSecciones = () => {
   return {
     secciones,
     isLoading,
-    createSeccion: createMutation.mutate,
-    updateSeccion: updateMutation.mutate,
+    createSeccion: createMutation.mutateAsync,
+    updateSeccion: updateMutation.mutateAsync,
     deleteSeccion: deleteMutation.mutate,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,

@@ -8,6 +8,7 @@ from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,Estudi
 import app.service.estudiante_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
 from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual,verificar_permiso, docente_del_usuario, secciones_del_docente, es_docente_sp
+from app.dependencies.seccion_deps import validar_seccion_para_nueva_operacion
 from sqlmodel import select
 
 router= APIRouter(
@@ -21,7 +22,7 @@ def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends
     usuario = service.existe_llave_foranea_usu(session,estudiante_in.id_usu)
     municipio = service.existe_llave_foranea_mun(session,estudiante_in.id_mun)
     prog = service.existe_llave_foranea_pro(session,estudiante_in.id_pro)
-    seccion = service.existe_llave_foranea_usu(session,estudiante_in.id_sec)
+    seccion = service.existe_llave_foranea_sec(session,estudiante_in.id_sec) if estudiante_in.id_sec is not None else None
     
     if not usuario:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no existe")
@@ -32,6 +33,9 @@ def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends
     elif not seccion:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Seccion no existe")
     
+    if estudiante_in.id_sec is not None:
+        validar_seccion_para_nueva_operacion(session, estudiante_in.id_sec)
+
     validar_unicidad(Estudiante,['cedula',"id_usu"])(estudiante_in,session)
     return service.crear(session, estudiante_in)
 
@@ -87,6 +91,8 @@ def actualizar_parcial_estudiante(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Estudiante no encontrado"
         )
+    if dato_in.id_sec is not None and dato_in.id_sec != db_dato.id_sec:
+        validar_seccion_para_nueva_operacion(session, dato_in.id_sec)
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 

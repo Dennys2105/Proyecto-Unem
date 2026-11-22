@@ -29,8 +29,8 @@ export const descargarActaNotas = (
   return descargar(ruta, `acta_notas_${idMalla}_${idPer}.xlsx`);
 };
 
-export const descargarEstudiantesSeccion = (codigoSeccion: string): Promise<void> =>
-  descargar(`/exportar/estudiantes/seccion/exel?codigo_seccion=${encodeURIComponent(codigoSeccion)}`, `seccion_${codigoSeccion}.xlsx`);
+export const descargarEstudiantesSeccion = (idSeccion: number): Promise<void> =>
+  descargar(`/exportar/seccion/exel?id_sec=${idSeccion}`, `seccion_${idSeccion}.xlsx`);
 
 export const descargarHorarioDocente = (cedula: string): Promise<void> =>
   descargar(`/exportar/Horario_docente/pdf?cedula=${encodeURIComponent(cedula)}`, `horario_${cedula}.pdf`);

@@ -4,6 +4,10 @@ import type { PeriodoCreate, PeriodoUpdate } from '../types/models';
 
 export const usePeriodos = () => {
   const queryClient = useQueryClient();
+  const invalidarConsultasPeriodos = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['periodos'] }),
+    queryClient.invalidateQueries({ queryKey: ['analytics', 'periodos-vigentes'] }),
+  ]);
 
   const { data: periodos, isLoading, refetch } = useQuery({
     queryKey: ['periodos'],
@@ -12,23 +16,23 @@ export const usePeriodos = () => {
 
   const createMutation = useMutation({
     mutationFn: (data: PeriodoCreate) => periodoService.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['periodos'] }),
+    onSuccess: invalidarConsultasPeriodos,
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: PeriodoUpdate }) =>
       periodoService.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['periodos'] }),
+    onSuccess: invalidarConsultasPeriodos,
   });
 
   const activarMutation = useMutation({
     mutationFn: (id: number) => periodoService.activar(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['periodos'] }),
+    onSuccess: invalidarConsultasPeriodos,
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => periodoService.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['periodos'] }),
+    onSuccess: invalidarConsultasPeriodos,
   });
 
   return {

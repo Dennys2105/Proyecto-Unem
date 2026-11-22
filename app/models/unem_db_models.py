@@ -355,6 +355,7 @@ class PeriodoAcademico(SQLModel, table=True):
     #relaciones
     asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="periodo_academico")
     notas: list["Nota"] = Relationship(back_populates="periodo_academico")
+    secciones: list["Seccion"] = Relationship(back_populates="periodo_academico")
 
 class Seccion(SQLModel, table=True):
     __tablename__ = "secciones"
@@ -363,6 +364,7 @@ class Seccion(SQLModel, table=True):
     id_sec: Optional[int] = Field(default=None, primary_key=True)
     codigo: str = Field(max_length=20)
     id_pro: int = Field(foreign_key="academico.programas.id_pro")
+    id_per: Optional[int] = Field(default=None, foreign_key="academico.periodos_academicos.id_per")
     trayecto: int
     periodo: int
     capacidad_maxima: int
@@ -372,8 +374,15 @@ class Seccion(SQLModel, table=True):
 
     #relaciones
     estudiantes: list["Estudiante"] = Relationship(back_populates="seccion")
-    
+    periodo_academico: Optional[PeriodoAcademico] = Relationship(back_populates="secciones")
     programa: Optional[Programa] = Relationship(back_populates="secciones")
+
+    @property
+    def periodo_finalizado(self) -> bool:
+        return (
+            self.periodo_academico is not None
+            and self.periodo_academico.fecha_fin < date.today()
+        )
 
 
 # ==========================================

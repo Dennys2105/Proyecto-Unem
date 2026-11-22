@@ -9,16 +9,21 @@ from typing import Optional
 
 from app.config.db_conection import get_session
 from app.dependencies.auth_deps import obtener_usuario_actual
+from app.service.notas_reglas import SQL_NOTA_MINIMA_APROBATORIA
 
 router = APIRouter(prefix="/analitica", tags=["Analítica Académica"])
 
 _LECTOR = Depends(obtener_usuario_actual)
 
-_CTE = """
+_CTE = f"""
     WITH definitivas AS (
         SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
-               n.id_est, n.id_malla, n.id_per, n.nota
+               n.id_est, n.id_malla, n.id_per, n.nota,
+               {SQL_NOTA_MINIMA_APROBATORIA} AS nota_minima_aprobatoria
         FROM academico.notas n
+        JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
+        JOIN academico.materias m ON m.id_mat = mc.id_mat
+        JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
         WHERE n.estatus = 'A'
           AND n.tipo_evaluacion IN ('Final', 'Recuperación')
         ORDER BY n.id_est, n.id_malla, n.id_per,
@@ -39,8 +44,8 @@ def tendencia(
                count(*) AS evaluaciones,
                count(DISTINCT d.id_est) AS estudiantes,
                round(avg(d.nota), 2) AS promedio,
-               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2) AS pct_aprobacion
         FROM definitivas d
         JOIN academico.periodos_academicos pa ON pa.id_per = d.id_per
@@ -71,8 +76,8 @@ def trayectos(
                count(*) AS evaluaciones,
                count(DISTINCT d.id_est) AS estudiantes,
                round(avg(d.nota), 2) AS promedio,
-               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2) AS pct_aprobacion
         FROM definitivas d
         JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
@@ -102,8 +107,8 @@ def ejes(
                count(DISTINCT m.id_mat) AS materias,
                count(*) AS evaluaciones,
                round(avg(d.nota), 2) AS promedio,
-               count(CASE WHEN d.nota >= 10 THEN 1 END) AS aprobados,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END) AS aprobados,
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2) AS pct_aprobacion
         FROM definitivas d
         JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
@@ -221,7 +226,7 @@ def predicciones(
                row_number() OVER (ORDER BY pa.fecha_inicio) AS orden,
                count(*) AS evaluaciones,
                round(avg(d.nota), 2) AS promedio,
-               round(count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+               round(count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100, 2) AS pct_aprobacion
         FROM definitivas d
         JOIN academico.periodos_academicos pa ON pa.id_per = d.id_per
@@ -251,7 +256,7 @@ def predicciones(
             SELECT pa.id_per,
                    row_number() OVER (ORDER BY pa.fecha_inicio) AS orden,
                    avg(d.nota)::numeric AS promedio,
-                   count(CASE WHEN d.nota >= 10 THEN 1 END)::numeric
+                   count(CASE WHEN d.nota >= d.nota_minima_aprobatoria THEN 1 END)::numeric
                      / NULLIF(count(*), 0) * 100 AS pct_aprobacion
             FROM definitivas d
             JOIN academico.periodos_academicos pa ON pa.id_per = d.id_per
@@ -336,7 +341,7 @@ def predicciones(
                p.codigo AS cod_programa,
                round(avg(d.nota), 2) AS promedio,
                count(*) AS materias_evaluadas,
-               count(CASE WHEN d.nota < 10 THEN 1 END) AS materias_reprobadas
+               count(CASE WHEN d.nota < d.nota_minima_aprobatoria THEN 1 END) AS materias_reprobadas
         FROM definitivas d
         JOIN personas.estudiantes e ON e.id_est = d.id_est
         JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
@@ -344,7 +349,7 @@ def predicciones(
         WHERE e.estatus = 'A'
     """ + filtro + """
         GROUP BY e.id_est, e.cedula, e.apellido, e.nombre, p.codigo
-        HAVING avg(d.nota) < 12 OR count(CASE WHEN d.nota < 10 THEN 1 END) > 0
+        HAVING avg(d.nota) < 12 OR count(CASE WHEN d.nota < d.nota_minima_aprobatoria THEN 1 END) > 0
         ORDER BY promedio ASC
         LIMIT 20
     """).params(**params)).mappings().all()

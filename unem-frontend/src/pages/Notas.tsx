@@ -7,6 +7,7 @@ import { useProgramas } from '../hooks/useProgramas';
 import { useSecciones } from '../hooks/useSecciones';
 import { notaService } from '../services/notaService';
 import { descargarActaNotas } from '../utils/descargas';
+import { notaMinimaAprobatoria } from '../utils/reglasNotas';
 import type { Nota, NotaUpdate, FilaActa } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -142,6 +143,9 @@ export const NotasPage = () => {
     return { mallasDisponibles: mallasDelPrograma, ambitoMaterias: 'programa' as const };
   }, [mallasDelPrograma, seccionSel, periodoSeccion, verTodasMaterias]);
 
+  const mallaActaSeleccionada = mallasDisponibles.find((m) => String(m.id_malla) === actaMalla);
+  const minimoActa = notaMinimaAprobatoria(mallaActaSeleccionada?.materia?.eje_nombre);
+
   const nombreMalla = (m: any): string => {
     const mat = m.materia?.nombre ?? m.materia?.codigo ?? `Materia ${m.id_mat}`;
     const uc = m.materia?.unidades_creditos ? ` · ${m.materia.unidades_creditos} UC` : '';
@@ -208,7 +212,7 @@ export const NotasPage = () => {
     const validas = conNota.filter((f) => (f.nota as number) >= 0 && (f.nota as number) <= 20);
     const invalidas = conNota.length - validas.length;
     const suma = validas.reduce((a, f) => a + (f.nota as number), 0);
-    const aprobados = validas.filter((f) => (f.nota as number) >= 10).length;
+    const aprobados = validas.filter((f) => (f.nota as number) >= minimoActa).length;
     return {
       total: filas.length,
       cargadas: conNota.length,
@@ -217,7 +221,7 @@ export const NotasPage = () => {
       aprobados,
       reprobados: validas.length - aprobados,
     };
-  }, [filas]);
+  }, [filas, minimoActa]);
 
   const guardarActaHandler = async () => {
     if (statsActa.invalidas > 0) {
@@ -316,9 +320,9 @@ export const NotasPage = () => {
     return sortDir === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />;
   };
 
-  const badgeNota = (valor: number, anulada: boolean) => {
+  const badgeNota = (valor: number, anulada: boolean, minimo: number) => {
     if (anulada) return <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500 border border-gray-200">{valor.toFixed(2)}</span>;
-    const aprobado = valor >= 10;
+    const aprobado = valor >= minimo;
     return (
       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
         aprobado ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'
@@ -358,7 +362,11 @@ export const NotasPage = () => {
     },
     {
       key: 'nota', label: 'Nota', sortable: true,
-      render: (v: any, row: Nota) => badgeNota(Number(v ?? 0), (row.estatus ?? 'A') !== 'A'),
+      render: (v: any, row: Nota) => badgeNota(
+        Number(v ?? 0),
+        (row.estatus ?? 'A') !== 'A',
+        notaMinimaAprobatoria(row.eje_formativo),
+      ),
     },
     {
       key: 'estatus', label: 'Estado',
@@ -499,6 +507,14 @@ export const NotasPage = () => {
                     <option key={m.id_malla} value={m.id_malla}>{nombreMalla(m)}</option>
                   ))}
                 </select>
+                {actaMalla && (
+                  <p className="text-xs text-indigo-700">
+                    Mínimo aprobatorio: <strong>{minimoActa}/20</strong>
+                    {mallaActaSeleccionada?.materia?.eje_nombre?.trim().toLowerCase() === 'proyecto'
+                      ? ' (eje Proyecto)'
+                      : ' (materias regulares)'}
+                  </p>
+                )}
 
                 {/* ✅ Indicadores de ámbito */}
                                 {seccionSel && ambitoMaterias === 'exacto' && (
@@ -619,7 +635,7 @@ export const NotasPage = () => {
                     {filas.map((f, i) => {
                       const tiene = f.nota !== null && !Number.isNaN(f.nota as number);
                       const valida = tiene && (f.nota as number) >= 0 && (f.nota as number) <= 20;
-                      const aprob = valida && (f.nota as number) >= 10;
+                      const aprob = valida && (f.nota as number) >= minimoActa;
                       return (
                         <tr key={f.id_est} className="hover:bg-gray-50 transition">
                           <td className="px-4 py-2 text-xs text-gray-400">{i + 1}</td>
@@ -785,8 +801,9 @@ export const NotasPage = () => {
                   className="block w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-center text-lg shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 {notaEdit !== '' && Number(notaEdit) >= 0 && Number(notaEdit) <= 20 && (
-                  <p className={`text-xs font-bold mt-1 ${Number(notaEdit) >= 10 ? 'text-green-600' : 'text-red-600'}`}>
-                    {Number(notaEdit) >= 10 ? '✓ Aprobado' : '✗ Reprobado'}
+                  <p className={`text-xs font-bold mt-1 ${Number(notaEdit) >= notaMinimaAprobatoria(editingNota.eje_formativo) ? 'text-green-600' : 'text-red-600'}`}>
+                    {Number(notaEdit) >= notaMinimaAprobatoria(editingNota.eje_formativo) ? '✓ Aprobado' : '✗ Reprobado'}
+                    {' · '}mínimo {notaMinimaAprobatoria(editingNota.eje_formativo)}/20
                   </p>
                 )}
               </div>

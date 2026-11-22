@@ -3,6 +3,7 @@ from typing import Optional, List, Dict, Any
 from app.models.unem_db_models import Nota, Estudiante, MallaCurricular, PeriodoAcademico
 from app.schemas.esq_notas import NotasCreate, NotasUpdate, ActaCreate
 from app.service.base_services import obtener_por_id
+from app.service.notas_reglas import SQL_NOTA_MINIMA_APROBATORIA, nota_minima_aprobatoria
 from fastapi import HTTPException, status
 
 
@@ -15,6 +16,7 @@ _SELECT_ENRIQUECIDO = """
         (e.nombre || ' ' || e.apellido) AS estudiante,
         m.codigo  AS cod_materia,
         m.nombre  AS materia,
+        eje.nombre AS eje_formativo,
         p.codigo  AS cod_programa,
         p.nombre  AS programa,
         mc.trayecto, mc.periodo,
@@ -24,6 +26,7 @@ _SELECT_ENRIQUECIDO = """
     JOIN personas.estudiantes e        ON e.id_est  = n.id_est
     JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
     JOIN academico.materias m          ON m.id_mat  = mc.id_mat
+    JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
     JOIN academico.programas p         ON p.id_pro  = mc.id_pro
     JOIN academico.periodos_academicos pa ON pa.id_per = n.id_per
     LEFT JOIN academico.secciones s    ON s.id_sec  = e.id_sec
@@ -97,10 +100,10 @@ def analisis_notas_filtrado(
             min(d.nota) AS nota_minima,
             max(d.nota) AS nota_maxima,
             round(stddev(d.nota), 2) AS desviacion_estandar,
-            count(CASE WHEN d.nota >= 10 THEN 1 ELSE NULL END) AS aprobados,
-            count(CASE WHEN d.nota < 10 THEN 1 ELSE NULL END) AS reprobados,
+            count(CASE WHEN d.nota >= {SQL_NOTA_MINIMA_APROBATORIA} THEN 1 ELSE NULL END) AS aprobados,
+            count(CASE WHEN d.nota < {SQL_NOTA_MINIMA_APROBATORIA} THEN 1 ELSE NULL END) AS reprobados,
             round(
-                count(CASE WHEN d.nota >= 10 THEN 1 ELSE NULL END)::numeric
+                count(CASE WHEN d.nota >= {SQL_NOTA_MINIMA_APROBATORIA} THEN 1 ELSE NULL END)::numeric
                 / count(*)::numeric * 100,
                 2
             ) AS porcentaje_aprobacion
@@ -187,7 +190,7 @@ def validar_reglas_academicas(
 ) -> None:
     """
     1) Solo se modifican notas de períodos VIGENTES (actas cerradas son inmutables).
-    2) Recuperación solo procede si existe una Final REPROBADA (< 10).
+    2) Recuperación solo procede si existe una Final reprobada según el eje.
     3) Si existe Recuperación, la Final queda congelada.
     """
     # Regla 1: período vigente
@@ -212,10 +215,18 @@ def validar_reglas_academicas(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No existe nota Final registrada. La recuperación solo aplica a estudiantes que reprobaron la Final.",
             )
-        if float(final[1]) >= 10:
+        eje_nombre = session.exec(text("""
+            SELECT eje.nombre
+            FROM academico.malla_curricular mc
+            JOIN academico.materias m ON m.id_mat = mc.id_mat
+            JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
+            WHERE mc.id_malla = :id_malla
+        """).params(id_malla=id_malla)).first()
+        minimo = nota_minima_aprobatoria(eje_nombre[0] if eje_nombre else None)
+        if float(final[1]) >= minimo:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"El estudiante ya aprobó la Final ({float(final[1]):.2f}). No procede recuperación.",
+                detail=f"El estudiante ya aprobó la Final ({float(final[1]):.2f}; mínimo {minimo}). No procede recuperación.",
             )
 
     # Regla 3: Final congelada si hay Recuperación
@@ -285,12 +296,20 @@ def obtener_acta(
     # ✅ En Recuperación solo aparecen quienes reprobaron la Final
     filtro_recuperacion = ""
     if tipo_evaluacion == 'Recuperación':
+        eje_nombre = session.exec(text("""
+            SELECT eje.nombre
+            FROM academico.malla_curricular mc
+            JOIN academico.materias m ON m.id_mat = mc.id_mat
+            JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
+            WHERE mc.id_malla = :id_malla
+        """).params(id_malla=id_malla)).first()
+        minimo = nota_minima_aprobatoria(eje_nombre[0] if eje_nombre else None)
         filtro_recuperacion = """
           AND EXISTS (
               SELECT 1 FROM academico.notas f
               WHERE f.id_est = e.id_est AND f.id_malla = :id_malla
                 AND f.id_per = :id_per AND f.tipo_evaluacion = 'Final'
-                AND f.estatus = 'A' AND f.nota < 10
+                AND f.estatus = 'A' AND f.nota < :nota_minima
           )
         """
 
@@ -308,7 +327,10 @@ def obtener_acta(
         WHERE e.id_sec = :id_sec AND e.estatus = 'A'
         {filtro_recuperacion}
         ORDER BY e.apellido, e.nombre
-    """).params(id_sec=id_sec, id_malla=id_malla, id_per=id_per, tipo=tipo_evaluacion)
+    """).params(
+        id_sec=id_sec, id_malla=id_malla, id_per=id_per, tipo=tipo_evaluacion,
+        **({"nota_minima": minimo} if tipo_evaluacion == 'Recuperación' else {}),
+    )
 
     rows = session.exec(statement).mappings().all()
 

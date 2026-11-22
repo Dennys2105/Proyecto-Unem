@@ -104,7 +104,7 @@ export const analyticsService = {
   getOcupacionEspacios: async (limite = 8): Promise<OcupacionEspacio[]> =>
     (await api.get('/analytics/ocupacion-espacios', { params: { limite } })).data,
   getEstudiantesPorPrograma: async (): Promise<EstudiantesPorPrograma[]> => (await api.get('/analytics/estudiantes-por-programa')).data,
-  getPeriodoVigente: async (): Promise<PeriodoVigente | null> => (await api.get('/analytics/periodo-vigente')).data,
+  getPeriodosVigentes: async (): Promise<PeriodoVigente[]> => (await api.get('/analytics/periodos-vigentes')).data,
   getCoberturaNotas: async (): Promise<CoberturaNotas> => (await api.get('/analytics/cobertura-notas')).data,
   getInfoSistema: async (): Promise<InfoSistema> => (await api.get('/analytics/sistema')).data,
   getRendimientoAcademico: async (idPer?: number): Promise<RendimientoAcademicoData> =>

@@ -34,9 +34,9 @@ export const useAnalytics = () => {
     refetchInterval: REFRESH_MS,
   });
 
-  const periodoVigente = useQuery({
-    queryKey: ['analytics', 'periodo-vigente'],
-    queryFn: analyticsService.getPeriodoVigente,
+  const periodosVigentes = useQuery({
+    queryKey: ['analytics', 'periodos-vigentes'],
+    queryFn: analyticsService.getPeriodosVigentes,
     refetchInterval: REFRESH_MS,
   });
 
@@ -54,7 +54,7 @@ export const useAnalytics = () => {
   const isFetching =
     resumen.isFetching || cargaPorDia.isFetching || porContrato.isFetching ||
     ocupacion.isFetching || porPrograma.isFetching ||
-    periodoVigente.isFetching || coberturaNotas.isFetching;
+    periodosVigentes.isFetching || coberturaNotas.isFetching;
 
   
   const refetchAll = async () => {
@@ -64,7 +64,7 @@ export const useAnalytics = () => {
       porContrato.refetch(),
       ocupacion.refetch(),
       porPrograma.refetch(),
-      periodoVigente.refetch(),
+      periodosVigentes.refetch(),
       coberturaNotas.refetch(),
     ]);
     const huboError = resultados.some((r) => r.isError);
@@ -78,7 +78,7 @@ export const useAnalytics = () => {
     porContrato: porContrato.data ?? [],
     ocupacion: ocupacion.data ?? [],
     porPrograma: porPrograma.data ?? [],
-    periodoVigente: periodoVigente.data ?? null,
+    periodosVigentes: periodosVigentes.data ?? [],
     coberturaNotas: coberturaNotas.data,
     isLoading,
     isFetching,                                        

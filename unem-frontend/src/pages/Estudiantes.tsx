@@ -72,7 +72,7 @@ export const Estudiantes = () => {
   const { secciones } = useSecciones();
 
   const listaMunicipios: any[] = Array.isArray(municipios) ? municipios : [];
-  const listaSecciones: any[] = Array.isArray(secciones) ? secciones.filter(s => s.estatus === 'A') : [];
+  const listaSecciones = Array.isArray(secciones) ? secciones.filter(s => s.estatus === 'A') : [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEstudiante, setEditingEstudiante] = useState<Estudiante | null>(null);
@@ -592,8 +592,8 @@ export const Estudiantes = () => {
                 >
                   <option value="">Sin sección asignada</option>
                   {listaSecciones.map((s) => (
-                    <option key={s.id_sec} value={s.id_sec}>
-                      {s.codigo} - {s.programa?.codigo || `Prog. ${s.id_pro}`} (T{aRomano(s.trayecto)} P{aRomano(s.periodo)})
+                    <option key={s.id_sec} value={s.id_sec} disabled={!s.id_per || s.periodo_finalizado}>
+                      {s.codigo} - {s.programa?.codigo || `Prog. ${s.id_pro}`} (T{aRomano(s.trayecto)} P{aRomano(s.periodo)}){!s.id_per ? ' · Sin período' : s.periodo_finalizado ? ' · Finalizado' : ''}
                     </option>
                   ))}
                 </select>

@@ -68,6 +68,7 @@ class NotasResponcive(BaseModel):
     estudiante: Optional[str] = None
     cod_materia: Optional[str] = None
     materia: Optional[str] = None
+    eje_formativo: Optional[str] = None
     cod_programa: Optional[str] = None
     programa: Optional[str] = None
     trayecto: Optional[int] = None

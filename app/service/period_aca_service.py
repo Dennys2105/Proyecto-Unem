@@ -26,6 +26,7 @@ def actualizar(session: Session, db_dato, dato_in, parcial: bool = False):
 
 def eliminar(session: Session, db_dato):
     db_dato.estatus = 'I'
+    db_dato.activo = False
     session.add(db_dato)
     session.commit()
     session.refresh(db_dato)

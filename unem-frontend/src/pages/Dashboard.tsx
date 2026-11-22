@@ -50,7 +50,7 @@ const UltimaActualizacion = ({ timestamp }: { timestamp: number }): ReactNode =>
 export const Dashboard = () => {
   const {
     resumen, cargaPorDia, porContrato, ocupacion, porPrograma,
-    periodoVigente, coberturaNotas, isLoading, isFetching, dataUpdatedAt,
+    periodosVigentes, coberturaNotas, isLoading, isFetching, dataUpdatedAt,
     isError, refetchAll
   } = useAnalytics();
 
@@ -150,10 +150,12 @@ export const Dashboard = () => {
           <span className="unem-chip unem-chip-ins">
             <span className="unem-pulse"><i /><b /></span> En vivo
           </span>
-          {periodoVigente ? (
-            <span className="unem-chip unem-chip-soft">
-              <Star size={13} /> Vigente: {periodoVigente.nombre} ({periodoVigente.fecha_inicio} → {periodoVigente.fecha_fin})
-            </span>
+          {periodosVigentes.length > 0 ? (
+            periodosVigentes.map((periodo) => (
+              <span key={periodo.id_per} className="unem-chip unem-chip-soft">
+                <Star size={13} /> {periodo.tipo} vigente: {periodo.nombre} ({periodo.fecha_inicio} → {periodo.fecha_fin})
+              </span>
+            ))
           ) : (
             <span className="unem-chip unem-chip-del">
               <AlertCircle size={13} /> Sin período académico vigente

@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from sqlmodel import Session, text
+from sqlmodel import Session
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaReplace,AsigCargaHorariaResponse,AsigCargaHorariaUpdate
 import app.service.asig_carga_hor_service as service
 from app.dependencies.auth_deps import recurso_propietario, verificar_permiso, docente_del_usuario, es_docente_sp
 from app.dependencies.asig_hor_deps import validar_conflictos_horarios, validar_disponibilidad_docente
+from app.dependencies.seccion_deps import validar_seccion_para_nueva_operacion
 
 router= APIRouter(
     prefix="/asig_carga_hor",
@@ -41,17 +42,13 @@ def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Dep
     if carga_in.id_per and not service.existe_llave_foranea_per(session, carga_in.id_per):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Periodo no existe")
 
-    if carga_in.id_sec:
-        sec = session.exec(
-            text(
-                "SELECT 1 FROM academico.secciones "
-                "WHERE id_sec = :id AND estatus = 'A'"
-            ).params(id=carga_in.id_sec)
-        ).first()
-        if not sec:
+    if carga_in.id_sec is not None:
+        if carga_in.id_per is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="La sección no existe"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La asignación de una sección requiere su período académico.",
             )
+        validar_seccion_para_nueva_operacion(session, carga_in.id_sec, carga_in.id_per)
 
     return service.crear(session, carga_in)
 
@@ -105,6 +102,20 @@ def actualizar_parcial_carga(carga_horaria_id: int, dato_in: AsigCargaHorariaUpd
     db_dato = service.obtener_dato_por_id(carga_horaria_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carga Horaria no encontrada")
+
+    seccion_destino = dato_in.id_sec if dato_in.id_sec is not None else db_dato.id_sec
+    periodo_destino = dato_in.id_per if dato_in.id_per is not None else db_dato.id_per
+    cambio_seccion_o_periodo = (
+        (dato_in.id_sec is not None and dato_in.id_sec != db_dato.id_sec)
+        or (dato_in.id_per is not None and dato_in.id_per != db_dato.id_per)
+    )
+    if seccion_destino is not None and cambio_seccion_o_periodo:
+        if periodo_destino is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="La asignación de una sección requiere su período académico.",
+            )
+        validar_seccion_para_nueva_operacion(session, seccion_destino, periodo_destino)
 
     if dato_in.id_doc is not None or dato_in.id_dia is not None or dato_in.hora_inicio is not None or dato_in.hora_fin is not None:
         id_doc = dato_in.id_doc if dato_in.id_doc is not None else db_dato.id_doc

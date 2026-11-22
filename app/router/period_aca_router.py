@@ -8,6 +8,7 @@ import app.service.period_aca_service as service
 from app.dependencies.auth_deps import verificar_permiso
 
 router = APIRouter(prefix="/periodos", tags=["Periodos Académicos"])
+ROLES_AUTORIZADOS_CAMBIAR_VIGENCIA = {1, 2}
 
 @router.get("/", response_model=List[PeriodoResponse])
 def leer_periodos(
@@ -34,6 +35,34 @@ def actualizar_parcial_periodo(
     db_dato = service.obtener_dato_por_id(periodo_id, session)
     if not db_dato:
         raise HTTPException(status_code=404, detail="Período no encontrado")
+
+    if dato_in.activo is True:
+        if db_dato.estatus != 'A' or dato_in.estatus == 'I':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reincorpore el período antes de marcarlo como vigente.",
+            )
+
+    esta_reactivando_vigencia = (
+        dato_in.activo is True and not db_dato.activo
+    ) or (
+        dato_in.estatus == 'A'
+        and db_dato.estatus != 'A'
+        and db_dato.activo
+        and dato_in.activo is not False
+    )
+    if esta_reactivando_vigencia and usuario_actual.get("rol") not in ROLES_AUTORIZADOS_CAMBIAR_VIGENCIA:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo Administrador o Vicerrector pueden activar o reabrir un período.",
+        )
+
+    if dato_in.estatus == 'I' and db_dato.activo and dato_in.activo is not False:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cierre la vigencia antes de retirar el período.",
+        )
+
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 @router.delete("/{periodo_id}", status_code=status.HTTP_200_OK)
@@ -54,9 +83,20 @@ def activar_periodo_vigente(
     usuario_actual: dict = Depends(verificar_permiso('periodos', 'ACT', 'LIM'))
 ):
     """Pone este período como el ÚNICO vigente (desactiva los demás)."""
+    if usuario_actual.get("rol") not in ROLES_AUTORIZADOS_CAMBIAR_VIGENCIA:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo Administrador o Vicerrector pueden activar o reabrir un período.",
+        )
+
     db_dato = service.obtener_dato_por_id(periodo_id, session)
     if not db_dato:
         raise HTTPException(status_code=404, detail="Período no encontrado")
+    if db_dato.estatus != 'A':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reincorpore el período antes de marcarlo como vigente.",
+        )
 
     # 1. Desactivar TODOS los demás
     session.exec(

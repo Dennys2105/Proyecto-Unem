@@ -27,19 +27,16 @@ const pct = (parte: number, total: number): number => (total > 0 ? (parte / tota
 interface Escala {
   etiqueta: string;
   clave: string;
-  desde: number;
-  hasta: number;
+  detalle: string;
   hex: string;
   suave: string;
   texto: string;
 }
 
 const ESCALA: Escala[] = [
-  { etiqueta: 'Excelencia', clave: 'Excelencia (18-20)', desde: 18, hasta: 20, hex: '#0f9d58', suave: '#e6f6ee', texto: '#0b6b3d' },
-  { etiqueta: 'Notable',    clave: 'Notable (15-17)',    desde: 15, hasta: 17.99, hex: '#1d4ed8', suave: '#e7edfd', texto: '#1a3fa8' },
-  { etiqueta: 'Aprobado',   clave: 'Aprobado (10-14)',   desde: 10, hasta: 14.99, hex: '#7c3aed', suave: '#f0e9fe', texto: '#5b21b6' },
-  { etiqueta: 'Reprobado',  clave: 'Reprobado (5-9)',    desde: 5,  hasta: 9.99, hex: '#e08600', suave: '#fdf1de', texto: '#92590a' },
-  { etiqueta: 'Crítico',    clave: 'Crítico (0-4)',      desde: 0,  hasta: 4.99, hex: '#dc2626', suave: '#fdeaea', texto: '#991b1b' },
+  { etiqueta: 'Excelencia', clave: 'Excelencia (18-20)', detalle: '18-20', hex: '#0f9d58', suave: '#e6f6ee', texto: '#0b6b3d' },
+  { etiqueta: 'Aprobado', clave: 'Aprobado (mínimo según eje)', detalle: 'mínimo según eje, bajo 18', hex: '#7c3aed', suave: '#f0e9fe', texto: '#5b21b6' },
+  { etiqueta: 'Reprobado', clave: 'Reprobado (mínimo según eje)', detalle: 'bajo el mínimo del eje', hex: '#e08600', suave: '#fdf1de', texto: '#92590a' },
 ];
 
 /* ============================================================
@@ -294,7 +291,7 @@ export const RendimientoAcademico = () => {
                           <span className="truncate text-[13px] font-semibold text-slate-700">{b.etiqueta}</span>
                           <span className="ra-tnum shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
                             style={{ background: b.suave, color: b.texto }}>
-                            {b.desde}–{b.hasta === 17.99 ? '17.9' : b.hasta === 14.99 ? '14.9' : b.hasta === 9.99 ? '9.9' : b.hasta === 4.99 ? '4.9' : b.hasta}
+                            {b.detalle}
                           </span>
                         </div>
                         <div className="ra-tnum flex shrink-0 items-baseline gap-2">
@@ -322,8 +319,8 @@ export const RendimientoAcademico = () => {
                 <div className="mt-5 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
                   <ShieldCheck size={15} className="mt-0.5 shrink-0 text-indigo-500" />
                   <p className="text-[11.5px] leading-relaxed text-indigo-900/80">
-                    Mínimo aprobatorio <b>10.00</b> sobre escala venezolana <b>0–20</b>. Cada estudiante
-                    aporta una única calificación por materia y período.
+                    Mínimo aprobatorio: <b>12/20</b> en materias regulares y <b>16/20</b> en todas las materias
+                    del eje Proyecto. Cada estudiante aporta una única calificación por materia y período.
                   </p>
                 </div>
               </div>

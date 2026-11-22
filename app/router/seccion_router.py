@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from sqlmodel import Session, select
-from app.models.unem_db_models import Seccion
+from app.models.unem_db_models import PeriodoAcademico, Seccion
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_seccion import SeccionCreate,SeccionReplace,SeccionResponse,SeccionUpdate
 import app.service.seccion_service as service
@@ -20,6 +20,8 @@ def crear_seccion(seccion_in: SeccionCreate, session: Session = Depends(get_sess
     pro_id = service.existe_llave_foranea_pro(session,seccion_in.id_pro)
     if not pro_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El Programa no existe")
+    if not session.get(PeriodoAcademico, seccion_in.id_per):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El período académico no existe")
     
     return service.crear(session, seccion_in)
 
@@ -55,6 +57,8 @@ def actualizar_parcial_seccion(seccion_id: int, dato_in: SeccionUpdate, session:
     db_dato = service.obtener_dato_por_id(seccion_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Seccion no encontrada")
+    if dato_in.id_per is not None and not session.get(PeriodoAcademico, dato_in.id_per):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El período académico no existe")
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 

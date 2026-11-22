@@ -4,8 +4,30 @@ from typing import Optional, List
 from pydantic import BaseModel
 from app.dependencies.auth_deps import verificar_permiso
 from app.dependencies.session_auditable import get_session_auditable as get_session
+from app.dependencies.pruebas_optimizacion import validar_unicidad
+from app.models.unem_db_models import EjeFormativo, Materia
+from app.schemas.esq_materias import MateriaCreate, MateriaResponse, MateriaUpdate
+import app.service.materias_service as service
 
 router = APIRouter(prefix="/materias", tags=["Materias"])
+ROLES_AUTORIZADOS_GESTIONAR_MATERIAS = {1, 2}
+
+
+def _verificar_rol_gestion(usuario_actual: dict) -> None:
+    if usuario_actual.get("rol") not in ROLES_AUTORIZADOS_GESTIONAR_MATERIAS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo Administrador o Vicerrector pueden crear o editar materias.",
+        )
+
+
+def _validar_eje_activo(session: Session, id_eje: int) -> None:
+    eje = session.get(EjeFormativo, id_eje)
+    if not eje or eje.estatus != "A":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El eje formativo seleccionado no existe o está inactivo.",
+        )
 
 class MateriaRead(BaseModel):
     id_mat: int
@@ -62,3 +84,34 @@ def listar_materias(
     
     resultados = session.exec(text(query).params(**params)).mappings().all()
     return [MateriaRead(**dict(r)) for r in resultados]
+
+
+@router.post("/", response_model=MateriaResponse, status_code=status.HTTP_201_CREATED)
+def crear_materia(
+    materia_in: MateriaCreate,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("materias", "CRE", "LIM")),
+):
+    _verificar_rol_gestion(usuario_actual)
+    validar_unicidad(Materia, "codigo")(materia_in, session)
+    _validar_eje_activo(session, materia_in.id_eje)
+    return service.crear(session, materia_in)
+
+
+@router.patch("/{materia_id}", response_model=MateriaResponse)
+def actualizar_materia(
+    materia_id: int,
+    dato_in: MateriaUpdate,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso("materias", "ACT", "LIM")),
+):
+    _verificar_rol_gestion(usuario_actual)
+    db_dato = service.obtener_dato_por_id(materia_id, session)
+    if not db_dato:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Materia no encontrada")
+
+    validar_unicidad(Materia, "codigo", "id_mat")(dato_in, session, materia_id)
+    if dato_in.id_eje is not None:
+        _validar_eje_activo(session, dato_in.id_eje)
+
+    return service.actualizar(session, db_dato, dato_in, parcial=True)

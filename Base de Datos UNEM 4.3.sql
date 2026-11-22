@@ -1235,6 +1235,7 @@ CREATE TABLE academico.secciones (
     id_sec integer NOT NULL,
     codigo character varying(20) NOT NULL,
     id_pro integer NOT NULL,
+    id_per integer,
     trayecto smallint NOT NULL,
     periodo smallint NOT NULL,
     capacidad_maxima smallint DEFAULT 40 NOT NULL,
@@ -1553,17 +1554,23 @@ CREATE VIEW academico.vw_analisis_notas AS
     round(stddev(d.nota), 2) AS desviacion_estandar,
     count(
         CASE
-            WHEN (d.nota >= (10)::numeric) THEN 1
+            WHEN (d.nota >=
+                CASE WHEN (lower(btrim(eje.nombre)) = 'proyecto'::text) THEN (16)::numeric ELSE (12)::numeric END
+            ) THEN 1
             ELSE NULL::integer
         END) AS aprobados,
     count(
         CASE
-            WHEN (d.nota < (10)::numeric) THEN 1
+            WHEN (d.nota <
+                CASE WHEN (lower(btrim(eje.nombre)) = 'proyecto'::text) THEN (16)::numeric ELSE (12)::numeric END
+            ) THEN 1
             ELSE NULL::integer
         END) AS reprobados,
     round((((count(
         CASE
-            WHEN (d.nota >= (10)::numeric) THEN 1
+            WHEN (d.nota >=
+                CASE WHEN (lower(btrim(eje.nombre)) = 'proyecto'::text) THEN (16)::numeric ELSE (12)::numeric END
+            ) THEN 1
             ELSE NULL::integer
         END))::numeric / (count(*))::numeric) * (100)::numeric), 2) AS porcentaje_aprobacion
    FROM ((((((definitivas d
@@ -7546,6 +7553,14 @@ COMMENT ON CONSTRAINT fk_nota_periodo ON academico.notas IS 'Relación con perí
 
 ALTER TABLE ONLY academico.secciones
     ADD CONSTRAINT fk_secciones_programa FOREIGN KEY (id_pro) REFERENCES academico.programas(id_pro) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+--
+-- TOC entry 5199 (class 2606 OID 66150)
+-- Name: secciones fk_secciones_periodo; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
+--
+
+ALTER TABLE ONLY academico.secciones
+    ADD CONSTRAINT fk_secciones_periodo FOREIGN KEY (id_per) REFERENCES academico.periodos_academicos(id_per) ON UPDATE CASCADE ON DELETE RESTRICT;
 
 
 --

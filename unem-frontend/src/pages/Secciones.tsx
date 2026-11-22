@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useSecciones } from '../hooks/useSecciones';
 import { useProgramas } from '../hooks/useProgramas';
+import { usePeriodos } from '../hooks/usePeriodos';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,6 +33,7 @@ const seccionSchema = z.object({
     .regex(/^[A-Z0-9.\-]+$/, 'Solo mayúsculas, números, puntos y guiones'),
   trayecto: z.string().min(1, 'Selecciona un trayecto'),
   periodo: z.string().min(1, 'Selecciona un período'),
+  id_per: z.string().min(1, 'Selecciona el período académico'),
   capacidad_maxima: z.string()
     .min(1, 'La capacidad es obligatoria')
     .regex(/^[1-9][0-9]*$/, 'Debe ser un número válido mayor a 0'),
@@ -44,8 +46,10 @@ export const Secciones = () => {
   const { puede } = useAuth();
   const { secciones, isLoading, createSeccion, updateSeccion, isCreating, isUpdating } = useSecciones();
   const { programas } = useProgramas();
+  const { periodos } = usePeriodos();
 
   const listaProgramas: any[] = Array.isArray(programas) ? programas : [];
+  const listaPeriodos = Array.isArray(periodos) ? periodos : [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSeccion, setEditingSeccion] = useState<Seccion | null>(null);
@@ -60,7 +64,7 @@ export const Secciones = () => {
 
   const openCreateModal = () => {
     setEditingSeccion(null);
-    reset({ codigo: '', trayecto: '', periodo: '', capacidad_maxima: '', id_pro: '' });
+    reset({ codigo: '', trayecto: '', periodo: '', id_per: '', capacidad_maxima: '', id_pro: '' });
     setIsModalOpen(true);
   };
 
@@ -70,6 +74,7 @@ export const Secciones = () => {
       codigo: sec.codigo ?? '',
       trayecto: (sec.trayecto ?? 1).toString(),
       periodo: (sec.periodo ?? 1).toString(),
+      id_per: sec.id_per?.toString() ?? '',
       capacidad_maxima: (sec.capacidad_maxima ?? 30).toString(), // ✅ FIX: usa capacidad_maxima con fallback
       id_pro: sec.id_pro?.toString() ?? '',
     });
@@ -87,6 +92,7 @@ export const Secciones = () => {
       codigo: data.codigo.trim().toUpperCase(),
       trayecto: parseInt(data.trayecto, 10),
       periodo: parseInt(data.periodo, 10),
+      id_per: parseInt(data.id_per, 10),
       capacidad_maxima: parseInt(data.capacidad_maxima, 10), // ✅ FIX: envía capacidad_maxima
       id_pro: parseInt(data.id_pro, 10),
     };
@@ -164,6 +170,36 @@ export const Secciones = () => {
       ),
     },
     {
+      key: 'periodo_academico',
+      label: 'Período académico',
+      render: (_: any, row: Seccion) => (
+        <span className="text-sm text-gray-700">
+          {row.periodo_academico
+            ? `${row.periodo_academico.nombre} · hasta ${row.periodo_academico.fecha_fin}`
+            : 'Sin período asignado'}
+        </span>
+      ),
+    },
+    {
+      key: 'periodo_finalizado',
+      label: 'Vigencia académica',
+      render: (_: any, row: Seccion) => {
+        const finalizado = row.id_per !== null && row.periodo_finalizado;
+        const label = row.id_per === null ? 'Sin período' : finalizado ? 'Finalizado' : 'En curso';
+        return (
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${
+            row.id_per === null
+              ? 'bg-gray-100 text-gray-600'
+              : finalizado
+                ? 'bg-red-100 text-red-700'
+                : 'bg-green-100 text-green-700'
+          }`}>
+            {label}
+          </span>
+        );
+      },
+    },
+    {
       key: 'capacidad_maxima', // ✅ FIX: nombre correcto de la columna
       label: 'Capacidad',
       render: (value: any) => <span className="text-sm text-gray-700">{value} est.</span>,
@@ -206,7 +242,7 @@ export const Secciones = () => {
               </button>
             )}
             <button
-              onClick={() => descargarEstudiantesSeccion(row.codigo)}
+              onClick={() => descargarEstudiantesSeccion(row.id_sec)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
               title="Listado de estudiantes de la sección en Excel"
             >
@@ -240,6 +276,10 @@ export const Secciones = () => {
       />
 
       <section className="unem-card unem-card-pad">
+        <div className="mb-4 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <Info size={18} className="shrink-0 mt-0.5" />
+          <p>Asigna un período académico a cada sección existente. Al pasar su fecha de fin se bloquearán nuevas matrículas y asignaciones; el estado administrativo Activo/Inactivo no se modificará automáticamente.</p>
+        </div>
         <div className="unem-toolbar">
           <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-3)' }} />
@@ -338,6 +378,21 @@ export const Secciones = () => {
                   <label className="block text-sm font-medium text-gray-700">Capacidad Máx. *</label>
                   <input type="text" inputMode="numeric" {...register('capacidad_maxima')} placeholder="Ej: 30" className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
                   {errors.capacidad_maxima && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.capacidad_maxima.message}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">Período académico *</label>
+                  <select {...register('id_per')} className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="">Selecciona el período</option>
+                    {listaPeriodos.map((p) => (
+                      <option key={p.id_per} value={p.id_per}>
+                        {p.nombre} ({p.tipo}) · hasta {p.fecha_fin}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.id_per && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.id_per.message}</p>}
                 </div>
               </div>
 

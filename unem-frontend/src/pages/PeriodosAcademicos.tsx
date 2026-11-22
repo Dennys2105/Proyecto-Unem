@@ -4,7 +4,9 @@ import { usePeriodos } from '../hooks/usePeriodos';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { isAxiosError } from 'axios';
 import type { PeriodoAcademico, PeriodoCreate, PeriodoUpdate } from '../types/models';
+import { useAuth } from '../hooks/useAuth';
 import {
   CalendarDays, Search, Plus, X, AlertCircle, Info,
   Edit, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown,
@@ -46,6 +48,9 @@ type SortKey = 'id_per' | 'anio' | 'fecha_inicio';
 type SortDir = 'asc' | 'desc';
 
 export const Periodos = () => {
+  const { idRol, puede } = useAuth();
+  const puedeActualizarPeriodo = idRol !== null && puede('periodos', 'ACT', 'LIM');
+  const puedeCambiarVigencia = (idRol === 1 || idRol === 2) && puedeActualizarPeriodo;
   const {
     periodos, isLoading, createPeriodo, updatePeriodo,
     activarPeriodo, isCreating, isUpdating, isActivating, refetch
@@ -128,17 +133,46 @@ export const Periodos = () => {
   };
 
   const activarVigente = async (per: PeriodoAcademico) => {
+    const vigenteDelTipo = periodos?.find(
+      (periodo) => periodo.tipo === per.tipo && periodo.activo && (periodo.estatus ?? 'A') === 'A',
+    );
+    const advertencia = vigenteDelTipo && vigenteDelTipo.id_per !== per.id_per
+      ? ` Esto cerrará "${vigenteDelTipo.nombre}" y bloqueará la edición de sus calificaciones.`
+      : '';
+    if (!window.confirm(`¿Activar o reabrir "${per.nombre}"?${advertencia}`)) return;
+
     try {
       await activarPeriodo(per.id_per);
       await refetch();
       toast.success(`"${per.nombre}" es ahora el período vigente`, { icon: '⭐' });
-    } catch {
-      toast.error('No se pudo activar el período');
+    } catch (error: unknown) {
+      const detail = isAxiosError<{ detail?: unknown }>(error) ? error.response?.data?.detail : undefined;
+      toast.error(typeof detail === 'string' ? detail : 'No se pudo activar el período');
+    }
+  };
+
+  const cerrarVigencia = async (per: PeriodoAcademico) => {
+    const confirmado = window.confirm(
+      `¿Cerrar "${per.nombre}"? Al dejar de estar vigente, no se podrán modificar sus calificaciones.`,
+    );
+    if (!confirmado) return;
+
+    try {
+      await updatePeriodo({ id: per.id_per, data: { activo: false } });
+      await refetch();
+      toast.success(`"${per.nombre}" fue cerrado y ya no está vigente`);
+    } catch (error: unknown) {
+      const detail = isAxiosError<{ detail?: unknown }>(error) ? error.response?.data?.detail : undefined;
+      toast.error(typeof detail === 'string' ? detail : 'No se pudo cerrar el período');
     }
   };
 
   const toggleRetiro = async (per: PeriodoAcademico) => {
     const actual = per.estatus ?? 'A';
+    if (actual === 'A' && per.activo) {
+      toast.error('Cierra la vigencia antes de retirar el período');
+      return;
+    }
     const nuevoEstatus = actual === 'A' ? 'I' : 'A';
     const accion = nuevoEstatus === 'A' ? 'reincorporado' : 'retirado';
     try {
@@ -235,12 +269,16 @@ export const Periodos = () => {
             <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
               <Edit size={14} /> Editar
             </button>
-            {!esVigente && esActivo && (
+            {esVigente && puedeActualizarPeriodo ? (
+              <button onClick={() => cerrarVigencia(row)} disabled={isUpdating} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 bg-white text-amber-700 hover:bg-amber-50 border border-amber-300" title="Cerrar el período; sus calificaciones dejarán de ser editables">
+                <Star size={14} /> Cerrar período
+              </button>
+            ) : esActivo && puedeCambiarVigencia && (
               <button onClick={() => activarVigente(row)} disabled={isActivating} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200" title="Marcar como período vigente">
-                <Sparkles size={14} /> Vigente
+                <Sparkles size={14} /> Activar / reabrir
               </button>
             )}
-            <button onClick={() => toggleRetiro(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+            <button onClick={() => toggleRetiro(row)} disabled={isUpdating || (esActivo && esVigente)} title={esActivo && esVigente ? 'Cierra primero el período vigente' : undefined} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
               esActivo ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
             }`}>
               {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
@@ -252,7 +290,9 @@ export const Periodos = () => {
     },
   ];
 
-  const vigente = periodos?.find((p: PeriodoAcademico) => p.activo === true && (p.estatus ?? 'A') === 'A');
+  const vigentes = periodos
+    ?.filter((p: PeriodoAcademico) => p.activo === true && (p.estatus ?? 'A') === 'A')
+    .sort((a, b) => a.tipo.localeCompare(b.tipo)) ?? [];
 
   return (
     <div className="unem-page">
@@ -264,11 +304,11 @@ export const Periodos = () => {
 
       <section className="unem-card unem-card-pad">
         <div className="unem-toolbar">
-          {vigente && (
-            <span className="unem-chip unem-chip-soft">
-              <Star size={13} /> Vigente: {vigente.nombre}
+          {vigentes.map((periodo) => (
+            <span key={periodo.id_per} className="unem-chip unem-chip-soft">
+              <Star size={13} /> {periodo.tipo} vigente: {periodo.nombre}
             </span>
-          )}
+          ))}
           <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
             <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--tx-3)' }} />
             <input type="text" className="unem-input" style={{ paddingLeft: 34 }} placeholder="Buscar por nombre o año…" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />

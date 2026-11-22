@@ -179,18 +179,22 @@ export interface Seccion {
   id_sec: number;
   codigo: string;
   id_pro: number;
+  id_per: number | null;
   trayecto: number;
   periodo: number;
   capacidad_maxima: number; 
   estatus: string;          
+  periodo_finalizado: boolean;
   creado?: string;
   actualizar?: string;
+  periodo_academico?: Pick<PeriodoAcademico, 'id_per' | 'nombre' | 'tipo' | 'fecha_inicio' | 'fecha_fin'> | null;
   programa?: Programa;
 }
 
 export interface SeccionCreate {
   codigo: string;
   id_pro: number;
+  id_per: number;
   trayecto: number;
   periodo: number;
   capacidad_maxima: number; 
@@ -199,6 +203,7 @@ export interface SeccionCreate {
 export interface SeccionUpdate {
   codigo?: string;
   id_pro?: number;
+  id_per?: number | null;
   trayecto?: number;
   periodo?: number;
   capacidad_maxima?: number; 
@@ -440,6 +445,7 @@ export interface Nota {
   estudiante?: string;
   cod_materia?: string;
   materia?: string;
+  eje_formativo?: string;
   cod_programa?: string;
   programa?: string;
   trayecto?: number;

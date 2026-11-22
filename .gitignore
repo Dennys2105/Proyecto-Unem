@@ -72,3 +72,6 @@ diccionario*.html
 Thumbs.db
 .vscode/
 .idea/
+
+# Keep database migrations in source control.
+!database/migrations/*.sql
