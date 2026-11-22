@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { rolesService } from '../services/rolesService';
 import type { Usuario, MatrizPermiso } from '../types/models';
 import { useAuth } from '../hooks/useAuth';
@@ -48,6 +48,7 @@ export const Roles = () => {
   const [usuarioVincular, setUsuarioVincular] = useState<Usuario | null>(null);
   const [idDocVincular, setIdDocVincular] = useState<number | ''>('');
   const [vinculando, setVinculando] = useState(false);
+  const vinculoEnviado = useRef(false);
 
   // Reset de contraseña
   const [usuarioReset, setUsuarioReset] = useState<Usuario | null>(null);
@@ -153,7 +154,8 @@ export const Roles = () => {
 
   // ---------- Vincular / desvincular docente ----------
   const confirmarVinculo = async () => {
-    if (!usuarioVincular) return;
+    if (!usuarioVincular || vinculoEnviado.current) return;
+    vinculoEnviado.current = true;
     setVinculando(true);
     try {
       await rolesService.vincularDocente(
@@ -164,7 +166,7 @@ export const Roles = () => {
         idDocVincular === ''
           ? `Usuario ${usuarioVincular.username} desvinculado`
           : `Usuario ${usuarioVincular.username} vinculado al docente ✅`,
-        { duration: 4000 }
+        { duration: 4000, id: 'vincular-docente' }
       );
       setUsuarioVincular(null);
       setIdDocVincular('');
@@ -175,6 +177,7 @@ export const Roles = () => {
     } catch (error: any) {
       toast.error(error?.response?.data?.detail ?? 'No se pudo actualizar el vínculo', { duration: 6000 });
     } finally {
+      vinculoEnviado.current = false;
       setVinculando(false);
     }
   };
@@ -383,12 +386,16 @@ export const Roles = () => {
                           <>
                             {u.id_rol === 4 && (
                               <button
-                                onClick={() => { setUsuarioVincular(u); setIdDocVincular(''); }}
+                                onClick={() => { setUsuarioVincular(u); setIdDocVincular(u.id_doc ?? ''); }}
                                 disabled={ocupado}
-                                title="Vincular a ficha de docente"
-                                className="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition disabled:opacity-50"
+                                title={u.id_doc ? 'Cambiar o quitar el vínculo con el docente' : 'Vincular a ficha de docente'}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition disabled:opacity-50 ${
+                                  u.id_doc
+                                    ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
+                                    : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'
+                                }`}
                               >
-                                <LinkIcon size={14} />
+                                {u.id_doc ? <><UserCheck size={14} /> Vinculado</> : <LinkIcon size={14} />}
                               </button>
                             )}
                             <button
@@ -598,6 +605,11 @@ export const Roles = () => {
                   className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">— Sin vínculo (desvincular) —</option>
+                  {usuarioVincular.id_doc && (
+                    <option value={usuarioVincular.id_doc}>
+                      {usuarioVincular.docente_vinculado ?? `Docente vinculado (#${usuarioVincular.id_doc})`}
+                    </option>
+                  )}
                   {docentesLibres.map((d) => (
                     <option key={d.id_doc} value={d.id_doc}>{d.cedula_nombre}</option>
                   ))}

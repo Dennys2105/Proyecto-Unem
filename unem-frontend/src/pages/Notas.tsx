@@ -18,7 +18,7 @@ import {
 import toast from 'react-hot-toast';
 import { PageHero } from '../components/PageHero';
 
-const TIPOS_EVALUACION = ['Final'];
+const TIPOS_EVALUACION = ['Final', 'Recuperación'];
 
 
 const aRomano = (n: number): string => {
@@ -437,7 +437,8 @@ export const NotasPage = () => {
               <Info size={16} />
               <span>
                 Selecciona la sección y la materia: el sistema traerá <b>todos sus estudiantes activos</b>.
-                Las casillas vacías se omiten (no borran notas existentes). Guardar dos veces <b>actualiza</b>, no duplica.
+                Consulta notas de <b>Final</b> o <b>Recuperación</b>. Las casillas vacías se omiten (no borran notas existentes).
+                Guardar dos veces <b>actualiza</b>, no duplica.
               </span>
             </div>
 
@@ -573,7 +574,7 @@ export const NotasPage = () => {
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-gray-600 uppercase">5. Evaluación *</label>
                 <select
-                  value={actaTipo} disabled
+                  value={actaTipo}
                   onChange={(e) => { setActaTipo(e.target.value); setActaCargada(false); }}
                   className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >

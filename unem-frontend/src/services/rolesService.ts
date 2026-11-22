@@ -70,6 +70,8 @@ export const rolesService = {
       username: u.username,
       id_rol: u.id_rol,
       estatus: u.estatus,
+      id_doc: u.id_doc ?? undefined,
+      docente_vinculado: u.docente_vinculado ?? undefined,
       creado: '',
       actualizar: ''
     }));

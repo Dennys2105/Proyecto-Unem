@@ -20,6 +20,8 @@ class UsuarioSimple(BaseModel):
     id_rol: int
     rol: str
     estatus: str
+    id_doc: Optional[int] = None
+    docente_vinculado: Optional[str] = None
 
 
 class ModuloCatalogo(BaseModel):
@@ -65,9 +67,14 @@ def listar_usuarios(
 ):
     """Lista los usuarios con su rol asignado (activos por defecto)."""
     sql = """
-        SELECT u.id_usu, u.username, u.id_rol, r.rol, u.estatus
+        SELECT u.id_usu, u.username, u.id_rol, r.rol, u.estatus,
+               d.id_doc,
+               CASE WHEN d.id_doc IS NOT NULL
+                    THEN d.cedula || ' · ' || d.nombre || ' ' || d.apellido
+               END AS docente_vinculado
         FROM general.usuarios u
         JOIN general.roles r ON r.id_rol = u.id_rol
+        LEFT JOIN personas.docentes d ON d.id_usu = u.id_usu
     """
     if not incluir_inactivos:
         sql += " WHERE u.estatus = 'A'"

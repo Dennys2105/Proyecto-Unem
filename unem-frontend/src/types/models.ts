@@ -4,6 +4,8 @@ export interface Usuario {
   username: string;
   id_rol: number;
   estatus: string;
+  id_doc?: number;
+  docente_vinculado?: string;
   creado: string;
   actualizar: string;
 }
