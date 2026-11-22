@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useDocentes } from '../hooks/useDocentes';
 import { useMunicipios } from '../hooks/useMunicipios';
+import { useProgramas } from '../hooks/useProgramas';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -63,8 +64,12 @@ export const DocentesPage = () => {
   const { puede } = useAuth();
   const { docentes, isLoading, createDocente, updateDocente, isCreating, isUpdating, refetch } = useDocentes();
   const { municipios } = useMunicipios();
+  const { programas } = useProgramas();
 
   const listaMunicipios: any[] = Array.isArray(municipios) ? municipios : [];
+  const programasActivos = Array.isArray(programas)
+    ? programas.filter(programa => programa.estatus === 'A')
+    : [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDocente, setEditingDocente] = useState<Docente | null>(null);
@@ -480,7 +485,25 @@ export const DocentesPage = () => {
 
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-700">Especialidad / PNF *</label>
-                <input type="text" {...register('especialidad')} onChange={(e) => setValue('especialidad', soloLetras(e.target.value), { shouldValidate: true })} placeholder="Ej: Educación Primaria" className={`block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.especialidad ? 'border-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`} />
+                <select
+                  {...register('especialidad')}
+                  className={`block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.especialidad ? 'border-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`}
+                >
+                  <option value="">Selecciona un PNF…</option>
+                  {programasActivos.map(programa => (
+                    <option key={programa.id_pro} value={programa.nombre}>
+                      {programa.codigo} — {programa.nombre}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Se guardará el nombre completo del programa (ej: "PNF Licenciatura en Educación Primaria").
+                </p>
+                {programasActivos.length === 0 && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                    <b>Sin programas activos.</b> Registra al menos un PNF primero en el módulo Programas.
+                  </div>
+                )}
                 {errors.especialidad && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.especialidad.message}</p>}
               </div>
 
