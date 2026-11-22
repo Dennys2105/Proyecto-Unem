@@ -67,6 +67,7 @@ export interface Docente {
   horas_max_sem: number;
   horas_asignadas?: number;
   horas_disponibles?: number;
+  tiene_asignaciones?: boolean;
   telefono?: string;
   observaciones?: string;
   foto_url?: string;

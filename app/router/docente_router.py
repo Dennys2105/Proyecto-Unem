@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from sqlmodel import Session
+from sqlmodel import Session, text
 from app.config.db_conection import get_session
 from app.dependencies.auth_deps import requerir_rol, recurso_propietario, obtener_usuario_actual,verificar_permiso, docente_del_usuario, es_docente_sp
 from app.models.unem_db_models import Docente
@@ -28,15 +28,43 @@ def crear_docente(docente_in: DocenteCreate, session: Session = Depends(get_sess
 
 # --- READ ALL ---
 @router.get("/", response_model=List[DocenteResponse])
-def leer_docentes(session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('docentes','LEC','SP'))):
-    # DOCENTE con SP: solo su propia ficha (no ve a otros docentes)
+def leer_docentes(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('docentes', 'LEC', 'SP'))
+):
+    # DOCENTE con SP: solo su propia ficha
     if es_docente_sp(usuario_actual):
         id_doc = docente_del_usuario(usuario_actual, session)
         if id_doc is None:
             return []
         dato = service.obtener_dato_por_id(id_doc, session)
-        return [dato] if dato else []
-    return service.leer_todos(session)
+        if not dato:
+            return []
+        tiene_asig = session.execute(
+            text(
+                "SELECT COUNT(*) FROM horarios.asig_carga_horarias "
+                "WHERE id_doc = :d AND estatus = 'A'"
+            ),
+            {"d": id_doc}
+        ).scalar() > 0
+        dato_dict = dato.model_dump() if hasattr(dato, 'model_dump') else dict(dato.__dict__)
+        dato_dict['tiene_asignaciones'] = tiene_asig
+        return [dato_dict]
+
+    docentes = service.leer_todos(session)
+    resultado = []
+    for d in docentes:
+        d_dict = d.model_dump() if hasattr(d, 'model_dump') else dict(d.__dict__)
+        tiene_asig = session.execute(
+            text(
+                "SELECT COUNT(*) FROM horarios.asig_carga_horarias "
+                "WHERE id_doc = :d AND estatus = 'A'"
+            ),
+            {"d": d_dict.get('id_doc')}
+        ).scalar() > 0
+        d_dict['tiene_asignaciones'] = tiene_asig
+        resultado.append(d_dict)
+    return resultado
 
 # --- READ ONE ---
 @router.get("/{docente_id}", response_model=DocenteResponse)

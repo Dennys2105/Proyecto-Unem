@@ -80,6 +80,7 @@ class DocenteResponse(BaseModel):
     horas_max_sem: int
     horas_asignadas: Optional[int] = 0
     horas_disponibles: Optional[int] = 0
+    tiene_asignaciones: bool = False
     telefono: Optional[str] = None
     observaciones: Optional[str] = None
     estatus: str = "A"

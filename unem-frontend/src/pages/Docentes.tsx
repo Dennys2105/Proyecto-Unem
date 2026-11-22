@@ -271,30 +271,51 @@ export const DocentesPage = () => {
         return (
           <div className="flex flex-wrap gap-2">
             <button
-              className="unem-btn unem-btn-sm"
+              disabled={!doc.tiene_asignaciones}
               onClick={() => { void descargarHorarioDocente(doc.cedula); }}
-              title="Horario semanal del docente (PDF)"
+              title={doc.tiene_asignaciones ? 'Ver horario del docente' : 'Sin asignaciones de carga horaria'}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                doc.tiene_asignaciones
+                  ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
+                  : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+              }`}
             >
-              <CalendarClock size={14} /> Horario
+              <CalendarClock size={14} />
+              Horario
             </button>
             <button
-              className="unem-btn unem-btn-sm"
+              disabled={!doc.tiene_asignaciones}
               onClick={() => { void descargarFichaDocente(doc.cedula); }}
-              title="Ficha de organización académica (PDF)"
+              title={doc.tiene_asignaciones ? 'Ver ficha del docente' : 'Sin asignaciones de carga horaria'}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                doc.tiene_asignaciones
+                  ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
+                  : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+              }`}
             >
-              <FileText size={14} /> Ficha
+              <FileText size={14} />
+              Ficha
             </button>
             {puedeEditar && (
-              <button className="unem-btn unem-btn-sm" onClick={() => openEditModal(doc)}>
-                <Edit size={14} /> Editar
+              <button
+                onClick={() => openEditModal(doc)}
+                title="Editar datos del docente"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+              >
+                <Edit size={14} />
+                Editar
               </button>
             )}
             {puedeRetirar && (
               <button
-                className="unem-btn unem-btn-sm"
                 onClick={() => toggleRetiro(doc)}
                 disabled={isUpdating}
-                style={{ color: esActivo ? 'var(--warn)' : 'var(--ok)' }}
+                title={esActivo ? 'Retirar docente' : 'Reincorporar docente'}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                  esActivo
+                    ? 'bg-red-50 text-red-700 hover:bg-red-100 border-red-200'
+                    : 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
+                }`}
               >
                 {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
                 {esActivo ? 'Retirar' : 'Reincorporar'}
