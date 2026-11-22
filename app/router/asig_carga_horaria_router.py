@@ -68,8 +68,8 @@ def leer_carga_horaria(session: Session = Depends(get_session), usuario_actual: 
 
 # --- READ ONE ---
 @router.get("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse)
-def leer_carga_horaria_id(disp_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','LEC','SP'))):
-    dato = service.obtener_dato_por_id(disp_id, session)
+def leer_carga_horaria_id(carga_horaria_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','LEC','SP'))):
+    dato = service.obtener_dato_por_id(carga_horaria_id, session)
     recurso_propietario(usuario_actual,dato.id_doc,roles_restringidos=2)
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campo no encontrado")
@@ -77,9 +77,9 @@ def leer_carga_horaria_id(disp_id: int, session: Session = Depends(get_session),
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse)
-def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','ACT','TODO'))):
+def actualizar_parcial_carga(carga_horaria_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','ACT','TODO'))):
     
-    validar_conflictos_horarios(session,dato_in,carga_id)
+    validar_conflictos_horarios(session,dato_in,carga_horaria_id)
     
     dia = dato_in.id_dia
     doc = dato_in.id_doc
@@ -102,7 +102,7 @@ def actualizar_parcial_carga(carga_id: int, dato_in: AsigCargaHorariaUpdate, ses
     elif esp is not None and not service.existe_llave_foranea_esp(session,dato_in.id_esp):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El espacio no existe")
     
-    db_dato = service.obtener_dato_por_id(carga_id, session)
+    db_dato = service.obtener_dato_por_id(carga_horaria_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carga Horaria no encontrada")
 

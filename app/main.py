@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config.db_conection import engine, get_session
@@ -79,19 +79,34 @@ app.include_router(analitica_router)
 # SERVICIO DEL FRONTEND ESTÁTICO (para Opción A: .bat)
 # ============================================================
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "unem-frontend" / "dist"
-
 if FRONTEND_DIST.is_dir():
     assets_dir = FRONTEND_DIST / "assets"
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
+    # Derive API roots from the included routers so new endpoints are protected automatically.
+    API_ROOTS = {
+        r.path.split("/")[1]
+        for r in app.routes
+        if getattr(r, "path", "").startswith("/")
+        and len(r.path.split("/")) > 1
+        and r.path.split("/")[1]
+    }
+
     @app.get("/{full_path:path}")
-    async def serve_frontend(full_path: str):
-        if full_path.startswith(("api", "docs", "redoc", "openapi.json")):
+    async def serve_frontend(full_path: str, request: Request):
+        primera = full_path.split("/", 1)[0]
+
+        if primera in API_ROOTS or full_path.startswith(("api", "docs", "redoc", "openapi.json")):
+            if not full_path.endswith("/"):
+                qs = request.url.query
+                destino = f"/{full_path}/" + (f"?{qs}" if qs else "")
+                return RedirectResponse(url=destino, status_code=307)
             return JSONResponse(status_code=404, content={"detail": "Not found"})
 
         frontend_root = FRONTEND_DIST.resolve()
         file_path = (frontend_root / full_path).resolve()
         if frontend_root in file_path.parents and file_path.is_file():
             return FileResponse(str(file_path))
+
         return FileResponse(str(frontend_root / "index.html"))
