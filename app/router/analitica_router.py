@@ -6,6 +6,7 @@ Prefijo: /analitica
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, text
 from typing import Optional
+from math import sqrt
 
 from app.config.db_conection import get_session
 from app.dependencies.auth_deps import obtener_usuario_actual
@@ -18,7 +19,7 @@ _LECTOR = Depends(obtener_usuario_actual)
 _CTE = f"""
     WITH definitivas AS (
         SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
-               n.id_est, n.id_malla, n.id_per, n.nota,
+               n.id_est, n.id_malla, n.id_per, n.nota, n.observaciones,
                {SQL_NOTA_MINIMA_APROBATORIA} AS nota_minima_aprobatoria
         FROM academico.notas n
         JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
@@ -30,6 +31,78 @@ _CTE = f"""
                  CASE n.tipo_evaluacion WHEN 'Recuperación' THEN 1 ELSE 2 END
     )
 """
+
+
+@router.get("/cobertura-secciones")
+def cobertura_secciones(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = _LECTOR,
+):
+    """Cobertura por sección en el período de cada sección.
+
+    Una persona cuenta como evaluada si tiene al menos una nota FINAL o de
+    RECUPERACIÓN validada. No es cobertura de todas las materias de la malla.
+    Los agregados no contienen identificaciones ni datos personales.
+    """
+    rows = session.exec(text("""
+        WITH matricula AS (
+            SELECT e.id_sec, COUNT(*)::integer AS estudiantes
+            FROM personas.estudiantes e
+            WHERE e.estatus = 'A' AND e.id_sec IS NOT NULL
+            GROUP BY e.id_sec
+        ), evaluacion AS (
+            SELECT e.id_sec, n.id_per,
+                   COUNT(DISTINCT e.id_est)::integer AS evaluados,
+                   COUNT(*)::integer AS calificaciones_validadas
+            FROM academico.notas n
+            JOIN personas.estudiantes e ON e.id_est = n.id_est AND e.estatus = 'A'
+            WHERE n.estatus = 'A'
+              AND n.estado_revision = 'A'
+              AND n.tipo_evaluacion IN ('Final', 'Recuperación')
+              AND e.id_sec IS NOT NULL
+            GROUP BY e.id_sec, n.id_per
+        ), horarios AS (
+            SELECT a.id_sec,
+                   COUNT(*)::integer AS asignaciones,
+                   COUNT(DISTINCT a.id_malla)::integer AS materias_programadas,
+                   COUNT(DISTINCT a.id_doc)::integer AS docentes_programados
+            FROM horarios.asig_carga_horarias a
+            WHERE a.estatus = 'A' AND a.id_sec IS NOT NULL
+            GROUP BY a.id_sec
+        )
+        SELECT s.id_sec, s.codigo, p.codigo AS cod_programa,
+               p.nombre AS programa, s.capacidad_maxima,
+               COALESCE(m.estudiantes, 0) AS estudiantes,
+               COALESCE(ev.evaluados, 0) AS evaluados,
+               COALESCE(ev.calificaciones_validadas, 0) AS notas_validadas,
+               COALESCE(h.asignaciones, 0) AS asignaciones,
+               COALESCE(h.materias_programadas, 0) AS materias_programadas,
+               COALESCE(h.docentes_programados, 0) AS docentes_programados
+        FROM academico.secciones s
+        JOIN academico.programas p ON p.id_pro = s.id_pro
+        LEFT JOIN matricula m ON m.id_sec = s.id_sec
+        LEFT JOIN evaluacion ev ON ev.id_sec = s.id_sec AND ev.id_per = s.id_per
+        LEFT JOIN horarios h ON h.id_sec = s.id_sec
+        WHERE s.estatus = 'A' AND p.estatus = 'A'
+        ORDER BY p.codigo, s.codigo
+    """)).mappings().all()
+    respuesta = []
+    for r in rows:
+        estudiantes = int(r["estudiantes"])
+        evaluados = int(r["evaluados"])
+        capacidad = int(r["capacidad_maxima"])
+        respuesta.append({
+            "id_sec": int(r["id_sec"]), "codigo": r["codigo"],
+            "cod_programa": r["cod_programa"], "programa": r["programa"],
+            "capacidad": capacidad, "estudiantes": estudiantes,
+            "evaluados": evaluados, "notas_validadas": int(r["notas_validadas"]),
+            "asignaciones": int(r["asignaciones"]),
+            "materias_programadas": int(r["materias_programadas"]),
+            "docentes_programados": int(r["docentes_programados"]),
+            "ocupacion_pct": round(estudiantes * 100 / capacidad, 1) if capacidad else 0.0,
+            "cobertura_pct": round(evaluados * 100 / estudiantes, 1) if estudiantes else 0.0,
+        })
+    return respuesta
 
 
 @router.get("/tendencia")
@@ -209,6 +282,7 @@ def _nivel_riesgo(pct: float, promedio: float) -> str:
 def predicciones(
     id_pro: Optional[int] = Query(None, description="Filtrar por programa"),
     pasos: int = Query(2, ge=1, le=4, description="Períodos futuros a proyectar"),
+    tamano_escenario: int = Query(20, ge=5, le=100, description="Calificaciones hipotéticas de un grupo comparable"),
     session: Session = Depends(get_session),
     usuario_actual: dict = _LECTOR,
 ):
@@ -288,7 +362,7 @@ def predicciones(
 
     # --- 3. Proyección acotada a los rangos válidos (0-20 y 0-100) ---
     proyeccion = []
-    if m_prom is not None and b_prom is not None and n >= 2:
+    if id_pro is not None and m_prom is not None and b_prom is not None and n >= 2:
         for k in range(1, pasos + 1):
             x = n + k
             prom = max(0.0, min(20.0, m_prom * x + b_prom))
@@ -300,7 +374,9 @@ def predicciones(
                 "pct_aprobacion_proyectado": round(apr, 2),
             })
 
-    if n < 2:
+    if id_pro is None and n >= 2:
+        aviso = "Se muestran períodos de carreras con calendarios distintos; seleccione una carrera para evaluar una tendencia histórica comparable."
+    elif n < 2:
         aviso = "Se necesitan al menos 2 períodos con notas oficiales para calcular una tendencia."
     elif n < 3:
         aviso = "Solo hay 2 períodos: la proyección es una estimación preliminar, no confiable estadísticamente."
@@ -309,7 +385,67 @@ def predicciones(
     else:
         aviso = None
 
-    # --- 4. Riesgo por materia (vista oficial ya existente) ---
+    # --- 4. Escenario condicional (disponible con UN solo período) ---
+    # Esta estimación NO extrapola en el tiempo. Se aplica la proporción observada
+    # de aprobaciones del último período con notas a un número hipotético de
+    # evaluaciones similares. El intervalo de Wilson 95 % describe incertidumbre
+    # de la tasa observada, NO es un intervalo predictivo del siguiente grupo.
+    # Se cuentan calificaciones definitivas únicas (estudiante/materia/período).
+    escenario = None
+    if serie:
+        ultimo = serie[-1]
+        # Si se eligió un programa, utilizamos su período más reciente.
+        # Si se eligieron TODOS, reunimos todas las notas de ambos sistemas;
+        # NO tratamos semestre y trimestre como puntos de una misma tendencia.
+        condicion_periodo = " AND d.id_per = :id_periodo" if id_pro else ""
+        parametros_muestra = {**params, **({"id_periodo": ultimo["id_per"]} if id_pro else {})}
+        muestra_sql = _CTE + """
+            SELECT count(*) AS n_notas,
+                   count(DISTINCT d.id_est) AS n_estudiantes,
+                   count(*) FILTER (WHERE d.nota >= d.nota_minima_aprobatoria) AS n_aprobadas,
+                   count(*) FILTER (WHERE d.observaciones LIKE 'DEMO_UNEM_%') AS n_demo,
+                   round(avg(d.nota), 2) AS promedio
+            FROM definitivas d
+            JOIN academico.malla_curricular mc ON mc.id_malla = d.id_malla
+            WHERE 1=1
+        """ + condicion_periodo + filtro
+        muestra = session.exec(text(muestra_sql).params(**parametros_muestra)).mappings().first()
+        cantidad = int(muestra["n_notas"] or 0) if muestra else 0
+        if cantidad:
+            aprobadas = int(muestra["n_aprobadas"] or 0)
+            estudiantes = int(muestra["n_estudiantes"] or 0)
+            proporcion = aprobadas / cantidad
+            z = 1.96
+            den = 1 + z * z / cantidad
+            centro = (proporcion + z * z / (2 * cantidad)) / den
+            margen = z * sqrt(
+                proporcion * (1 - proporcion) / cantidad + z * z / (4 * cantidad * cantidad)
+            ) / den
+            esperadas = round(tamano_escenario * proporcion)
+            escenario = {
+                "tipo": "escenario_condicional_no_temporal",
+                "periodo_base": ultimo["periodo"] if id_pro else "Períodos disponibles de ambos programas",
+                "tamano_escenario": tamano_escenario,
+                "n_calificaciones_base": cantidad,
+                "n_estudiantes_base": estudiantes,
+                "aprobadas_base": aprobadas,
+                "n_calificaciones_demo": int(muestra["n_demo"] or 0),
+                "tasa_aprobacion_observada": round(100 * proporcion, 2),
+                "limite_inferior_tasa_wilson_95": round(100 * max(0.0, centro - margen), 2),
+                "limite_superior_tasa_wilson_95": round(100 * min(1.0, centro + margen), 2),
+                "estimadas_aprobatorias": esperadas,
+                "estimadas_no_aprobatorias": tamano_escenario - esperadas,
+                "promedio_referencia": float(muestra["promedio"]),
+                "advertencia": (
+                    "Escenario hipotético, no pronóstico temporal validado. Supone que las futuras "
+                    "evaluaciones se comportan como las notas finales validadas de la muestra. "
+                    "El intervalo de Wilson describe la incertidumbre de la tasa observada, "
+                    "no predice el número de aprobados ni corrige la dependencia entre "
+                    "calificaciones de un mismo estudiante."
+                ),
+            }
+
+    # --- 5. Riesgo por materia (vista oficial ya existente) ---
     q_mat = """
         SELECT cod_programa, materia, trayecto, periodo,
                total_estudiantes_evaluados, promedio, reprobados, porcentaje_aprobacion
@@ -369,7 +505,7 @@ def predicciones(
     return {
         "metodo": "Regresión lineal por mínimos cuadrados (regr_slope / regr_intercept / regr_r2 en PostgreSQL)",
         "n_periodos": n,
-        "confiable": bool(n >= 3 and (r2_prom or 0) >= 0.5),
+        "confiable": bool(id_pro is not None and n >= 3 and (r2_prom or 0) >= 0.5),
         "aviso": aviso,
         "pendiente_promedio": None if m_prom is None else round(m_prom, 4),
         "pendiente_aprobacion": None if m_apr is None else round(m_apr, 4),
@@ -377,6 +513,7 @@ def predicciones(
         "r2_aprobacion": None if r2_apr is None else round(r2_apr, 4),
         "serie": serie,
         "proyeccion": proyeccion,
+        "escenario": escenario,
         "materias_riesgo": materias_riesgo,
         "estudiantes_riesgo": estudiantes_riesgo,
     }

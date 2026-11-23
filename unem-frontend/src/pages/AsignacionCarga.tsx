@@ -49,12 +49,12 @@ export const AsignacionCargaPage = () => {
   const { espacios } = useEspaciosFisicos();
   const { dias } = useDias();
   const { periodos } = usePeriodos();
-  const { idRol, esVicerrector, puede } = useAuth();
-  // La asignación de docentes es responsabilidad exclusiva de Vicerrectoría.
+  const { idRol, esAdmin, esVicerrector, puede } = useAuth();
+  // La gestión corresponde al Vicerrector; el Administrador conserva acceso de respaldo.
   // Se comprueba también en el backend: estos controles solo mejoran la UX.
-  const puedeCrear = esVicerrector && puede('asig_carga', 'CRE', 'TODO');
-  const puedeActualizar = esVicerrector && puede('asig_carga', 'ACT', 'TODO');
-  const puedeEliminar = esVicerrector && puede('asig_carga', 'BOR', 'TODO');
+  const puedeCrear = (esAdmin || esVicerrector) && puede('asig_carga', 'CRE', 'TODO');
+  const puedeActualizar = (esAdmin || esVicerrector) && puede('asig_carga', 'ACT', 'TODO');
+  const puedeEliminar = (esAdmin || esVicerrector) && puede('asig_carga', 'BOR', 'TODO');
 
   // La página Secciones está bloqueada al Vicerrector, pero aquí necesita
   // un catálogo mínimo de secciones para poder asignar un horario docente.

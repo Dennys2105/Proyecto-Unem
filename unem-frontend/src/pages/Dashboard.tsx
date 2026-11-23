@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
 import { useAnalytics } from '../hooks/useAnalytics';
 import {
-  Users, UserCheck, Calendar, BookOpen, Clock, GraduationCap, DoorOpen,
+  Users, UserCheck, Calendar, BookOpen, GraduationCap,
   BarChart3, PieChart as PieIcon, Building2, Star, RefreshCw,
   AlertCircle, ClipboardList, } from 'lucide-react';
 import {
@@ -50,7 +50,7 @@ const UltimaActualizacion = ({ timestamp }: { timestamp: number }): ReactNode =>
 export const Dashboard = () => {
   const {
     resumen, cargaPorDia, porContrato, ocupacion, porPrograma,
-    periodosVigentes, coberturaNotas, isLoading, isFetching, dataUpdatedAt,
+    periodosVigentes, coberturaSecciones, isLoading, isFetching, dataUpdatedAt,
     isError, refetchAll
   } = useAnalytics();
 
@@ -98,19 +98,33 @@ export const Dashboard = () => {
     );
   }
 
+  // El indicador activo de BD no garantiza vigencia por fechas.
+  const ahora = new Date();
+  const hoyLocal = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+  const periodosFechaValida = periodosVigentes.filter((p) => p.fecha_inicio <= hoyLocal && hoyLocal <= p.fecha_fin);
+  const periodosFueraFecha = periodosVigentes.filter((p) => p.fecha_inicio > hoyLocal || p.fecha_fin < hoyLocal);
+  const seccionesConNotas = coberturaSecciones.filter((s) => s.evaluados > 0).length;
+  const totalSecciones = coberturaSecciones.length;
+  const estudiantesEvaluadosOficial = coberturaSecciones.reduce((total, s) => total + s.evaluados, 0);
+  const estudiantesSinNota = Math.max(0, resumen.total_estudiantes_activos - estudiantesEvaluadosOficial);
+  const coberturaOficialPct = resumen.total_estudiantes_activos > 0
+    ? Math.round(estudiantesEvaluadosOficial * 1000 / resumen.total_estudiantes_activos) / 10
+    : 0;
+  const seccionesGraficas = coberturaSecciones.map((s) => ({
+    ...s, etiqueta: `${s.cod_programa}-${s.codigo.split('.').slice(-1)[0]}`,
+  }));
   const totalHoras = resumen.total_horas_asignadas + resumen.total_horas_disponibles;
   const porcentajeOcupacion = totalHoras > 0
     ? Math.round((resumen.total_horas_asignadas / totalHoras) * 100)
     : 0;
 
   const kpis: KpiDef[] = [
-    { titulo: 'Docentes Activos', valor: resumen.total_docentes_activos, icon: Users, color: '#1e88e5' },
-    { titulo: 'Estudiantes Activos', valor: resumen.total_estudiantes_activos, icon: UserCheck, color: '#0f9d58' },
-    { titulo: 'Asignaciones', valor: resumen.total_asignaciones_activas, subtitulo: 'Carga horaria vigente', icon: Calendar, color: '#7c7cc9' },
-    { titulo: 'Programas Activos', valor: resumen.total_programas_activos, icon: GraduationCap, color: '#2e3192' },
-    { titulo: 'Horas Asignadas', valor: `${resumen.total_horas_asignadas}h`, subtitulo: `${porcentajeOcupacion}% de la capacidad`, icon: BookOpen, color: '#e08600' },
-    { titulo: 'Horas Disponibles', valor: `${resumen.total_horas_disponibles}h`, subtitulo: 'Capacidad sin asignar', icon: Clock, color: '#009688' },
-    { titulo: 'Aulas Disponibles', valor: resumen.aulas_disponibles, subtitulo: 'Espacios operativos', icon: DoorOpen, color: '#00b8d4' },
+    { titulo: 'Estudiantes activos', valor: resumen.total_estudiantes_activos, subtitulo: 'Matrícula registrada', icon: UserCheck, color: '#0f9d58' },
+    { titulo: 'Secciones activas', valor: totalSecciones, subtitulo: 'Grupos en ambos programas', icon: GraduationCap, color: '#2e3192' },
+    { titulo: 'Docentes activos', valor: resumen.total_docentes_activos, subtitulo: 'Con ficha docente', icon: Users, color: '#1e88e5' },
+    { titulo: 'Asignaciones activas', valor: resumen.total_asignaciones_activas, subtitulo: 'Bloques de horario, no materias únicas', icon: Calendar, color: '#7c7cc9' },
+    { titulo: 'Horas asignadas', valor: `${resumen.total_horas_asignadas}h`, subtitulo: `${porcentajeOcupacion}% de capacidad docente`, icon: BookOpen, color: '#e08600' },
+    { titulo: 'Cobertura de notas oficiales', valor: `${coberturaOficialPct}%`, subtitulo: `${estudiantesEvaluadosOficial} de ${resumen.total_estudiantes_activos} estudiantes con nota final o recuperación validada`, icon: ClipboardList, color: '#7c3aed' },
   ];
 
   const datosContrato = porContrato.map((c) => ({
@@ -131,7 +145,7 @@ export const Dashboard = () => {
       <PageHero
         icon={BarChart3}
         titulo="Panel de Control UNEM"
-        descripcion="Métricas operativas en tiempo real · actualización automática cada 60 segundos."
+        descripcion="Panorama académico, seguimiento de matrícula y cobertura de evaluaciones · datos actualizados cada 60 segundos."
         acciones={
           <button
             className="unem-btn"
@@ -150,16 +164,18 @@ export const Dashboard = () => {
           <span className="unem-chip unem-chip-ins">
             <span className="unem-pulse"><i /><b /></span> En vivo
           </span>
-          {periodosVigentes.length > 0 ? (
-            periodosVigentes.map((periodo) => (
-              <span key={periodo.id_per} className="unem-chip unem-chip-soft">
-                <Star size={13} /> {periodo.tipo} vigente: {periodo.nombre} ({periodo.fecha_inicio} → {periodo.fecha_fin})
-              </span>
-            ))
-          ) : (
-            <span className="unem-chip unem-chip-del">
-              <AlertCircle size={13} /> Sin período académico vigente
+          {periodosFechaValida.map((periodo) => (
+            <span key={periodo.id_per} className="unem-chip unem-chip-ins">
+              <Star size={13} /> Período en fecha: {periodo.nombre}
             </span>
+          ))}
+          {periodosFueraFecha.map((periodo) => (
+            <span key={periodo.id_per} className="unem-chip unem-chip-del" title={`${periodo.fecha_inicio} a ${periodo.fecha_fin}`}>
+              <AlertCircle size={13} /> Marcado activo, pero fuera de fecha: {periodo.nombre}
+            </span>
+          ))}
+          {periodosVigentes.length === 0 && (
+            <span className="unem-chip unem-chip-del"><AlertCircle size={13} /> Sin período marcado activo</span>
           )}
           <UltimaActualizacion timestamp={dataUpdatedAt} />
         </div>
@@ -188,16 +204,63 @@ export const Dashboard = () => {
           );
         })}
 
-        <article className="unem-kpi" style={{ ['--kpi-c' as never]: '#e08600' } as CSSProperties}>
-          <div className="unem-kpi-top">
-            <span className="unem-kpi-l">Cobertura de Notas</span>
-            <span className="unem-kpi-i"><ClipboardList size={16} /></span>
+      </div>
+
+      {/* Indicadores accionables: distinguen matrícula, carga y evaluación. */}
+      <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 ${claseAtenuada}`}>
+        <div className="unem-card unem-card-pad border-l-4 border-amber-400">
+          <p className="text-xs font-bold uppercase tracking-wide text-amber-700">Brecha de evaluación</p>
+          <div className="text-2xl font-black text-gray-900 mt-2">{estudiantesSinNota} alumnos</div>
+          <p className="text-sm text-gray-500 mt-1">Todavía sin nota final o recuperación validada. No implica reprobación.</p>
+        </div>
+        <div className="unem-card unem-card-pad border-l-4 border-indigo-400">
+          <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">Avance por sección</p>
+          <div className="text-2xl font-black text-gray-900 mt-2">{seccionesConNotas} de {totalSecciones}</div>
+          <p className="text-sm text-gray-500 mt-1">Grupos con al menos un estudiante evaluado.</p>
+        </div>
+        <div className="unem-card unem-card-pad border-l-4 border-sky-400">
+          <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Capacidad docente</p>
+          <div className="text-2xl font-black text-gray-900 mt-2">{porcentajeOcupacion}%</div>
+          <p className="text-sm text-gray-500 mt-1">{resumen.total_horas_asignadas}h asignadas · {resumen.total_horas_disponibles}h disponibles.</p>
+        </div>
+      </div>
+
+      <div className={`unem-card unem-card-pad ${claseAtenuada}`}>
+        <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Matrícula y cobertura académica por sección</h2>
+            <p className="text-sm text-gray-500 mt-1">Compara alumnos inscritos con alumnos que tienen al menos una nota oficial validada.</p>
           </div>
-          <div className="unem-kpi-v">{coberturaNotas?.porcentaje_cobertura ?? 0}%</div>
-          <div className="unem-kpi-s">
-            {coberturaNotas?.estudiantes_evaluados ?? 0} de {coberturaNotas?.estudiantes_activos ?? 0} estudiantes
-          </div>
-        </article>
+          <span className="unem-chip unem-chip-soft">{totalSecciones} secciones</span>
+        </div>
+        {seccionesGraficas.length === 0 ? <EmptyState texto="No hay secciones activas." /> : (
+          <>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={seccionesGraficas} margin={{ top: 10, right: 18, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis dataKey="etiqueta" tick={{ fontSize: 11 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value, name) => [value ?? 0, name === 'estudiantes' ? 'Matriculados' : 'Con nota validada']} />
+                  <Legend formatter={(value: string) => value === 'estudiantes' ? 'Matriculados' : 'Con nota validada'} />
+                  <Bar dataKey="estudiantes" name="estudiantes" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="evaluados" name="evaluados" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 mt-3">
+              {coberturaSecciones.map((s) => (
+                <div key={s.id_sec} className="rounded-xl border border-gray-200 bg-slate-50 px-3 py-3">
+                  <div className="font-semibold text-sm text-gray-800">{s.cod_programa} · {s.codigo.split('.').slice(-1)[0]}</div>
+                  <div className="text-xs text-gray-500 mt-1">Matrícula {s.estudiantes}/{s.capacidad} · {s.ocupacion_pct}%</div>
+                  <div className="text-xs text-gray-500">Notas: {s.evaluados}/{s.estudiantes} alumnos · {s.cobertura_pct}%</div>
+                  <div className="text-xs text-gray-500">Materias programadas: {s.materias_programadas}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        <p className="text-xs text-amber-700 mt-4">Cobertura de alumnos ≠ porcentaje de materias evaluadas. Los resultados por sección no deben confundirse con un promedio institucional.</p>
       </div>
 
       {/* GRÁFICA 1: CARGA HORARIA REAL POR DÍA */}

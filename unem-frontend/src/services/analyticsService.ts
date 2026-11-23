@@ -50,6 +50,13 @@ export interface InfoSistema {
   salud_ok: boolean;
 }
 
+export interface CoberturaSeccion {
+  id_sec: number; codigo: string; cod_programa: string; programa: string;
+  capacidad: number; estudiantes: number; evaluados: number;
+  notas_validadas: number; asignaciones: number; materias_programadas: number;
+  docentes_programados: number; ocupacion_pct: number; cobertura_pct: number;
+}
+
 /* ===== ANALÍTICA ACADÉMICA (Opción 2) ===== */
 export interface PuntoTendencia {
   id_per: number; periodo: string; anio: number; numero_periodo: number; tipo: string;
@@ -82,7 +89,21 @@ export interface EstudianteRiesgo {
   promedio: number; materias_evaluadas: number; materias_reprobadas: number; nivel: string;
 }
 
+export interface EscenarioCondicional {
+  tipo: 'escenario_condicional_no_temporal'; periodo_base: string;
+  tamano_escenario: number; n_calificaciones_base: number;
+  n_estudiantes_base: number; aprobadas_base: number; n_calificaciones_demo: number;
+  tasa_aprobacion_observada: number;
+  limite_inferior_tasa_wilson_95: number;
+  limite_superior_tasa_wilson_95: number;
+  estimadas_aprobatorias: number;
+  estimadas_no_aprobatorias: number;
+  promedio_referencia: number;
+  advertencia: string;
+}
+
 export interface PrediccionesData {
+  escenario: EscenarioCondicional | null;
   metodo: string;
   n_periodos: number;
   confiable: boolean;
@@ -110,6 +131,7 @@ export const analyticsService = {
   getRendimientoAcademico: async (idPer?: number): Promise<RendimientoAcademicoData> =>
     (await api.get('/analytics/rendimiento-academico', { params: idPer ? { id_per: idPer } : {} })).data,
 
+  getCoberturaSecciones: async (): Promise<CoberturaSeccion[]> => (await api.get('/analitica/cobertura-secciones')).data,
   getTendencia: async (): Promise<PuntoTendencia[]> => (await api.get('/analitica/tendencia')).data,
   getTrayectos: async (idPro?: number): Promise<FilaTrayecto[]> =>
     (await api.get('/analitica/trayectos', { params: idPro ? { id_pro: idPro } : {} })).data,
@@ -119,6 +141,8 @@ export const analyticsService = {
   getGeografia: async (): Promise<FilaGeografia[]> => (await api.get('/analitica/geografia')).data,
   getHistograma: async (): Promise<BinHistograma[]> => (await api.get('/analitica/histograma')).data,
 
-  getPredicciones: async (idPro?: number, pasos = 2): Promise<PrediccionesData> =>
-    (await api.get('/analitica/predicciones', { params: { ...(idPro ? { id_pro: idPro } : {}), pasos } })).data,
+  getPredicciones: async (idPro?: number, pasos = 2, tamanoEscenario = 20): Promise<PrediccionesData> =>
+    (await api.get('/analitica/predicciones', {
+      params: { ...(idPro ? { id_pro: idPro } : {}), pasos, tamano_escenario: tamanoEscenario },
+    })).data,
 };

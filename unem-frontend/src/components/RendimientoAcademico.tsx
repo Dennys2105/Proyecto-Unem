@@ -149,11 +149,11 @@ export const RendimientoAcademico = () => {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-80" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
                 </span>
-                Datos reales
+                Notas validadas
               </span>
             </div>
             <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-indigo-100/80">
-              Indicadores calculados sobre calificaciones <strong className="font-semibold text-white">oficiales</strong> —
+              Indicadores calculados sobre calificaciones <strong className="font-semibold text-white">registradas y validadas</strong> —
               Final o Recuperación, con precedencia de la segunda. Parciales y trabajos son formativos
               y no alteran estas métricas.
             </p>

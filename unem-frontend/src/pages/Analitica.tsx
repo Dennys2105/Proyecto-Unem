@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { analyticsService } from '../services/analyticsService';
 import type {
   PuntoTendencia, FilaTrayecto, FilaEje, FilaOcupacionDia, FilaGeografia, BinHistograma,
-  PrediccionesData, PuntoSerie, PuntoProyeccion, MateriaRiesgoPred, EstudianteRiesgo, CargaPorDia,
+  PrediccionesData, PuntoSerie, PuntoProyeccion, MateriaRiesgoPred, EstudianteRiesgo, CargaPorDia, CoberturaSeccion,
 } from '../services/analyticsService';
 import {
   BarChart3, TrendingUp, Layers, CalendarRange, MapPin, RefreshCw, Info, Sparkles,
@@ -14,7 +14,7 @@ import {
   Tooltip, ResponsiveContainer, Cell, ReferenceLine,
 } from 'recharts';
 
-type Tab = 'tendencia' | 'trayectos' | 'ejes' | 'ocupacion' | 'geografia' | 'predicciones';
+type Tab = 'secciones' | 'tendencia' | 'trayectos' | 'ejes' | 'ocupacion' | 'geografia' | 'predicciones';
 
 const AZUL = '#1E88E5';
 const INDIGO = '#2E3192';
@@ -26,9 +26,10 @@ const AMBAR = '#e08600';
 const etiquetaBin = (b: number): string => `${(b - 1) * 2}–${b * 2}`;
 
 export const Analitica = (): ReactNode => {
-  const [tab, setTab] = useState<Tab>('tendencia');
+  const [tab, setTab] = useState<Tab>('secciones');
   const [idDia, setIdDia] = useState<number>(6); // 6 = Sábado por defecto
   const [idProPred, setIdProPred] = useState<number | undefined>(undefined);
+  const [tamanoEscenario, setTamanoEscenario] = useState(20);
   // Analítica utiliza el resumen de ocupación (solo lectura) y ya no
   // depende del CRUD de Días Laborales, restringido al Coordinador.
   const qDias = useQuery<CargaPorDia[]>({
@@ -44,6 +45,7 @@ export const Analitica = (): ReactNode => {
     }
   }, [qDias.data, idDia]);
 
+  const qSec = useQuery<CoberturaSeccion[]>({ queryKey: ['ana', 'cobertura-secciones'], queryFn: analyticsService.getCoberturaSecciones, enabled: tab === 'secciones' });
   const qTen = useQuery<PuntoTendencia[]>({ queryKey: ['ana', 'ten'], queryFn: analyticsService.getTendencia, enabled: tab === 'tendencia' });
   const qHis = useQuery<BinHistograma[]>({ queryKey: ['ana', 'his'], queryFn: analyticsService.getHistograma, enabled: tab === 'tendencia' });
   const qTra = useQuery<FilaTrayecto[]>({ queryKey: ['ana', 'tra'], queryFn: () => analyticsService.getTrayectos(), enabled: tab === 'trayectos' });
@@ -52,12 +54,12 @@ export const Analitica = (): ReactNode => {
   const qGeo = useQuery<FilaGeografia[]>({ queryKey: ['ana', 'geo'], queryFn: analyticsService.getGeografia, enabled: tab === 'geografia' });
 
   const qPre = useQuery<PrediccionesData>({
-    queryKey: ['ana', 'pre', idProPred],
-    queryFn: () => analyticsService.getPredicciones(idProPred),
+    queryKey: ['ana', 'pre', idProPred, tamanoEscenario],
+    queryFn: () => analyticsService.getPredicciones(idProPred, 2, tamanoEscenario),
     enabled: tab === 'predicciones',
   });
 
-  const activa = tab === 'tendencia' ? qTen : tab === 'trayectos' ? qTra : tab === 'ejes' ? qEje
+  const activa = tab === 'secciones' ? qSec : tab === 'tendencia' ? qTen : tab === 'trayectos' ? qTra : tab === 'ejes' ? qEje
     : tab === 'ocupacion' ? qOcu : tab === 'geografia' ? qGeo : qPre;
 
   const seriePred = useMemo(() => {
@@ -88,8 +90,8 @@ export const Analitica = (): ReactNode => {
             <div style={{ minWidth: 0 }}>
               <h1>Analítica Académica</h1>
               <p>
-                Tendencias por período, comparativas por trayecto y eje formativo, ocupación de aulas
-                por día (viernes y sábado) y distribución geográfica. Todo calculado en el motor de BD.
+                Cobertura de evaluaciones por sección, rendimiento académico validado,
+                ocupación de espacios y comparativas por carrera. Datos agregados desde PostgreSQL.
               </p>
             </div>
           </div>
@@ -100,7 +102,8 @@ export const Analitica = (): ReactNode => {
       </section>
 
       <div className="unem-seg" style={{ alignSelf: 'flex-start' }}>
-        <button data-on={tab === 'tendencia'} onClick={() => setTab('tendencia')}><TrendingUp size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Tendencia</button>
+        <button data-on={tab === 'secciones'} onClick={() => setTab('secciones')}><Layers size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Secciones</button>
+        <button data-on={tab === 'tendencia'} onClick={() => setTab('tendencia')}><TrendingUp size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Rendimiento</button>
         <button data-on={tab === 'trayectos'} onClick={() => setTab('trayectos')}><Layers size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Trayectos</button>
         <button data-on={tab === 'ejes'} onClick={() => setTab('ejes')}><BarChart3 size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Ejes</button>
         <button data-on={tab === 'ocupacion'} onClick={() => setTab('ocupacion')}><CalendarRange size={13} style={{ marginRight: 5, verticalAlign: '-2px' }} />Ocupación</button>
@@ -118,9 +121,79 @@ export const Analitica = (): ReactNode => {
         </div>
       ) : (
         <>
+          {tab === 'secciones' && (
+            <div className="unem-card unem-card-pad">
+              <h2 className="text-xl font-bold text-gray-900">Cobertura de evaluación por sección</h2>
+              <p className="text-sm text-gray-500 mt-1 mb-5">
+                Alumnos con al menos una calificación final o de recuperación validada. Esta medida no equivale al porcentaje de materias completadas.
+              </p>
+              {(qSec.data ?? []).length === 0 ? (
+                <div className="unem-note"><Info size={16} /><span>No se encontraron secciones activas.</span></div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+                      <p className="text-xs font-bold text-indigo-700">Matrícula</p>
+                      <p className="text-2xl font-bold text-indigo-900">{(qSec.data ?? []).reduce((n, s) => n + s.estudiantes, 0)}</p>
+                      <p className="text-xs text-indigo-700">Estudiantes en las secciones activas</p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+                      <p className="text-xs font-bold text-emerald-700">Alumnos evaluados</p>
+                      <p className="text-2xl font-bold text-emerald-900">{(qSec.data ?? []).reduce((n, s) => n + s.evaluados, 0)}</p>
+                      <p className="text-xs text-emerald-700">Con nota oficial validada</p>
+                    </div>
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                      <p className="text-xs font-bold text-amber-700">Secciones sin evaluación</p>
+                      <p className="text-2xl font-bold text-amber-900">{(qSec.data ?? []).filter((s) => s.evaluados === 0).length}</p>
+                      <p className="text-xs text-amber-700">Pendientes de registrar notas</p>
+                    </div>
+                  </div>
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={(qSec.data ?? []).map((s) => ({ ...s, label: `${s.cod_programa}-${s.codigo.split('.').slice(-1)[0]}` }))}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                        <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="estudiantes" name="Matriculados" fill={AZUL} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="evaluados" name="Evaluados" fill={VERDE} radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="unem-table-wrap unem-scroll" style={{ marginTop: 18 }}>
+                    <table className="unem-table">
+                      <thead><tr><th>Programa</th><th>Sección</th><th>Matriculados/capacidad</th><th>Materias programadas</th><th>Alumnos evaluados</th><th>Cobertura</th></tr></thead>
+                      <tbody>
+                        {(qSec.data ?? []).map((s) => (
+                          <tr key={s.id_sec}>
+                            <td className="unem-strong">{s.cod_programa}</td>
+                            <td>{s.codigo}</td>
+                            <td>{s.estudiantes}/{s.capacidad} ({s.ocupacion_pct}%)</td>
+                            <td>{s.materias_programadas}</td>
+                            <td>{s.evaluados}/{s.estudiantes}</td>
+                            <td className="unem-strong">{s.cobertura_pct}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="unem-note" style={{ marginTop: 14 }}>
+                    <Info size={16} />
+                    <span>La analítica se basa exclusivamente en notas validadas. Una sección sin notas no implica bajo rendimiento, sino información aún no disponible.</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {tab === 'tendencia' && (
             <div className="unem-card unem-card-pad">
               <b style={{ fontSize: 12, color: 'var(--tx-2)' }}>Promedio y % de aprobación por período</b>
+              {(qTen.data?.length ?? 0) < 2 && (
+                <div className="unem-note" style={{ marginTop: 12, marginBottom: 8 }}>
+                  <Info size={16} /><span>Solo existe {qTen.data?.length ?? 0} período(s) con notas oficiales: se muestra un corte descriptivo, no una tendencia histórica.</span>
+                </div>
+              )}
               <div style={{ height: 300, marginTop: 12 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={qTen.data ?? []}>
@@ -250,7 +323,7 @@ export const Analitica = (): ReactNode => {
                   <option value="2">LESP — Educación Especial</option>
                 </select>
                 <span className={`unem-chip ${qPre.data.confiable ? 'unem-chip-ins' : 'unem-chip-soft'}`}>
-                  {qPre.data.confiable ? 'Modelo confiable' : 'Estimación preliminar'}
+                  {qPre.data.confiable ? 'Tendencia histórica' : 'Sin tendencia histórica'}
                 </span>
                 <span className="unem-chip unem-chip-mut">{qPre.data.n_periodos} período(s)</span>
                 {qPre.data.r2_promedio !== null && (
@@ -264,19 +337,97 @@ export const Analitica = (): ReactNode => {
                 </div>
               )}
 
-              <div style={{ height: 300, marginTop: 12 }}>
+              {/* Proyección condicional calculada a partir de notas reales, sin inventar períodos. */}
+              <div style={{ border: '1px solid #c7d2fe', borderRadius: 14, padding: 18, background: '#f8faff', marginTop: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <b style={{ color: '#312e81', fontSize: 15 }}>Escenario de continuidad académica</b>
+                    <p style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>
+                      ¿Qué ocurriría si las siguientes evaluaciones mantuvieran el porcentaje de aprobación observado?
+                    </p>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#334155' }}>
+                    Evaluaciones hipotéticas
+                    <select className="unem-select" value={tamanoEscenario}
+                      onChange={(e) => setTamanoEscenario(Number(e.target.value))}>
+                      {[10, 20, 30, 40, 60, 80, 100].map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
+                </div>
+                {qPre.data.escenario ? (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ marginTop: 15 }}>
+                      <div className="rounded-xl border border-indigo-100 bg-white p-4">
+                        <p className="text-xs font-semibold text-indigo-700">Aprobatorias estimadas</p>
+                        <p className="text-3xl font-bold text-indigo-900">{qPre.data.escenario.estimadas_aprobatorias} <span className="text-sm font-normal">de {tamanoEscenario}</span></p>
+                        <p className="text-xs text-slate-600">Solo bajo el supuesto de continuidad</p>
+                      </div>
+                      <div className="rounded-xl border border-sky-100 bg-white p-4">
+                        <p className="text-xs font-semibold text-sky-700">Tasa observada</p>
+                        <p className="text-3xl font-bold text-sky-900">{qPre.data.escenario.tasa_aprobacion_observada.toFixed(1)}%</p>
+                        <p className="text-xs text-slate-600">Base: {qPre.data.escenario.n_calificaciones_base} notas finales validadas</p>
+                      </div>
+                      <div className="rounded-xl border border-amber-100 bg-white p-4">
+                        <p className="text-xs font-semibold text-amber-700">Promedio de referencia</p>
+                        <p className="text-3xl font-bold text-amber-900">{qPre.data.escenario.promedio_referencia.toFixed(2)} <span className="text-sm font-normal">/20</span></p>
+                        <p className="text-xs text-slate-600">No es promedio predicho por regresión</p>
+                      </div>
+                    </div>
+                    <div style={{ height: 190, marginTop: 15 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={[
+                          { tipo: 'Aprobatorias', cantidad: qPre.data.escenario.estimadas_aprobatorias },
+                          { tipo: 'No aprobatorias', cantidad: qPre.data.escenario.estimadas_no_aprobatorias },
+                        ]} layout="vertical" margin={{ left: 20, right: 24 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                          <XAxis type="number" allowDecimals={false} domain={[0, tamanoEscenario]} />
+                          <YAxis type="category" dataKey="tipo" width={108} tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Bar dataKey="cantidad" name="Evaluaciones estimadas" radius={[0, 6, 6, 0]}>
+                            <Cell fill={VERDE} /><Cell fill={AMBAR} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p style={{ fontSize: 12, marginTop: 8, color: '#475569' }}>
+                      Referencia: <b>{qPre.data.escenario.periodo_base}</b> · {qPre.data.escenario.n_estudiantes_base} estudiantes con notas.
+                      Intervalo de Wilson al 95% para la <b>tasa observada</b>: <b>
+                      {qPre.data.escenario.limite_inferior_tasa_wilson_95.toFixed(1)}%–{qPre.data.escenario.limite_superior_tasa_wilson_95.toFixed(1)}%</b>.
+                    </p>
+                    {qPre.data.escenario.n_calificaciones_demo > 0 && (
+                      <div className="unem-note" style={{ marginTop: 12, background: '#fffbeb', borderColor: '#fcd34d' }}>
+                        <Info size={16} /><span>El cálculo incluye <b>{qPre.data.escenario.n_calificaciones_demo}</b> calificaciones etiquetadas como datos sintéticos de demostración. No equivale a un estudio de rendimiento institucional real.</span>
+                      </div>
+                    )}
+                    <div className="unem-note" style={{ marginTop: 12 }}>
+                      <Info size={16} /><span>{qPre.data.escenario.advertencia}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="unem-note" style={{ marginTop: 12 }}>
+                    <Info size={16} /><span>No hay notas definitivas validadas para calcular un escenario en el programa seleccionado.</span>
+                  </div>
+                )}
+              </div>
+
+              {!qPre.data.confiable && (
+                <div className="unem-note" style={{ marginTop: 12 }}>
+                  <Info size={16} /><span>No hay pronóstico de tendencia histórica: se requieren al menos tres períodos comparables. El escenario mostrado arriba es condicional, no sustituye una predicción temporal validada.</span>
+                </div>
+              )}
+              {qPre.data.confiable && <div style={{ height: 300, marginTop: 12 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={seriePred}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                     <XAxis dataKey="etiqueta" tick={{ fontSize: 11 }} />
                     <YAxis domain={[0, 20]} tick={{ fontSize: 11 }} />
                     <Tooltip />
-                    <ReferenceLine y={10} stroke="#dc2626" strokeDasharray="4 4" />
+                    <ReferenceLine y={12} stroke="#dc2626" strokeDasharray="4 4" />
                     <Line dataKey="promedio" name="Promedio histórico" stroke={INDIGO} strokeWidth={2} dot={{ r: 3 }} connectNulls />
                     <Line dataKey="proyectado" name="Promedio proyectado" stroke={CIAN} strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls />
                   </ComposedChart>
                 </ResponsiveContainer>
-              </div>
+              </div>}
 
               <p style={{ fontSize: 11.5, color: 'var(--tx-3)', marginTop: 10 }}>
                 {qPre.data.metodo}
@@ -286,7 +437,7 @@ export const Analitica = (): ReactNode => {
                 )}
               </p>
 
-              {qPre.data.proyeccion.length > 0 && (
+              {qPre.data.confiable && qPre.data.proyeccion.length > 0 && (
                 <div className="unem-table-wrap unem-scroll" style={{ marginTop: 14 }}>
                   <table className="unem-table">
                     <thead><tr><th>Escenario</th><th>Promedio proyectado</th><th>% Aprobación proyectado</th></tr></thead>
@@ -392,7 +543,7 @@ const BadgeRiesgo = ({ nivel }: { nivel: string }): ReactNode => (
 const TablaRiesgoMaterias = ({ filas }: { filas: MateriaRiesgoPred[] }): ReactNode => (
   filas.length === 0 ? (
     <div className="unem-note" style={{ marginTop: 10 }}>
-      <Info size={16} /><span>Sin materias en riesgo: todas las materias evaluadas tienen aprobación total.</span>
+      <Info size={16} /><span>No hay materias con riesgo identificado entre las calificaciones validadas disponibles.</span>
     </div>
   ) : (
     <div className="unem-table-wrap unem-scroll" style={{ marginTop: 10 }}>
@@ -423,7 +574,7 @@ const TablaRiesgoMaterias = ({ filas }: { filas: MateriaRiesgoPred[] }): ReactNo
 const TablaRiesgoEstudiantes = ({ filas }: { filas: EstudianteRiesgo[] }): ReactNode => (
   filas.length === 0 ? (
     <div className="unem-note" style={{ marginTop: 10 }}>
-      <Info size={16} /><span>Sin estudiantes en riesgo académico según las notas oficiales cargadas.</span>
+      <Info size={16} /><span>No se identificaron estudiantes en riesgo con las calificaciones validadas disponibles.</span>
     </div>
   ) : (
     <div className="unem-table-wrap unem-scroll" style={{ marginTop: 10 }}>

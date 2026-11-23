@@ -47,7 +47,9 @@ app.add_middleware(
         "http://localhost:5173",      # Puerto por defecto de Vite (Frontend)
         "http://127.0.0.1:5173",
         "http://localhost:5174",      # Por si Vite cambia de puerto automáticamente
-        "http://127.0.0.1:5174"
+        "http://127.0.0.1:5174",
+        "http://192.168.1.84:5173",  # IP local de la máquina (ajustar según sea necesario)
+        "http://192.168.1.84:5174"
     ],
     allow_credentials=True,            # Permite el envío de cookies y headers de autenticación
     allow_methods=["*"],               # Permite todos los métodos HTTP (GET, POST, PUT, DELETE, OPTIONS, PATCH)

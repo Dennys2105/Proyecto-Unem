@@ -40,7 +40,7 @@ class SeccionOpcionCarga(BaseModel):
 def secciones_para_asignacion(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('asig_carga', 'LEC', 'SP')),
-    _rol: dict = Depends(requerir_rol([2])),
+    _rol: dict = Depends(requerir_rol([1, 2])),
 ):
     resultados = session.exec(
         select(Seccion, PeriodoAcademico)
@@ -63,8 +63,8 @@ def secciones_para_asignacion(
     ]
 
 
-# --- CREATE (exclusivo del Vicerrector) ---
-@router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(requerir_rol([2]))])
+# --- CREATE (Administrador o Vicerrector; Coordinador/Docente denegados) ---
+@router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(requerir_rol([1, 2]))])
 def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','CRE','TODO'))):
     validar_conflictos_horarios(session, carga_in)
 
@@ -128,7 +128,7 @@ def leer_carga_horaria_id(carga_horaria_id: int, session: Session = Depends(get_
     return dato
 
 # --- UPDATE (PARCIAL - PATCH) ---
-@router.patch("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse, dependencies=[Depends(requerir_rol([2]))])
+@router.patch("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse, dependencies=[Depends(requerir_rol([1, 2]))])
 def actualizar_parcial_carga(carga_horaria_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','ACT','TODO'))):
     
     # 1. Obtener primero la asignación existente. En PATCH pueden llegar campos None.
@@ -185,7 +185,7 @@ def actualizar_parcial_carga(carga_horaria_id: int, dato_in: AsigCargaHorariaUpd
 
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
-@router.delete("/{id_asig}", status_code=status.HTTP_200_OK, dependencies=[Depends(requerir_rol([2]))])
+@router.delete("/{id_asig}", status_code=status.HTTP_200_OK, dependencies=[Depends(requerir_rol([1, 2]))])
 def eliminar_asignacion(id_asig: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','BOR','TODO'))):
     db_dato = service.obtener_dato_por_id(id_asig, session)
     if not db_dato:

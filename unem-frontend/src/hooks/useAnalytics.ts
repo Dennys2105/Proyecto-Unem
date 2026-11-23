@@ -40,6 +40,12 @@ export const useAnalytics = () => {
     refetchInterval: REFRESH_MS,
   });
 
+  const coberturaSecciones = useQuery({
+    queryKey: ['analytics', 'cobertura-secciones'],
+    queryFn: analyticsService.getCoberturaSecciones,
+    refetchInterval: REFRESH_MS,
+  });
+
   const coberturaNotas = useQuery({
     queryKey: ['analytics', 'cobertura-notas'],
     queryFn: analyticsService.getCoberturaNotas,
@@ -49,12 +55,12 @@ export const useAnalytics = () => {
   
   const isLoading =
     resumen.isLoading || cargaPorDia.isLoading || porContrato.isLoading ||
-    ocupacion.isLoading || porPrograma.isLoading;
+    ocupacion.isLoading || porPrograma.isLoading || coberturaSecciones.isLoading;
 
   const isFetching =
     resumen.isFetching || cargaPorDia.isFetching || porContrato.isFetching ||
     ocupacion.isFetching || porPrograma.isFetching ||
-    periodosVigentes.isFetching || coberturaNotas.isFetching;
+    periodosVigentes.isFetching || coberturaNotas.isFetching || coberturaSecciones.isFetching;
 
   
   const refetchAll = async () => {
@@ -66,6 +72,7 @@ export const useAnalytics = () => {
       porPrograma.refetch(),
       periodosVigentes.refetch(),
       coberturaNotas.refetch(),
+      coberturaSecciones.refetch(),
     ]);
     const huboError = resultados.some((r) => r.isError);
     if (huboError) throw new Error('Algunas métricas no pudieron actualizarse');
@@ -80,6 +87,7 @@ export const useAnalytics = () => {
     porPrograma: porPrograma.data ?? [],
     periodosVigentes: periodosVigentes.data ?? [],
     coberturaNotas: coberturaNotas.data,
+    coberturaSecciones: coberturaSecciones.data ?? [],
     isLoading,
     isFetching,                                        
     dataUpdatedAt: resumen.dataUpdatedAt,              
