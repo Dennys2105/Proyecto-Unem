@@ -19,24 +19,25 @@ router= APIRouter(
 # --- CREATE ---
 @router.post("/", response_model=EstudianteResponse, status_code=status.HTTP_201_CREATED)
 def crear_estudiante(estudiante_in: EstudianteCreate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('estudiantes','CRE','LIM'))):
-    usuario = service.existe_llave_foranea_usu(session,estudiante_in.id_usu)
-    municipio = service.existe_llave_foranea_mun(session,estudiante_in.id_mun)
-    prog = service.existe_llave_foranea_pro(session,estudiante_in.id_pro)
-    seccion = service.existe_llave_foranea_sec(session,estudiante_in.id_sec) if estudiante_in.id_sec is not None else None
-    
-    if not usuario:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no existe")
-    elif not municipio:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Municipio no existe")
-    elif not prog:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Programa no existe")
-    elif not seccion:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Seccion no existe")
-    
-    if estudiante_in.id_sec is not None:
-        validar_seccion_para_nueva_operacion(session, estudiante_in.id_sec)
+    # Las tres vinculaciones son opcionales en personas.estudiantes (BD 4.3).
+    # Una sección sí determina un programa; no permitir programas contradictorios.
+    if estudiante_in.id_usu is not None and not service.existe_llave_foranea_usu(session, estudiante_in.id_usu):
+        raise HTTPException(status_code=404, detail="Usuario no existe")
+    if not service.existe_llave_foranea_mun(session, estudiante_in.id_mun):
+        raise HTTPException(status_code=404, detail="Municipio no existe")
 
-    validar_unicidad(Estudiante,['cedula',"id_usu"])(estudiante_in,session)
+    if estudiante_in.id_sec is not None:
+        seccion = service.existe_llave_foranea_sec(session, estudiante_in.id_sec)
+        if not seccion:
+            raise HTTPException(status_code=404, detail="Sección no existe")
+        if estudiante_in.id_pro is not None and estudiante_in.id_pro != seccion.id_pro:
+            raise HTTPException(status_code=400, detail="La sección no pertenece al programa indicado")
+        validar_seccion_para_nueva_operacion(session, estudiante_in.id_sec)
+        estudiante_in = estudiante_in.model_copy(update={"id_pro": seccion.id_pro})
+    elif estudiante_in.id_pro is not None and not service.existe_llave_foranea_pro(session, estudiante_in.id_pro):
+        raise HTTPException(status_code=404, detail="Programa no existe")
+
+    validar_unicidad(Estudiante, ['cedula', 'id_usu'])(estudiante_in, session)
     return service.crear(session, estudiante_in)
 
 # --- READ ALL ---
@@ -78,7 +79,8 @@ def leer_estudiante_id(estudiante_id: int, session: Session = Depends(get_sessio
     return dato
 
 # --- RETIRO / REINCORPORACIÓN: acción específica del Coordinador (rol 3) ---
-@router.patch("/{estudiante_id}/estado", response_model=EstudianteResponse)
+@router.patch("/{estudiante_id}/estado", response_model=EstudianteResponse,
+              dependencies=[Depends(verificar_permiso("estudiantes", "ACT", "SP"))])
 def cambiar_estado_estudiante(
     estudiante_id: int,
     cambio: EstudianteCambioEstado,
@@ -113,8 +115,15 @@ def actualizar_parcial_estudiante(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Estudiante no encontrado"
         )
-    if dato_in.id_sec is not None and dato_in.id_sec != db_dato.id_sec:
+    campos_enviados = dato_in.model_dump(exclude_unset=True)
+    if 'id_sec' in campos_enviados and dato_in.id_sec is not None and dato_in.id_sec != db_dato.id_sec:
+        seccion = service.existe_llave_foranea_sec(session, dato_in.id_sec)
+        if not seccion:
+            raise HTTPException(status_code=404, detail="Sección no existe")
+        if dato_in.id_pro is not None and dato_in.id_pro != seccion.id_pro:
+            raise HTTPException(status_code=400, detail="La sección no pertenece al programa indicado")
         validar_seccion_para_nueva_operacion(session, dato_in.id_sec)
+        dato_in = dato_in.model_copy(update={'id_pro': seccion.id_pro})
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
 

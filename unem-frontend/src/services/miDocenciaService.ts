@@ -58,7 +58,8 @@ export const miDocenciaService = {
   },
   async descargar(url: string, nombre: string): Promise<void> {
     const response = await api.get(url, { responseType: 'blob' });
-    const archivo = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+    const tipo = response.headers['content-type'];
+    const archivo = new Blob([response.data], { type: typeof tipo === 'string' ? tipo : 'application/octet-stream' });
     const ruta = URL.createObjectURL(archivo);
     const enlace = document.createElement('a');
     enlace.href = ruta;

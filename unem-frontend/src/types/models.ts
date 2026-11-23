@@ -592,9 +592,9 @@ export interface PermisoUsuario {
 export interface MatrizPermiso {
   modulo: Modulo;
   permisos: {
-    CRE: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
-    ACT: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
-    LEC: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
-    BOR: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    CRE: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; alcanceMaximo: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    ACT: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; alcanceMaximo: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    LEC: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; alcanceMaximo: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
+    BOR: { activo: boolean; alcance: 'TODO' | 'SP' | 'LIM' | 'NAD'; alcanceMaximo: 'TODO' | 'SP' | 'LIM' | 'NAD'; esPersonalizado: boolean };
   };
 }

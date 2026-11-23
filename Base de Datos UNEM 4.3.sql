@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict Eu1tvUGSMZ5mAlwQvBKmsvuH3sbkySLqY8sk3U53i3gAdgUxUgNsMEU3PCT4w3K
+\restrict nxZlCskazbo5RGdbdSwgm56TRw1HEB3F3SVjzo8jBDcAOvxk0mgjW7QdLUfQ1Pc
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-21 21:51:36
+-- Started on 2026-11-22 22:36:47
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -32,7 +32,7 @@ CREATE SCHEMA academico;
 ALTER SCHEMA academico OWNER TO postgres;
 
 --
--- TOC entry 5444 (class 0 OID 0)
+-- TOC entry 5455 (class 0 OID 0)
 -- Dependencies: 6
 -- Name: SCHEMA academico; Type: COMMENT; Schema: -; Owner: postgres
 --
@@ -51,7 +51,7 @@ CREATE SCHEMA general;
 ALTER SCHEMA general OWNER TO postgres;
 
 --
--- TOC entry 5445 (class 0 OID 0)
+-- TOC entry 5456 (class 0 OID 0)
 -- Dependencies: 10
 -- Name: SCHEMA general; Type: COMMENT; Schema: -; Owner: postgres
 --
@@ -70,7 +70,7 @@ CREATE SCHEMA horarios;
 ALTER SCHEMA horarios OWNER TO postgres;
 
 --
--- TOC entry 5446 (class 0 OID 0)
+-- TOC entry 5457 (class 0 OID 0)
 -- Dependencies: 9
 -- Name: SCHEMA horarios; Type: COMMENT; Schema: -; Owner: postgres
 --
@@ -89,7 +89,7 @@ CREATE SCHEMA infraestructura;
 ALTER SCHEMA infraestructura OWNER TO postgres;
 
 --
--- TOC entry 5447 (class 0 OID 0)
+-- TOC entry 5458 (class 0 OID 0)
 -- Dependencies: 8
 -- Name: SCHEMA infraestructura; Type: COMMENT; Schema: -; Owner: postgres
 --
@@ -108,7 +108,7 @@ CREATE SCHEMA personas;
 ALTER SCHEMA personas OWNER TO postgres;
 
 --
--- TOC entry 5448 (class 0 OID 0)
+-- TOC entry 5459 (class 0 OID 0)
 -- Dependencies: 7
 -- Name: SCHEMA personas; Type: COMMENT; Schema: -; Owner: postgres
 --
@@ -117,7 +117,7 @@ COMMENT ON SCHEMA personas IS 'Esquema para todo lo referente a docentes y estud
 
 
 --
--- TOC entry 306 (class 1255 OID 65886)
+-- TOC entry 308 (class 1255 OID 65886)
 -- Name: f_actualizar_timestamp(); Type: FUNCTION; Schema: general; Owner: postgres
 --
 
@@ -134,8 +134,8 @@ $$;
 ALTER FUNCTION general.f_actualizar_timestamp() OWNER TO postgres;
 
 --
--- TOC entry 5449 (class 0 OID 0)
--- Dependencies: 306
+-- TOC entry 5460 (class 0 OID 0)
+-- Dependencies: 308
 -- Name: FUNCTION f_actualizar_timestamp(); Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -143,7 +143,7 @@ COMMENT ON FUNCTION general.f_actualizar_timestamp() IS 'Función para actualiza
 
 
 --
--- TOC entry 318 (class 1255 OID 65885)
+-- TOC entry 322 (class 1255 OID 65885)
 -- Name: fn_auditoria_general(); Type: FUNCTION; Schema: general; Owner: postgres
 --
 
@@ -198,8 +198,8 @@ $$;
 ALTER FUNCTION general.fn_auditoria_general() OWNER TO postgres;
 
 --
--- TOC entry 5450 (class 0 OID 0)
--- Dependencies: 318
+-- TOC entry 5461 (class 0 OID 0)
+-- Dependencies: 322
 -- Name: FUNCTION fn_auditoria_general(); Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -207,58 +207,136 @@ COMMENT ON FUNCTION general.fn_auditoria_general() IS 'Función para registrar a
 
 
 --
--- TOC entry 319 (class 1255 OID 66156)
+-- TOC entry 313 (class 1255 OID 246086)
+-- Name: max_alcance_personalizable(integer, smallint, smallint); Type: FUNCTION; Schema: general; Owner: postgres
+--
+
+CREATE FUNCTION general.max_alcance_personalizable(p_id_usu integer, p_id_mod smallint, p_id_perm smallint) RETURNS character varying
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+    v_rol SMALLINT;
+    v_modulo VARCHAR;
+    v_maximo VARCHAR(10);
+BEGIN
+    SELECT u.id_rol, m.codigo, COALESCE(pr.alcance, 'NAD')
+      INTO v_rol, v_modulo, v_maximo
+      FROM general.usuarios u
+      JOIN general.modulos m ON m.id_mod = p_id_mod AND m.estatus = 'A'
+      LEFT JOIN general.permisos_rol pr
+        ON pr.id_rol = u.id_rol
+       AND pr.id_mod = m.id_mod
+       AND pr.id_perm = p_id_perm
+       AND pr.estatus = 'A'
+     WHERE u.id_usu = p_id_usu;
+    IF NOT FOUND THEN
+        RETURN 'NAD';
+    END IF;
+    IF (v_rol <> 1 AND v_modulo = 'usuarios')
+       OR (v_rol = 2 AND v_modulo IN ('notas', 'secciones'))
+       OR (v_rol = 3 AND v_modulo IN ('asig_carga', 'dias'))
+       OR v_rol = 4 THEN
+        RETURN 'NAD';
+    END IF;
+    RETURN v_maximo;
+END;
+$$;
+
+
+ALTER FUNCTION general.max_alcance_personalizable(p_id_usu integer, p_id_mod smallint, p_id_perm smallint) OWNER TO postgres;
+
+--
+-- TOC entry 320 (class 1255 OID 246087)
+-- Name: validar_maximo_permiso_usuario(); Type: FUNCTION; Schema: general; Owner: postgres
+--
+
+CREATE FUNCTION general.validar_maximo_permiso_usuario() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_maximo VARCHAR(10);
+BEGIN
+    IF NEW.estatus = 'A' AND NEW.alcance IS NOT NULL THEN
+        v_maximo := general.max_alcance_personalizable(NEW.id_usu, NEW.id_mod, NEW.id_perm);
+        IF array_position(ARRAY['NAD','SP','LIM','TODO']::TEXT[], NEW.alcance::TEXT)
+           > array_position(ARRAY['NAD','SP','LIM','TODO']::TEXT[], v_maximo::TEXT) THEN
+            RAISE EXCEPTION 'Permiso % supera el máximo % del rol (usuario %, módulo %, acción %)',
+                NEW.alcance, v_maximo, NEW.id_usu, NEW.id_mod, NEW.id_perm
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION general.validar_maximo_permiso_usuario() OWNER TO postgres;
+
+--
+-- TOC entry 324 (class 1255 OID 66156)
 -- Name: fn_calcular_horas_docente(); Type: FUNCTION; Schema: horarios; Owner: postgres
 --
 
 CREATE FUNCTION horarios.fn_calcular_horas_docente() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-DECLARE
-    v_id_doc INTEGER;
-    v_total_horas NUMERIC;
 BEGIN
-    -- 1. Identificar al docente afectado (si es DELETE, usa OLD; si no, NEW)
     IF TG_OP = 'DELETE' THEN
-        v_id_doc := OLD.id_doc;
-    ELSE
-        v_id_doc := NEW.id_doc;
+        PERFORM horarios.recalcular_horas_de_un_docente(OLD.id_doc);
+        RETURN OLD;
     END IF;
 
-    -- Si la asignación no tiene docente (ej. es un espacio reservado), no hacer nada
-    IF v_id_doc IS NULL THEN 
-        RETURN COALESCE(NEW, OLD); 
+    IF TG_OP = 'UPDATE' AND OLD.id_doc IS DISTINCT FROM NEW.id_doc THEN
+        -- El docente anterior debe recuperar sus horas libres.
+        PERFORM horarios.recalcular_horas_de_un_docente(OLD.id_doc);
     END IF;
 
-    -- 2. Calcular el total de horas reales asignadas (en horas decimales/enteras)
-    -- Sumamos la diferencia entre hora_fin y hora_inicio de todas las asignaciones ACTIVAS
-    SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (hora_fin - hora_inicio)) / 3600.0), 0)
-    INTO v_total_horas
-    FROM horarios.asig_carga_horarias
-    WHERE id_doc = v_id_doc 
-      AND estatus = 'A';
-
-    -- 3. Actualizar la tabla de docentes (Redondeamos a entero si tu columna es smallint)
-    UPDATE personas.docentes
-    SET 
-        horas_asignadas = ROUND(v_total_horas)::smallint,
-        horas_disponibles = horas_max_sem - ROUND(v_total_horas)::smallint,
-        actualizar = CURRENT_TIMESTAMP
-    WHERE id_doc = v_id_doc;
-
-    RETURN COALESCE(NEW, OLD);
+    PERFORM horarios.recalcular_horas_de_un_docente(NEW.id_doc);
+    RETURN NEW;
 END;
 $$;
 
 
 ALTER FUNCTION horarios.fn_calcular_horas_docente() OWNER TO postgres;
 
+--
+-- TOC entry 323 (class 1255 OID 246089)
+-- Name: recalcular_horas_de_un_docente(integer); Type: FUNCTION; Schema: horarios; Owner: postgres
+--
+
+CREATE FUNCTION horarios.recalcular_horas_de_un_docente(p_id_doc integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF p_id_doc IS NULL THEN
+        RETURN;
+    END IF;
+
+    UPDATE personas.docentes d
+       SET horas_asignadas = calculo.total_horas,
+           horas_disponibles = d.horas_max_sem - calculo.total_horas,
+           actualizar = CURRENT_TIMESTAMP
+      FROM (
+          SELECT COALESCE(ROUND(SUM(
+              EXTRACT(EPOCH FROM (a.hora_fin - a.hora_inicio)) / 3600.0
+          )), 0)::smallint AS total_horas
+          FROM horarios.asig_carga_horarias a
+          WHERE a.id_doc = p_id_doc
+            AND a.estatus = 'A'
+      ) calculo
+      WHERE d.id_doc = p_id_doc;
+END;
+$$;
+
+
+ALTER FUNCTION horarios.recalcular_horas_de_un_docente(p_id_doc integer) OWNER TO postgres;
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- TOC entry 279 (class 1259 OID 65915)
+-- TOC entry 281 (class 1259 OID 65915)
 -- Name: ejes_formativos; Type: TABLE; Schema: academico; Owner: postgres
 --
 
@@ -275,8 +353,8 @@ CREATE TABLE academico.ejes_formativos (
 ALTER TABLE academico.ejes_formativos OWNER TO postgres;
 
 --
--- TOC entry 5451 (class 0 OID 0)
--- Dependencies: 279
+-- TOC entry 5462 (class 0 OID 0)
+-- Dependencies: 281
 -- Name: TABLE ejes_formativos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -284,8 +362,8 @@ COMMENT ON TABLE academico.ejes_formativos IS 'Catálogo de ejes formativos (Pro
 
 
 --
--- TOC entry 5452 (class 0 OID 0)
--- Dependencies: 279
+-- TOC entry 5463 (class 0 OID 0)
+-- Dependencies: 281
 -- Name: COLUMN ejes_formativos.id_eje; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -293,8 +371,8 @@ COMMENT ON COLUMN academico.ejes_formativos.id_eje IS 'Identificador único seri
 
 
 --
--- TOC entry 5453 (class 0 OID 0)
--- Dependencies: 279
+-- TOC entry 5464 (class 0 OID 0)
+-- Dependencies: 281
 -- Name: COLUMN ejes_formativos.codigo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -302,8 +380,8 @@ COMMENT ON COLUMN academico.ejes_formativos.codigo IS 'Código alfanumérico cor
 
 
 --
--- TOC entry 5454 (class 0 OID 0)
--- Dependencies: 279
+-- TOC entry 5465 (class 0 OID 0)
+-- Dependencies: 281
 -- Name: COLUMN ejes_formativos.nombre; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -311,8 +389,8 @@ COMMENT ON COLUMN academico.ejes_formativos.nombre IS 'Nombre completo del eje f
 
 
 --
--- TOC entry 5455 (class 0 OID 0)
--- Dependencies: 279
+-- TOC entry 5466 (class 0 OID 0)
+-- Dependencies: 281
 -- Name: COLUMN ejes_formativos.descripcion; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -320,8 +398,8 @@ COMMENT ON COLUMN academico.ejes_formativos.descripcion IS 'Detalle extendido de
 
 
 --
--- TOC entry 5456 (class 0 OID 0)
--- Dependencies: 279
+-- TOC entry 5467 (class 0 OID 0)
+-- Dependencies: 281
 -- Name: COLUMN ejes_formativos.estatus; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -329,8 +407,8 @@ COMMENT ON COLUMN academico.ejes_formativos.estatus IS 'Indicador de borrado ló
 
 
 --
--- TOC entry 5457 (class 0 OID 0)
--- Dependencies: 279
+-- TOC entry 5468 (class 0 OID 0)
+-- Dependencies: 281
 -- Name: CONSTRAINT chk_ejes_est ON ejes_formativos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -338,7 +416,7 @@ COMMENT ON CONSTRAINT chk_ejes_est ON academico.ejes_formativos IS 'Regla de val
 
 
 --
--- TOC entry 278 (class 1259 OID 65914)
+-- TOC entry 280 (class 1259 OID 65914)
 -- Name: ejes_formativos_id_eje_seq; Type: SEQUENCE; Schema: academico; Owner: postgres
 --
 
@@ -354,8 +432,8 @@ CREATE SEQUENCE academico.ejes_formativos_id_eje_seq
 ALTER SEQUENCE academico.ejes_formativos_id_eje_seq OWNER TO postgres;
 
 --
--- TOC entry 5458 (class 0 OID 0)
--- Dependencies: 278
+-- TOC entry 5469 (class 0 OID 0)
+-- Dependencies: 280
 -- Name: ejes_formativos_id_eje_seq; Type: SEQUENCE OWNED BY; Schema: academico; Owner: postgres
 --
 
@@ -363,7 +441,7 @@ ALTER SEQUENCE academico.ejes_formativos_id_eje_seq OWNED BY academico.ejes_form
 
 
 --
--- TOC entry 283 (class 1259 OID 65954)
+-- TOC entry 285 (class 1259 OID 65954)
 -- Name: malla_curricular; Type: TABLE; Schema: academico; Owner: postgres
 --
 
@@ -387,8 +465,8 @@ CREATE TABLE academico.malla_curricular (
 ALTER TABLE academico.malla_curricular OWNER TO postgres;
 
 --
--- TOC entry 5459 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5470 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: TABLE malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -396,8 +474,8 @@ COMMENT ON TABLE academico.malla_curricular IS 'Pensum académico: define qué m
 
 
 --
--- TOC entry 5460 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5471 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.id_malla; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -405,8 +483,8 @@ COMMENT ON COLUMN academico.malla_curricular.id_malla IS 'Identificador único s
 
 
 --
--- TOC entry 5461 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5472 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.id_pro; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -414,8 +492,8 @@ COMMENT ON COLUMN academico.malla_curricular.id_pro IS 'Identificador del progra
 
 
 --
--- TOC entry 5462 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5473 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.id_mat; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -423,8 +501,8 @@ COMMENT ON COLUMN academico.malla_curricular.id_mat IS 'Identificador de la mate
 
 
 --
--- TOC entry 5463 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5474 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.trayecto; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -432,8 +510,8 @@ COMMENT ON COLUMN academico.malla_curricular.trayecto IS 'Número de trayecto (1
 
 
 --
--- TOC entry 5464 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5475 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.periodo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -441,8 +519,8 @@ COMMENT ON COLUMN academico.malla_curricular.periodo IS 'Número de período den
 
 
 --
--- TOC entry 5465 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5476 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.orden; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -450,8 +528,8 @@ COMMENT ON COLUMN academico.malla_curricular.orden IS 'Orden de la materia dentr
 
 
 --
--- TOC entry 5466 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5477 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.perequisito_id_mat; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -459,8 +537,8 @@ COMMENT ON COLUMN academico.malla_curricular.perequisito_id_mat IS 'Materia prer
 
 
 --
--- TOC entry 5467 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5478 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.estatus; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -468,8 +546,8 @@ COMMENT ON COLUMN academico.malla_curricular.estatus IS 'Indicador de borrado l�
 
 
 --
--- TOC entry 5468 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5479 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.creado; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -477,8 +555,8 @@ COMMENT ON COLUMN academico.malla_curricular.creado IS 'Fecha y hora exacta de c
 
 
 --
--- TOC entry 5469 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5480 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: COLUMN malla_curricular.actualizar; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -486,8 +564,8 @@ COMMENT ON COLUMN academico.malla_curricular.actualizar IS 'Fecha y hora de la �
 
 
 --
--- TOC entry 5470 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5481 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: CONSTRAINT chk_malla_est ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -495,8 +573,8 @@ COMMENT ON CONSTRAINT chk_malla_est ON academico.malla_curricular IS 'Valida que
 
 
 --
--- TOC entry 5471 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5482 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: CONSTRAINT chk_malla_periodo ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -504,8 +582,8 @@ COMMENT ON CONSTRAINT chk_malla_periodo ON academico.malla_curricular IS 'Garant
 
 
 --
--- TOC entry 5472 (class 0 OID 0)
--- Dependencies: 283
+-- TOC entry 5483 (class 0 OID 0)
+-- Dependencies: 285
 -- Name: CONSTRAINT chk_malla_trayecto ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -513,7 +591,7 @@ COMMENT ON CONSTRAINT chk_malla_trayecto ON academico.malla_curricular IS 'Garan
 
 
 --
--- TOC entry 282 (class 1259 OID 65953)
+-- TOC entry 284 (class 1259 OID 65953)
 -- Name: malla_curricular_id_malla_seq; Type: SEQUENCE; Schema: academico; Owner: postgres
 --
 
@@ -529,8 +607,8 @@ CREATE SEQUENCE academico.malla_curricular_id_malla_seq
 ALTER SEQUENCE academico.malla_curricular_id_malla_seq OWNER TO postgres;
 
 --
--- TOC entry 5473 (class 0 OID 0)
--- Dependencies: 282
+-- TOC entry 5484 (class 0 OID 0)
+-- Dependencies: 284
 -- Name: malla_curricular_id_malla_seq; Type: SEQUENCE OWNED BY; Schema: academico; Owner: postgres
 --
 
@@ -538,7 +616,7 @@ ALTER SEQUENCE academico.malla_curricular_id_malla_seq OWNED BY academico.malla_
 
 
 --
--- TOC entry 281 (class 1259 OID 65931)
+-- TOC entry 283 (class 1259 OID 65931)
 -- Name: materias; Type: TABLE; Schema: academico; Owner: postgres
 --
 
@@ -559,8 +637,8 @@ CREATE TABLE academico.materias (
 ALTER TABLE academico.materias OWNER TO postgres;
 
 --
--- TOC entry 5474 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5485 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: TABLE materias; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -568,8 +646,8 @@ COMMENT ON TABLE academico.materias IS 'Catálogo de unidades curriculares (mate
 
 
 --
--- TOC entry 5475 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5486 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.id_mat; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -577,8 +655,8 @@ COMMENT ON COLUMN academico.materias.id_mat IS 'Identificador único serializado
 
 
 --
--- TOC entry 5476 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5487 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.codigo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -586,8 +664,8 @@ COMMENT ON COLUMN academico.materias.codigo IS 'Código único de la materia (Ej
 
 
 --
--- TOC entry 5477 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5488 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.nombre; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -595,8 +673,8 @@ COMMENT ON COLUMN academico.materias.nombre IS 'Nombre completo de la unidad cur
 
 
 --
--- TOC entry 5478 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5489 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.id_eje; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -604,8 +682,8 @@ COMMENT ON COLUMN academico.materias.id_eje IS 'Identificador del eje formativo 
 
 
 --
--- TOC entry 5479 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5490 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.unidades_creditos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -613,8 +691,8 @@ COMMENT ON COLUMN academico.materias.unidades_creditos IS 'Unidades crédito de 
 
 
 --
--- TOC entry 5480 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5491 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.descripcion; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -622,8 +700,8 @@ COMMENT ON COLUMN academico.materias.descripcion IS 'Sinopsis o resumen del cont
 
 
 --
--- TOC entry 5481 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5492 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.estatus; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -631,8 +709,8 @@ COMMENT ON COLUMN academico.materias.estatus IS 'Indicador de borrado lógico (A
 
 
 --
--- TOC entry 5482 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5493 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.creado; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -640,8 +718,8 @@ COMMENT ON COLUMN academico.materias.creado IS 'Fecha y hora de registro de la m
 
 
 --
--- TOC entry 5483 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5494 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: COLUMN materias.actualizar; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -649,8 +727,8 @@ COMMENT ON COLUMN academico.materias.actualizar IS 'Fecha y hora de la última a
 
 
 --
--- TOC entry 5484 (class 0 OID 0)
--- Dependencies: 281
+-- TOC entry 5495 (class 0 OID 0)
+-- Dependencies: 283
 -- Name: CONSTRAINT chk_materias_est ON materias; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -658,7 +736,7 @@ COMMENT ON CONSTRAINT chk_materias_est ON academico.materias IS 'Regla para aseg
 
 
 --
--- TOC entry 280 (class 1259 OID 65930)
+-- TOC entry 282 (class 1259 OID 65930)
 -- Name: materias_id_mat_seq; Type: SEQUENCE; Schema: academico; Owner: postgres
 --
 
@@ -674,8 +752,8 @@ CREATE SEQUENCE academico.materias_id_mat_seq
 ALTER SEQUENCE academico.materias_id_mat_seq OWNER TO postgres;
 
 --
--- TOC entry 5485 (class 0 OID 0)
--- Dependencies: 280
+-- TOC entry 5496 (class 0 OID 0)
+-- Dependencies: 282
 -- Name: materias_id_mat_seq; Type: SEQUENCE OWNED BY; Schema: academico; Owner: postgres
 --
 
@@ -683,7 +761,7 @@ ALTER SEQUENCE academico.materias_id_mat_seq OWNED BY academico.materias.id_mat;
 
 
 --
--- TOC entry 302 (class 1259 OID 114941)
+-- TOC entry 304 (class 1259 OID 114941)
 -- Name: notas; Type: TABLE; Schema: academico; Owner: postgres
 --
 
@@ -699,17 +777,22 @@ CREATE TABLE academico.notas (
     estatus character(1) DEFAULT 'A'::bpchar NOT NULL,
     creado timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     actualizar timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    estado_revision character varying(1) DEFAULT 'P'::character varying NOT NULL,
+    revisado_por integer,
+    fecha_revision timestamp with time zone,
+    motivo_rechazo character varying(1000),
     CONSTRAINT chk_nota_est CHECK ((estatus = ANY (ARRAY['A'::bpchar, 'I'::bpchar]))),
     CONSTRAINT chk_nota_rango CHECK (((nota >= (0)::numeric) AND (nota <= (20)::numeric))),
-    CONSTRAINT chk_nota_tipo CHECK (((tipo_evaluacion)::text = ANY ((ARRAY['Parcial 1'::character varying, 'Parcial 2'::character varying, 'Parcial 3'::character varying, 'Final'::character varying, 'Recuperación'::character varying, 'Trabajo'::character varying])::text[])))
+    CONSTRAINT chk_nota_tipo CHECK (((tipo_evaluacion)::text = ANY ((ARRAY['Parcial 1'::character varying, 'Parcial 2'::character varying, 'Parcial 3'::character varying, 'Final'::character varying, 'Recuperación'::character varying, 'Trabajo'::character varying])::text[]))),
+    CONSTRAINT chk_notas_revision_estado CHECK (((estado_revision)::text = ANY ((ARRAY['P'::character varying, 'A'::character varying, 'R'::character varying])::text[])))
 );
 
 
 ALTER TABLE academico.notas OWNER TO postgres;
 
 --
--- TOC entry 5486 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5497 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: TABLE notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -717,8 +800,8 @@ COMMENT ON TABLE academico.notas IS 'Registro de calificaciones de estudiantes p
 
 
 --
--- TOC entry 5487 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5498 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.id_nota; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -726,8 +809,8 @@ COMMENT ON COLUMN academico.notas.id_nota IS 'Identificador único serializado d
 
 
 --
--- TOC entry 5488 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5499 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.id_est; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -735,8 +818,8 @@ COMMENT ON COLUMN academico.notas.id_est IS 'Referencia al estudiante que recibi
 
 
 --
--- TOC entry 5489 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5500 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.id_malla; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -744,8 +827,8 @@ COMMENT ON COLUMN academico.notas.id_malla IS 'Referencia a la materia (malla cu
 
 
 --
--- TOC entry 5490 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5501 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.id_per; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -753,8 +836,8 @@ COMMENT ON COLUMN academico.notas.id_per IS 'Referencia al período académico e
 
 
 --
--- TOC entry 5491 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5502 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.nota; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -762,8 +845,8 @@ COMMENT ON COLUMN academico.notas.nota IS 'Calificación obtenida en escala 0-20
 
 
 --
--- TOC entry 5492 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5503 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.tipo_evaluacion; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -771,8 +854,8 @@ COMMENT ON COLUMN academico.notas.tipo_evaluacion IS 'Tipo de evaluación: Parci
 
 
 --
--- TOC entry 5493 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5504 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.observaciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -780,8 +863,8 @@ COMMENT ON COLUMN academico.notas.observaciones IS 'Comentarios adicionales sobr
 
 
 --
--- TOC entry 5494 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5505 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.fecha_registro; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -789,8 +872,8 @@ COMMENT ON COLUMN academico.notas.fecha_registro IS 'Fecha y hora en que se regi
 
 
 --
--- TOC entry 5495 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5506 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.estatus; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -798,8 +881,8 @@ COMMENT ON COLUMN academico.notas.estatus IS 'Indicador de borrado lógico (A = 
 
 
 --
--- TOC entry 5496 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5507 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.creado; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -807,8 +890,8 @@ COMMENT ON COLUMN academico.notas.creado IS 'Timestamp de creación del registro
 
 
 --
--- TOC entry 5497 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5508 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: COLUMN notas.actualizar; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -816,8 +899,8 @@ COMMENT ON COLUMN academico.notas.actualizar IS 'Timestamp de la última modific
 
 
 --
--- TOC entry 5498 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5509 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: CONSTRAINT chk_nota_est ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -825,8 +908,8 @@ COMMENT ON CONSTRAINT chk_nota_est ON academico.notas IS 'Valida que el estatus 
 
 
 --
--- TOC entry 5499 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5510 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: CONSTRAINT chk_nota_rango ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -834,8 +917,8 @@ COMMENT ON CONSTRAINT chk_nota_rango ON academico.notas IS 'Valida que la nota e
 
 
 --
--- TOC entry 5500 (class 0 OID 0)
--- Dependencies: 302
+-- TOC entry 5511 (class 0 OID 0)
+-- Dependencies: 304
 -- Name: CONSTRAINT chk_nota_tipo ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -843,7 +926,7 @@ COMMENT ON CONSTRAINT chk_nota_tipo ON academico.notas IS 'Valida que el tipo de
 
 
 --
--- TOC entry 301 (class 1259 OID 114940)
+-- TOC entry 303 (class 1259 OID 114940)
 -- Name: notas_id_nota_seq; Type: SEQUENCE; Schema: academico; Owner: postgres
 --
 
@@ -859,8 +942,8 @@ CREATE SEQUENCE academico.notas_id_nota_seq
 ALTER SEQUENCE academico.notas_id_nota_seq OWNER TO postgres;
 
 --
--- TOC entry 5501 (class 0 OID 0)
--- Dependencies: 301
+-- TOC entry 5512 (class 0 OID 0)
+-- Dependencies: 303
 -- Name: notas_id_nota_seq; Type: SEQUENCE OWNED BY; Schema: academico; Owner: postgres
 --
 
@@ -868,8 +951,8 @@ ALTER SEQUENCE academico.notas_id_nota_seq OWNED BY academico.notas.id_nota;
 
 
 --
--- TOC entry 5502 (class 0 OID 0)
--- Dependencies: 301
+-- TOC entry 5513 (class 0 OID 0)
+-- Dependencies: 303
 -- Name: SEQUENCE notas_id_nota_seq; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -877,7 +960,7 @@ COMMENT ON SEQUENCE academico.notas_id_nota_seq IS 'Secuencia para generar ident
 
 
 --
--- TOC entry 285 (class 1259 OID 65977)
+-- TOC entry 287 (class 1259 OID 65977)
 -- Name: periodos_academicos; Type: TABLE; Schema: academico; Owner: postgres
 --
 
@@ -903,8 +986,8 @@ CREATE TABLE academico.periodos_academicos (
 ALTER TABLE academico.periodos_academicos OWNER TO postgres;
 
 --
--- TOC entry 5503 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5514 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: TABLE periodos_academicos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -912,8 +995,8 @@ COMMENT ON TABLE academico.periodos_academicos IS 'Períodos académicos (trimes
 
 
 --
--- TOC entry 5504 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5515 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.id_per; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -921,8 +1004,8 @@ COMMENT ON COLUMN academico.periodos_academicos.id_per IS 'Identificador único 
 
 
 --
--- TOC entry 5505 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5516 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.nombre; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -930,8 +1013,8 @@ COMMENT ON COLUMN academico.periodos_academicos.nombre IS 'Nombre descriptivo de
 
 
 --
--- TOC entry 5506 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5517 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.anio; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -939,8 +1022,8 @@ COMMENT ON COLUMN academico.periodos_academicos.anio IS 'Año calendario al que 
 
 
 --
--- TOC entry 5507 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5518 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.numero_periodo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -948,8 +1031,8 @@ COMMENT ON COLUMN academico.periodos_academicos.numero_periodo IS 'Número del p
 
 
 --
--- TOC entry 5508 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5519 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.tipo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -957,8 +1040,8 @@ COMMENT ON COLUMN academico.periodos_academicos.tipo IS 'Sistema del lapso: Trim
 
 
 --
--- TOC entry 5509 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5520 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.fecha_inicio; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -966,8 +1049,8 @@ COMMENT ON COLUMN academico.periodos_academicos.fecha_inicio IS 'Fecha oficial d
 
 
 --
--- TOC entry 5510 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5521 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.fecha_fin; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -975,8 +1058,8 @@ COMMENT ON COLUMN academico.periodos_academicos.fecha_fin IS 'Fecha oficial de c
 
 
 --
--- TOC entry 5511 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5522 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.activo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -984,8 +1067,8 @@ COMMENT ON COLUMN academico.periodos_academicos.activo IS 'Indica si este es el 
 
 
 --
--- TOC entry 5512 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5523 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.estatus; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -993,8 +1076,8 @@ COMMENT ON COLUMN academico.periodos_academicos.estatus IS 'Indicador de borrado
 
 
 --
--- TOC entry 5513 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5524 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.creado; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1002,8 +1085,8 @@ COMMENT ON COLUMN academico.periodos_academicos.creado IS 'Fecha y hora en la qu
 
 
 --
--- TOC entry 5514 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5525 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: COLUMN periodos_academicos.actualizar; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1011,8 +1094,8 @@ COMMENT ON COLUMN academico.periodos_academicos.actualizar IS 'Fecha y hora del 
 
 
 --
--- TOC entry 5515 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5526 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: CONSTRAINT chk_periodos_est ON periodos_academicos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1020,8 +1103,8 @@ COMMENT ON CONSTRAINT chk_periodos_est ON academico.periodos_academicos IS 'Rest
 
 
 --
--- TOC entry 5516 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5527 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: CONSTRAINT chk_periodos_fechas ON periodos_academicos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1029,8 +1112,8 @@ COMMENT ON CONSTRAINT chk_periodos_fechas ON academico.periodos_academicos IS 'L
 
 
 --
--- TOC entry 5517 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5528 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: CONSTRAINT chk_periodos_numero ON periodos_academicos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1038,8 +1121,8 @@ COMMENT ON CONSTRAINT chk_periodos_numero ON academico.periodos_academicos IS 'A
 
 
 --
--- TOC entry 5518 (class 0 OID 0)
--- Dependencies: 285
+-- TOC entry 5529 (class 0 OID 0)
+-- Dependencies: 287
 -- Name: CONSTRAINT chk_periodos_tipo ON periodos_academicos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1047,7 +1130,7 @@ COMMENT ON CONSTRAINT chk_periodos_tipo ON academico.periodos_academicos IS 'Res
 
 
 --
--- TOC entry 284 (class 1259 OID 65976)
+-- TOC entry 286 (class 1259 OID 65976)
 -- Name: periodos_academicos_id_per_seq; Type: SEQUENCE; Schema: academico; Owner: postgres
 --
 
@@ -1063,8 +1146,8 @@ CREATE SEQUENCE academico.periodos_academicos_id_per_seq
 ALTER SEQUENCE academico.periodos_academicos_id_per_seq OWNER TO postgres;
 
 --
--- TOC entry 5519 (class 0 OID 0)
--- Dependencies: 284
+-- TOC entry 5530 (class 0 OID 0)
+-- Dependencies: 286
 -- Name: periodos_academicos_id_per_seq; Type: SEQUENCE OWNED BY; Schema: academico; Owner: postgres
 --
 
@@ -1072,7 +1155,7 @@ ALTER SEQUENCE academico.periodos_academicos_id_per_seq OWNED BY academico.perio
 
 
 --
--- TOC entry 277 (class 1259 OID 65890)
+-- TOC entry 279 (class 1259 OID 65890)
 -- Name: programas; Type: TABLE; Schema: academico; Owner: postgres
 --
 
@@ -1094,8 +1177,8 @@ CREATE TABLE academico.programas (
 ALTER TABLE academico.programas OWNER TO postgres;
 
 --
--- TOC entry 5520 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5531 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: TABLE programas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1103,8 +1186,8 @@ COMMENT ON TABLE academico.programas IS 'Programas académicos de la universidad
 
 
 --
--- TOC entry 5521 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5532 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.id_pro; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1112,8 +1195,8 @@ COMMENT ON COLUMN academico.programas.id_pro IS 'Identificador único serializad
 
 
 --
--- TOC entry 5522 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5533 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.codigo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1121,8 +1204,8 @@ COMMENT ON COLUMN academico.programas.codigo IS 'Código único del programa (Ej
 
 
 --
--- TOC entry 5523 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5534 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.nombre; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1130,8 +1213,8 @@ COMMENT ON COLUMN academico.programas.nombre IS 'Título oficial del programa (E
 
 
 --
--- TOC entry 5524 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5535 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.tipo_sistema; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1139,8 +1222,8 @@ COMMENT ON COLUMN academico.programas.tipo_sistema IS 'Tipo de sistema: Trimestr
 
 
 --
--- TOC entry 5525 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5536 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.total_trayectos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1148,8 +1231,8 @@ COMMENT ON COLUMN academico.programas.total_trayectos IS 'Número total de traye
 
 
 --
--- TOC entry 5526 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5537 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.total_uc; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1157,8 +1240,8 @@ COMMENT ON COLUMN academico.programas.total_uc IS 'Total de unidades crédito de
 
 
 --
--- TOC entry 5527 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5538 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.estatus; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1166,8 +1249,8 @@ COMMENT ON COLUMN academico.programas.estatus IS 'Indicador de borrado lógico (
 
 
 --
--- TOC entry 5528 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5539 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.creado; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1175,8 +1258,8 @@ COMMENT ON COLUMN academico.programas.creado IS 'Timestamp de creación del regi
 
 
 --
--- TOC entry 5529 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5540 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: COLUMN programas.actualizar; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1184,8 +1267,8 @@ COMMENT ON COLUMN academico.programas.actualizar IS 'Timestamp de la última vez
 
 
 --
--- TOC entry 5530 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5541 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: CONSTRAINT chk_programas_est ON programas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1193,8 +1276,8 @@ COMMENT ON CONSTRAINT chk_programas_est ON academico.programas IS 'Valida que el
 
 
 --
--- TOC entry 5531 (class 0 OID 0)
--- Dependencies: 277
+-- TOC entry 5542 (class 0 OID 0)
+-- Dependencies: 279
 -- Name: CONSTRAINT chk_programas_sistema ON programas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1202,7 +1285,7 @@ COMMENT ON CONSTRAINT chk_programas_sistema ON academico.programas IS 'Valida qu
 
 
 --
--- TOC entry 276 (class 1259 OID 65889)
+-- TOC entry 278 (class 1259 OID 65889)
 -- Name: programas_id_pro_seq; Type: SEQUENCE; Schema: academico; Owner: postgres
 --
 
@@ -1218,8 +1301,8 @@ CREATE SEQUENCE academico.programas_id_pro_seq
 ALTER SEQUENCE academico.programas_id_pro_seq OWNER TO postgres;
 
 --
--- TOC entry 5532 (class 0 OID 0)
--- Dependencies: 276
+-- TOC entry 5543 (class 0 OID 0)
+-- Dependencies: 278
 -- Name: programas_id_pro_seq; Type: SEQUENCE OWNED BY; Schema: academico; Owner: postgres
 --
 
@@ -1227,7 +1310,7 @@ ALTER SEQUENCE academico.programas_id_pro_seq OWNED BY academico.programas.id_pr
 
 
 --
--- TOC entry 287 (class 1259 OID 66003)
+-- TOC entry 289 (class 1259 OID 66003)
 -- Name: secciones; Type: TABLE; Schema: academico; Owner: postgres
 --
 
@@ -1235,13 +1318,13 @@ CREATE TABLE academico.secciones (
     id_sec integer NOT NULL,
     codigo character varying(20) NOT NULL,
     id_pro integer NOT NULL,
-    id_per integer,
     trayecto smallint NOT NULL,
     periodo smallint NOT NULL,
     capacidad_maxima smallint DEFAULT 40 NOT NULL,
     estatus character(1) DEFAULT 'A'::bpchar NOT NULL,
     creado timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     actualizar timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    id_per integer,
     CONSTRAINT chk_secciones_capacidad CHECK ((capacidad_maxima > 0)),
     CONSTRAINT chk_secciones_est CHECK ((estatus = ANY (ARRAY['A'::bpchar, 'I'::bpchar]))),
     CONSTRAINT chk_secciones_periodo CHECK ((periodo > 0)),
@@ -1252,8 +1335,8 @@ CREATE TABLE academico.secciones (
 ALTER TABLE academico.secciones OWNER TO postgres;
 
 --
--- TOC entry 5533 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5544 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.id_sec; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1261,8 +1344,8 @@ COMMENT ON COLUMN academico.secciones.id_sec IS 'Identificador único serializad
 
 
 --
--- TOC entry 5534 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5545 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.codigo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1270,8 +1353,8 @@ COMMENT ON COLUMN academico.secciones.codigo IS 'Código identificador de la sec
 
 
 --
--- TOC entry 5535 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5546 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.id_pro; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1279,8 +1362,8 @@ COMMENT ON COLUMN academico.secciones.id_pro IS 'Identificador del programa acad
 
 
 --
--- TOC entry 5536 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5547 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.trayecto; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1288,8 +1371,8 @@ COMMENT ON COLUMN academico.secciones.trayecto IS 'Número del trayecto académi
 
 
 --
--- TOC entry 5537 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5548 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.periodo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1297,8 +1380,8 @@ COMMENT ON COLUMN academico.secciones.periodo IS 'Período específico (trimestr
 
 
 --
--- TOC entry 5538 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5549 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.capacidad_maxima; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1306,8 +1389,8 @@ COMMENT ON COLUMN academico.secciones.capacidad_maxima IS 'Límite máximo de es
 
 
 --
--- TOC entry 5539 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5550 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.estatus; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1315,8 +1398,8 @@ COMMENT ON COLUMN academico.secciones.estatus IS 'Indicador de borrado lógico (
 
 
 --
--- TOC entry 5540 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5551 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.creado; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1324,8 +1407,8 @@ COMMENT ON COLUMN academico.secciones.creado IS 'Fecha y hora de creación de la
 
 
 --
--- TOC entry 5541 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5552 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: COLUMN secciones.actualizar; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1333,8 +1416,8 @@ COMMENT ON COLUMN academico.secciones.actualizar IS 'Fecha y hora de la última 
 
 
 --
--- TOC entry 5542 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5553 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: CONSTRAINT chk_secciones_capacidad ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1342,8 +1425,8 @@ COMMENT ON CONSTRAINT chk_secciones_capacidad ON academico.secciones IS 'Impide 
 
 
 --
--- TOC entry 5543 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5554 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: CONSTRAINT chk_secciones_est ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1351,8 +1434,8 @@ COMMENT ON CONSTRAINT chk_secciones_est ON academico.secciones IS 'Garantiza que
 
 
 --
--- TOC entry 5544 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5555 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: CONSTRAINT chk_secciones_periodo ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1360,8 +1443,8 @@ COMMENT ON CONSTRAINT chk_secciones_periodo ON academico.secciones IS 'Verifica 
 
 
 --
--- TOC entry 5545 (class 0 OID 0)
--- Dependencies: 287
+-- TOC entry 5556 (class 0 OID 0)
+-- Dependencies: 289
 -- Name: CONSTRAINT chk_secciones_trayecto ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -1369,7 +1452,7 @@ COMMENT ON CONSTRAINT chk_secciones_trayecto ON academico.secciones IS 'Verifica
 
 
 --
--- TOC entry 286 (class 1259 OID 66002)
+-- TOC entry 288 (class 1259 OID 66002)
 -- Name: secciones_id_sec_seq; Type: SEQUENCE; Schema: academico; Owner: postgres
 --
 
@@ -1385,8 +1468,8 @@ CREATE SEQUENCE academico.secciones_id_sec_seq
 ALTER SEQUENCE academico.secciones_id_sec_seq OWNER TO postgres;
 
 --
--- TOC entry 5546 (class 0 OID 0)
--- Dependencies: 286
+-- TOC entry 5557 (class 0 OID 0)
+-- Dependencies: 288
 -- Name: secciones_id_sec_seq; Type: SEQUENCE OWNED BY; Schema: academico; Owner: postgres
 --
 
@@ -1394,7 +1477,7 @@ ALTER SEQUENCE academico.secciones_id_sec_seq OWNED BY academico.secciones.id_se
 
 
 --
--- TOC entry 269 (class 1259 OID 65764)
+-- TOC entry 271 (class 1259 OID 65764)
 -- Name: estudiantes; Type: TABLE; Schema: personas; Owner: postgres
 --
 
@@ -1420,8 +1503,8 @@ CREATE TABLE personas.estudiantes (
 ALTER TABLE personas.estudiantes OWNER TO postgres;
 
 --
--- TOC entry 5547 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5558 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: TABLE estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1429,8 +1512,8 @@ COMMENT ON TABLE personas.estudiantes IS 'Tabla para almacenar la información d
 
 
 --
--- TOC entry 5548 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5559 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.id_est; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1438,8 +1521,8 @@ COMMENT ON COLUMN personas.estudiantes.id_est IS 'identificador serializado de l
 
 
 --
--- TOC entry 5549 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5560 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.id_usu; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1447,8 +1530,8 @@ COMMENT ON COLUMN personas.estudiantes.id_usu IS 'Identificador del usuario como
 
 
 --
--- TOC entry 5550 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5561 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.cedula; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1456,8 +1539,8 @@ COMMENT ON COLUMN personas.estudiantes.cedula IS 'cedula de identidad del estudi
 
 
 --
--- TOC entry 5551 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5562 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.id_mun; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1465,8 +1548,8 @@ COMMENT ON COLUMN personas.estudiantes.id_mun IS 'Identificador del municipio co
 
 
 --
--- TOC entry 5552 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5563 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.id_pro; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1474,8 +1557,8 @@ COMMENT ON COLUMN personas.estudiantes.id_pro IS 'Identificador entero de los pr
 
 
 --
--- TOC entry 5553 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5564 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.id_sec; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1483,8 +1566,8 @@ COMMENT ON COLUMN personas.estudiantes.id_sec IS 'Identificador entero de las se
 
 
 --
--- TOC entry 5554 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5565 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.trayecto; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1492,8 +1575,8 @@ COMMENT ON COLUMN personas.estudiantes.trayecto IS 'Trayecto en el que se encuen
 
 
 --
--- TOC entry 5555 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5566 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: COLUMN estudiantes.foto_url; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1501,8 +1584,8 @@ COMMENT ON COLUMN personas.estudiantes.foto_url IS 'URL de la foto del estudiant
 
 
 --
--- TOC entry 5556 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5567 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: CONSTRAINT chk_estudiantes_cedula_formato ON estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1510,8 +1593,8 @@ COMMENT ON CONSTRAINT chk_estudiantes_cedula_formato ON personas.estudiantes IS 
 
 
 --
--- TOC entry 5557 (class 0 OID 0)
--- Dependencies: 269
+-- TOC entry 5568 (class 0 OID 0)
+-- Dependencies: 271
 -- Name: CONSTRAINT chk_estudiantes_est ON estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -1519,7 +1602,7 @@ COMMENT ON CONSTRAINT chk_estudiantes_est ON personas.estudiantes IS 'revisa si 
 
 
 --
--- TOC entry 304 (class 1259 OID 114995)
+-- TOC entry 306 (class 1259 OID 114995)
 -- Name: vw_analisis_notas; Type: VIEW; Schema: academico; Owner: postgres
 --
 
@@ -1531,7 +1614,7 @@ CREATE VIEW academico.vw_analisis_notas AS
             n.nota,
             n.tipo_evaluacion
            FROM academico.notas n
-          WHERE ((n.estatus = 'A'::bpchar) AND ((n.tipo_evaluacion)::text = ANY ((ARRAY['Final'::character varying, 'Recuperación'::character varying])::text[])))
+          WHERE ((n.estatus = 'A'::bpchar) AND ((n.estado_revision)::text = 'A'::text) AND ((n.tipo_evaluacion)::text = ANY ((ARRAY['Final'::character varying, 'Recuperación'::character varying])::text[])))
           ORDER BY n.id_est, n.id_malla, n.id_per,
                 CASE n.tipo_evaluacion
                     WHEN 'Recuperación'::text THEN 1
@@ -1554,23 +1637,29 @@ CREATE VIEW academico.vw_analisis_notas AS
     round(stddev(d.nota), 2) AS desviacion_estandar,
     count(
         CASE
-            WHEN (d.nota >=
-                CASE WHEN (lower(btrim(eje.nombre)) = 'proyecto'::text) THEN (16)::numeric ELSE (12)::numeric END
-            ) THEN 1
+            WHEN (d.nota >= (
+            CASE
+                WHEN (lower(btrim((eje.nombre)::text)) = 'proyecto'::text) THEN 16
+                ELSE 12
+            END)::numeric) THEN 1
             ELSE NULL::integer
         END) AS aprobados,
     count(
         CASE
-            WHEN (d.nota <
-                CASE WHEN (lower(btrim(eje.nombre)) = 'proyecto'::text) THEN (16)::numeric ELSE (12)::numeric END
-            ) THEN 1
+            WHEN (d.nota < (
+            CASE
+                WHEN (lower(btrim((eje.nombre)::text)) = 'proyecto'::text) THEN 16
+                ELSE 12
+            END)::numeric) THEN 1
             ELSE NULL::integer
         END) AS reprobados,
     round((((count(
         CASE
-            WHEN (d.nota >=
-                CASE WHEN (lower(btrim(eje.nombre)) = 'proyecto'::text) THEN (16)::numeric ELSE (12)::numeric END
-            ) THEN 1
+            WHEN (d.nota >= (
+            CASE
+                WHEN (lower(btrim((eje.nombre)::text)) = 'proyecto'::text) THEN 16
+                ELSE 12
+            END)::numeric) THEN 1
             ELSE NULL::integer
         END))::numeric / (count(*))::numeric) * (100)::numeric), 2) AS porcentaje_aprobacion
    FROM ((((((definitivas d
@@ -1587,16 +1676,16 @@ CREATE VIEW academico.vw_analisis_notas AS
 ALTER VIEW academico.vw_analisis_notas OWNER TO postgres;
 
 --
--- TOC entry 5558 (class 0 OID 0)
--- Dependencies: 304
+-- TOC entry 5569 (class 0 OID 0)
+-- Dependencies: 306
 -- Name: VIEW vw_analisis_notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
-COMMENT ON VIEW academico.vw_analisis_notas IS 'Análisis estadístico sobre notas OFICIALES (Final o Recuperación). DISTINCT ON garantiza un registro por estudiante-materia-período; la Recuperación prevalece sobre la Final. Parciales y Trabajos son formativos y no afectan las métricas.';
+COMMENT ON VIEW academico.vw_analisis_notas IS 'Análisis sobre notas OFICIALES (Final/Recuperación). DISTINCT ON: un registro por estudiante-materia-período; Recuperación prevalece. Mínimo aprobatorio: 12 regular, 16 eje Proyecto (igual que notas_reglas.py).';
 
 
 --
--- TOC entry 265 (class 1259 OID 65711)
+-- TOC entry 267 (class 1259 OID 65711)
 -- Name: aud_mov; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -1617,8 +1706,8 @@ CREATE TABLE general.aud_mov (
 ALTER TABLE general.aud_mov OWNER TO postgres;
 
 --
--- TOC entry 5559 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5570 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: TABLE aud_mov; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1626,8 +1715,8 @@ COMMENT ON TABLE general.aud_mov IS 'Tabla Auditoría para mantener una bitacora
 
 
 --
--- TOC entry 5560 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5571 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.id_aud; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1635,8 +1724,8 @@ COMMENT ON COLUMN general.aud_mov.id_aud IS 'Identificador único autoincrementa
 
 
 --
--- TOC entry 5561 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5572 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.id_usu; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1644,8 +1733,8 @@ COMMENT ON COLUMN general.aud_mov.id_usu IS 'Identificador del usuario que ejecu
 
 
 --
--- TOC entry 5562 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5573 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.tabla_mod; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1653,8 +1742,8 @@ COMMENT ON COLUMN general.aud_mov.tabla_mod IS 'Nombre de la tabla que fue modif
 
 
 --
--- TOC entry 5563 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5574 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.accion; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1662,8 +1751,8 @@ COMMENT ON COLUMN general.aud_mov.accion IS 'Tipo de operación SQL realizada: I
 
 
 --
--- TOC entry 5564 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5575 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.val_antes; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1671,8 +1760,8 @@ COMMENT ON COLUMN general.aud_mov.val_antes IS 'Estado completo del registro ant
 
 
 --
--- TOC entry 5565 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5576 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.val_despues; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1680,8 +1769,8 @@ COMMENT ON COLUMN general.aud_mov.val_despues IS 'Estado completo del registro d
 
 
 --
--- TOC entry 5566 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5577 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.fec_hor; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1689,8 +1778,8 @@ COMMENT ON COLUMN general.aud_mov.fec_hor IS 'Marca de tiempo exacta de la opera
 
 
 --
--- TOC entry 5567 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5578 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.dir_ip; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1698,8 +1787,8 @@ COMMENT ON COLUMN general.aud_mov.dir_ip IS 'Dirección IP del cliente que reali
 
 
 --
--- TOC entry 5568 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5579 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: COLUMN aud_mov.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1707,8 +1796,8 @@ COMMENT ON COLUMN general.aud_mov.estatus IS 'Estado del registro de auditoría:
 
 
 --
--- TOC entry 5569 (class 0 OID 0)
--- Dependencies: 265
+-- TOC entry 5580 (class 0 OID 0)
+-- Dependencies: 267
 -- Name: CONSTRAINT chk_aud_est ON aud_mov; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1716,7 +1805,7 @@ COMMENT ON CONSTRAINT chk_aud_est ON general.aud_mov IS 'Regla para verificar, s
 
 
 --
--- TOC entry 264 (class 1259 OID 65710)
+-- TOC entry 266 (class 1259 OID 65710)
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -1731,8 +1820,8 @@ CREATE SEQUENCE general.aud_mov_id_aud_seq
 ALTER SEQUENCE general.aud_mov_id_aud_seq OWNER TO postgres;
 
 --
--- TOC entry 5570 (class 0 OID 0)
--- Dependencies: 264
+-- TOC entry 5581 (class 0 OID 0)
+-- Dependencies: 266
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -1740,7 +1829,7 @@ ALTER SEQUENCE general.aud_mov_id_aud_seq OWNED BY general.aud_mov.id_aud;
 
 
 --
--- TOC entry 263 (class 1259 OID 65698)
+-- TOC entry 265 (class 1259 OID 65698)
 -- Name: credenciales; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -1757,8 +1846,8 @@ CREATE TABLE general.credenciales (
 ALTER TABLE general.credenciales OWNER TO postgres;
 
 --
--- TOC entry 5571 (class 0 OID 0)
--- Dependencies: 263
+-- TOC entry 5582 (class 0 OID 0)
+-- Dependencies: 265
 -- Name: TABLE credenciales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1766,8 +1855,8 @@ COMMENT ON TABLE general.credenciales IS 'Tabla para las credenciales de autenti
 
 
 --
--- TOC entry 5572 (class 0 OID 0)
--- Dependencies: 263
+-- TOC entry 5583 (class 0 OID 0)
+-- Dependencies: 265
 -- Name: COLUMN credenciales.id_cre; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1775,8 +1864,8 @@ COMMENT ON COLUMN general.credenciales.id_cre IS 'Identificador serializado para
 
 
 --
--- TOC entry 5573 (class 0 OID 0)
--- Dependencies: 263
+-- TOC entry 5584 (class 0 OID 0)
+-- Dependencies: 265
 -- Name: COLUMN credenciales.id_usu; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1784,8 +1873,8 @@ COMMENT ON COLUMN general.credenciales.id_usu IS 'Identificador númerico de los
 
 
 --
--- TOC entry 5574 (class 0 OID 0)
--- Dependencies: 263
+-- TOC entry 5585 (class 0 OID 0)
+-- Dependencies: 265
 -- Name: COLUMN credenciales.password_hash; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1793,8 +1882,8 @@ COMMENT ON COLUMN general.credenciales.password_hash IS 'contraseña del hash';
 
 
 --
--- TOC entry 5575 (class 0 OID 0)
--- Dependencies: 263
+-- TOC entry 5586 (class 0 OID 0)
+-- Dependencies: 265
 -- Name: COLUMN credenciales.ultimo_acceso; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1802,8 +1891,8 @@ COMMENT ON COLUMN general.credenciales.ultimo_acceso IS 'Columna para ver el úl
 
 
 --
--- TOC entry 5576 (class 0 OID 0)
--- Dependencies: 263
+-- TOC entry 5587 (class 0 OID 0)
+-- Dependencies: 265
 -- Name: COLUMN credenciales.intentos_fallidos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1811,8 +1900,8 @@ COMMENT ON COLUMN general.credenciales.intentos_fallidos IS 'Cantidad de intento
 
 
 --
--- TOC entry 5577 (class 0 OID 0)
--- Dependencies: 263
+-- TOC entry 5588 (class 0 OID 0)
+-- Dependencies: 265
 -- Name: COLUMN credenciales.bloqueado_hasta; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1820,7 +1909,7 @@ COMMENT ON COLUMN general.credenciales.bloqueado_hasta IS 'Bloquer usuario hasta
 
 
 --
--- TOC entry 262 (class 1259 OID 65697)
+-- TOC entry 264 (class 1259 OID 65697)
 -- Name: credenciales_id_cre_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -1836,8 +1925,8 @@ CREATE SEQUENCE general.credenciales_id_cre_seq
 ALTER SEQUENCE general.credenciales_id_cre_seq OWNER TO postgres;
 
 --
--- TOC entry 5578 (class 0 OID 0)
--- Dependencies: 262
+-- TOC entry 5589 (class 0 OID 0)
+-- Dependencies: 264
 -- Name: credenciales_id_cre_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -1845,7 +1934,7 @@ ALTER SEQUENCE general.credenciales_id_cre_seq OWNED BY general.credenciales.id_
 
 
 --
--- TOC entry 259 (class 1259 OID 65666)
+-- TOC entry 261 (class 1259 OID 65666)
 -- Name: dias_laborales; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -1861,8 +1950,8 @@ CREATE TABLE general.dias_laborales (
 ALTER TABLE general.dias_laborales OWNER TO postgres;
 
 --
--- TOC entry 5579 (class 0 OID 0)
--- Dependencies: 259
+-- TOC entry 5590 (class 0 OID 0)
+-- Dependencies: 261
 -- Name: TABLE dias_laborales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1870,8 +1959,8 @@ COMMENT ON TABLE general.dias_laborales IS 'Dias laborables de la semana en la u
 
 
 --
--- TOC entry 5580 (class 0 OID 0)
--- Dependencies: 259
+-- TOC entry 5591 (class 0 OID 0)
+-- Dependencies: 261
 -- Name: COLUMN dias_laborales.id_dia; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1879,8 +1968,8 @@ COMMENT ON COLUMN general.dias_laborales.id_dia IS 'Identificador serializado Ej
 
 
 --
--- TOC entry 5581 (class 0 OID 0)
--- Dependencies: 259
+-- TOC entry 5592 (class 0 OID 0)
+-- Dependencies: 261
 -- Name: COLUMN dias_laborales.dia; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1888,8 +1977,8 @@ COMMENT ON COLUMN general.dias_laborales.dia IS 'Dia de la semana';
 
 
 --
--- TOC entry 5582 (class 0 OID 0)
--- Dependencies: 259
+-- TOC entry 5593 (class 0 OID 0)
+-- Dependencies: 261
 -- Name: COLUMN dias_laborales.orden; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1897,8 +1986,8 @@ COMMENT ON COLUMN general.dias_laborales.orden IS 'Orden en de los dias';
 
 
 --
--- TOC entry 5583 (class 0 OID 0)
--- Dependencies: 259
+-- TOC entry 5594 (class 0 OID 0)
+-- Dependencies: 261
 -- Name: COLUMN dias_laborales.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1906,8 +1995,8 @@ COMMENT ON COLUMN general.dias_laborales.estatus IS 'Columna para borrado lógic
 
 
 --
--- TOC entry 5584 (class 0 OID 0)
--- Dependencies: 259
+-- TOC entry 5595 (class 0 OID 0)
+-- Dependencies: 261
 -- Name: CONSTRAINT chk_dias_est ON dias_laborales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1915,7 +2004,7 @@ COMMENT ON CONSTRAINT chk_dias_est ON general.dias_laborales IS 'Regla de valida
 
 
 --
--- TOC entry 258 (class 1259 OID 65665)
+-- TOC entry 260 (class 1259 OID 65665)
 -- Name: dias_laborales_id_dia_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -1931,8 +2020,8 @@ CREATE SEQUENCE general.dias_laborales_id_dia_seq
 ALTER SEQUENCE general.dias_laborales_id_dia_seq OWNER TO postgres;
 
 --
--- TOC entry 5585 (class 0 OID 0)
--- Dependencies: 258
+-- TOC entry 5596 (class 0 OID 0)
+-- Dependencies: 260
 -- Name: dias_laborales_id_dia_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -1940,7 +2029,7 @@ ALTER SEQUENCE general.dias_laborales_id_dia_seq OWNED BY general.dias_laborales
 
 
 --
--- TOC entry 294 (class 1259 OID 114841)
+-- TOC entry 296 (class 1259 OID 114841)
 -- Name: modulos; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -1957,8 +2046,8 @@ CREATE TABLE general.modulos (
 ALTER TABLE general.modulos OWNER TO postgres;
 
 --
--- TOC entry 5586 (class 0 OID 0)
--- Dependencies: 294
+-- TOC entry 5597 (class 0 OID 0)
+-- Dependencies: 296
 -- Name: TABLE modulos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1966,8 +2055,8 @@ COMMENT ON TABLE general.modulos IS 'Catálogo de módulos/entidades del sistema
 
 
 --
--- TOC entry 5587 (class 0 OID 0)
--- Dependencies: 294
+-- TOC entry 5598 (class 0 OID 0)
+-- Dependencies: 296
 -- Name: COLUMN modulos.id_mod; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1975,8 +2064,8 @@ COMMENT ON COLUMN general.modulos.id_mod IS 'Identificador único serializado de
 
 
 --
--- TOC entry 5588 (class 0 OID 0)
--- Dependencies: 294
+-- TOC entry 5599 (class 0 OID 0)
+-- Dependencies: 296
 -- Name: COLUMN modulos.codigo; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1984,8 +2073,8 @@ COMMENT ON COLUMN general.modulos.codigo IS 'Código único del módulo (ej: doc
 
 
 --
--- TOC entry 5589 (class 0 OID 0)
--- Dependencies: 294
+-- TOC entry 5600 (class 0 OID 0)
+-- Dependencies: 296
 -- Name: COLUMN modulos.nombre; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -1993,8 +2082,8 @@ COMMENT ON COLUMN general.modulos.nombre IS 'Nombre descriptivo del módulo (ej:
 
 
 --
--- TOC entry 5590 (class 0 OID 0)
--- Dependencies: 294
+-- TOC entry 5601 (class 0 OID 0)
+-- Dependencies: 296
 -- Name: COLUMN modulos.descripcion; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2002,8 +2091,8 @@ COMMENT ON COLUMN general.modulos.descripcion IS 'Detalle extendido de la funcio
 
 
 --
--- TOC entry 5591 (class 0 OID 0)
--- Dependencies: 294
+-- TOC entry 5602 (class 0 OID 0)
+-- Dependencies: 296
 -- Name: COLUMN modulos.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2011,8 +2100,8 @@ COMMENT ON COLUMN general.modulos.estatus IS 'Indicador de borrado lógico (A = 
 
 
 --
--- TOC entry 5592 (class 0 OID 0)
--- Dependencies: 294
+-- TOC entry 5603 (class 0 OID 0)
+-- Dependencies: 296
 -- Name: CONSTRAINT chk_modulos_est ON modulos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2020,7 +2109,7 @@ COMMENT ON CONSTRAINT chk_modulos_est ON general.modulos IS 'Valida que el estat
 
 
 --
--- TOC entry 293 (class 1259 OID 114840)
+-- TOC entry 295 (class 1259 OID 114840)
 -- Name: modulos_id_mod_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -2036,8 +2125,8 @@ CREATE SEQUENCE general.modulos_id_mod_seq
 ALTER SEQUENCE general.modulos_id_mod_seq OWNER TO postgres;
 
 --
--- TOC entry 5593 (class 0 OID 0)
--- Dependencies: 293
+-- TOC entry 5604 (class 0 OID 0)
+-- Dependencies: 295
 -- Name: modulos_id_mod_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -2045,8 +2134,8 @@ ALTER SEQUENCE general.modulos_id_mod_seq OWNED BY general.modulos.id_mod;
 
 
 --
--- TOC entry 5594 (class 0 OID 0)
--- Dependencies: 293
+-- TOC entry 5605 (class 0 OID 0)
+-- Dependencies: 295
 -- Name: SEQUENCE modulos_id_mod_seq; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2054,7 +2143,7 @@ COMMENT ON SEQUENCE general.modulos_id_mod_seq IS 'Secuencia para generar identi
 
 
 --
--- TOC entry 257 (class 1259 OID 65652)
+-- TOC entry 259 (class 1259 OID 65652)
 -- Name: municipios; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -2069,8 +2158,8 @@ CREATE TABLE general.municipios (
 ALTER TABLE general.municipios OWNER TO postgres;
 
 --
--- TOC entry 5595 (class 0 OID 0)
--- Dependencies: 257
+-- TOC entry 5606 (class 0 OID 0)
+-- Dependencies: 259
 -- Name: TABLE municipios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2078,8 +2167,8 @@ COMMENT ON TABLE general.municipios IS 'Tabla para saber los municipios del esta
 
 
 --
--- TOC entry 5596 (class 0 OID 0)
--- Dependencies: 257
+-- TOC entry 5607 (class 0 OID 0)
+-- Dependencies: 259
 -- Name: COLUMN municipios.id_mun; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2087,8 +2176,8 @@ COMMENT ON COLUMN general.municipios.id_mun IS 'Identificador serializado de los
 
 
 --
--- TOC entry 5597 (class 0 OID 0)
--- Dependencies: 257
+-- TOC entry 5608 (class 0 OID 0)
+-- Dependencies: 259
 -- Name: COLUMN municipios.nombre; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2096,8 +2185,8 @@ COMMENT ON COLUMN general.municipios.nombre IS 'Nombre del municipio Ej: San Cri
 
 
 --
--- TOC entry 5598 (class 0 OID 0)
--- Dependencies: 257
+-- TOC entry 5609 (class 0 OID 0)
+-- Dependencies: 259
 -- Name: COLUMN municipios.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2105,8 +2194,8 @@ COMMENT ON COLUMN general.municipios.estatus IS 'Columna para borrado lógico en
 
 
 --
--- TOC entry 5599 (class 0 OID 0)
--- Dependencies: 257
+-- TOC entry 5610 (class 0 OID 0)
+-- Dependencies: 259
 -- Name: CONSTRAINT chk_municipios_est ON municipios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2114,7 +2203,7 @@ COMMENT ON CONSTRAINT chk_municipios_est ON general.municipios IS 'Regla de vali
 
 
 --
--- TOC entry 256 (class 1259 OID 65651)
+-- TOC entry 258 (class 1259 OID 65651)
 -- Name: municipios_id_mun_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -2130,8 +2219,8 @@ CREATE SEQUENCE general.municipios_id_mun_seq
 ALTER SEQUENCE general.municipios_id_mun_seq OWNER TO postgres;
 
 --
--- TOC entry 5600 (class 0 OID 0)
--- Dependencies: 256
+-- TOC entry 5611 (class 0 OID 0)
+-- Dependencies: 258
 -- Name: municipios_id_mun_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -2139,7 +2228,7 @@ ALTER SEQUENCE general.municipios_id_mun_seq OWNED BY general.municipios.id_mun;
 
 
 --
--- TOC entry 296 (class 1259 OID 114858)
+-- TOC entry 298 (class 1259 OID 114858)
 -- Name: permisos; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -2154,8 +2243,8 @@ CREATE TABLE general.permisos (
 ALTER TABLE general.permisos OWNER TO postgres;
 
 --
--- TOC entry 5601 (class 0 OID 0)
--- Dependencies: 296
+-- TOC entry 5612 (class 0 OID 0)
+-- Dependencies: 298
 -- Name: TABLE permisos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2163,8 +2252,8 @@ COMMENT ON TABLE general.permisos IS 'Catálogo de acciones/permisos disponibles
 
 
 --
--- TOC entry 5602 (class 0 OID 0)
--- Dependencies: 296
+-- TOC entry 5613 (class 0 OID 0)
+-- Dependencies: 298
 -- Name: COLUMN permisos.id_perm; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2172,8 +2261,8 @@ COMMENT ON COLUMN general.permisos.id_perm IS 'Identificador único serializado 
 
 
 --
--- TOC entry 5603 (class 0 OID 0)
--- Dependencies: 296
+-- TOC entry 5614 (class 0 OID 0)
+-- Dependencies: 298
 -- Name: COLUMN permisos.codigo; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2181,8 +2270,8 @@ COMMENT ON COLUMN general.permisos.codigo IS 'Código corto del permiso (CRE, AC
 
 
 --
--- TOC entry 5604 (class 0 OID 0)
--- Dependencies: 296
+-- TOC entry 5615 (class 0 OID 0)
+-- Dependencies: 298
 -- Name: COLUMN permisos.nombre; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2190,8 +2279,8 @@ COMMENT ON COLUMN general.permisos.nombre IS 'Nombre descriptivo del permiso (Cr
 
 
 --
--- TOC entry 5605 (class 0 OID 0)
--- Dependencies: 296
+-- TOC entry 5616 (class 0 OID 0)
+-- Dependencies: 298
 -- Name: COLUMN permisos.descripcion; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2199,7 +2288,7 @@ COMMENT ON COLUMN general.permisos.descripcion IS 'Detalle de la acción que per
 
 
 --
--- TOC entry 295 (class 1259 OID 114857)
+-- TOC entry 297 (class 1259 OID 114857)
 -- Name: permisos_id_perm_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -2215,8 +2304,8 @@ CREATE SEQUENCE general.permisos_id_perm_seq
 ALTER SEQUENCE general.permisos_id_perm_seq OWNER TO postgres;
 
 --
--- TOC entry 5606 (class 0 OID 0)
--- Dependencies: 295
+-- TOC entry 5617 (class 0 OID 0)
+-- Dependencies: 297
 -- Name: permisos_id_perm_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -2224,8 +2313,8 @@ ALTER SEQUENCE general.permisos_id_perm_seq OWNED BY general.permisos.id_perm;
 
 
 --
--- TOC entry 5607 (class 0 OID 0)
--- Dependencies: 295
+-- TOC entry 5618 (class 0 OID 0)
+-- Dependencies: 297
 -- Name: SEQUENCE permisos_id_perm_seq; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2233,7 +2322,7 @@ COMMENT ON SEQUENCE general.permisos_id_perm_seq IS 'Secuencia para generar iden
 
 
 --
--- TOC entry 298 (class 1259 OID 114872)
+-- TOC entry 300 (class 1259 OID 114872)
 -- Name: permisos_rol; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -2252,8 +2341,8 @@ CREATE TABLE general.permisos_rol (
 ALTER TABLE general.permisos_rol OWNER TO postgres;
 
 --
--- TOC entry 5608 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5619 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: TABLE permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2261,8 +2350,8 @@ COMMENT ON TABLE general.permisos_rol IS 'Permisos base por rol (plantilla). Def
 
 
 --
--- TOC entry 5609 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5620 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: COLUMN permisos_rol.id_pr; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2270,8 +2359,8 @@ COMMENT ON COLUMN general.permisos_rol.id_pr IS 'Identificador único serializad
 
 
 --
--- TOC entry 5610 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5621 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: COLUMN permisos_rol.id_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2279,8 +2368,8 @@ COMMENT ON COLUMN general.permisos_rol.id_rol IS 'Referencia al rol que tiene es
 
 
 --
--- TOC entry 5611 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5622 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: COLUMN permisos_rol.id_mod; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2288,8 +2377,8 @@ COMMENT ON COLUMN general.permisos_rol.id_mod IS 'Referencia al módulo sobre el
 
 
 --
--- TOC entry 5612 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5623 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: COLUMN permisos_rol.id_perm; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2297,8 +2386,8 @@ COMMENT ON COLUMN general.permisos_rol.id_perm IS 'Referencia a la acción permi
 
 
 --
--- TOC entry 5613 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5624 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: COLUMN permisos_rol.alcance; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2306,8 +2395,8 @@ COMMENT ON COLUMN general.permisos_rol.alcance IS 'Nivel de acceso: TODO=acceso 
 
 
 --
--- TOC entry 5614 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5625 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: COLUMN permisos_rol.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2315,8 +2404,8 @@ COMMENT ON COLUMN general.permisos_rol.estatus IS 'Indicador de borrado lógico 
 
 
 --
--- TOC entry 5615 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5626 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: CONSTRAINT chk_pr_alcance ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2324,8 +2413,8 @@ COMMENT ON CONSTRAINT chk_pr_alcance ON general.permisos_rol IS 'Valida que el a
 
 
 --
--- TOC entry 5616 (class 0 OID 0)
--- Dependencies: 298
+-- TOC entry 5627 (class 0 OID 0)
+-- Dependencies: 300
 -- Name: CONSTRAINT chk_pr_est ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2333,7 +2422,7 @@ COMMENT ON CONSTRAINT chk_pr_est ON general.permisos_rol IS 'Valida que el estat
 
 
 --
--- TOC entry 297 (class 1259 OID 114871)
+-- TOC entry 299 (class 1259 OID 114871)
 -- Name: permisos_rol_id_pr_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -2349,8 +2438,8 @@ CREATE SEQUENCE general.permisos_rol_id_pr_seq
 ALTER SEQUENCE general.permisos_rol_id_pr_seq OWNER TO postgres;
 
 --
--- TOC entry 5617 (class 0 OID 0)
--- Dependencies: 297
+-- TOC entry 5628 (class 0 OID 0)
+-- Dependencies: 299
 -- Name: permisos_rol_id_pr_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -2358,8 +2447,8 @@ ALTER SEQUENCE general.permisos_rol_id_pr_seq OWNED BY general.permisos_rol.id_p
 
 
 --
--- TOC entry 5618 (class 0 OID 0)
--- Dependencies: 297
+-- TOC entry 5629 (class 0 OID 0)
+-- Dependencies: 299
 -- Name: SEQUENCE permisos_rol_id_pr_seq; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2367,7 +2456,7 @@ COMMENT ON SEQUENCE general.permisos_rol_id_pr_seq IS 'Secuencia para generar id
 
 
 --
--- TOC entry 300 (class 1259 OID 114908)
+-- TOC entry 302 (class 1259 OID 114908)
 -- Name: permisos_usuario; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -2386,8 +2475,8 @@ CREATE TABLE general.permisos_usuario (
 ALTER TABLE general.permisos_usuario OWNER TO postgres;
 
 --
--- TOC entry 5619 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5630 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: TABLE permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2395,8 +2484,8 @@ COMMENT ON TABLE general.permisos_usuario IS 'Permisos personalizados por usuari
 
 
 --
--- TOC entry 5620 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5631 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: COLUMN permisos_usuario.id_pu; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2404,8 +2493,8 @@ COMMENT ON COLUMN general.permisos_usuario.id_pu IS 'Identificador único serial
 
 
 --
--- TOC entry 5621 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5632 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: COLUMN permisos_usuario.id_usu; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2413,8 +2502,8 @@ COMMENT ON COLUMN general.permisos_usuario.id_usu IS 'Referencia al usuario que 
 
 
 --
--- TOC entry 5622 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5633 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: COLUMN permisos_usuario.id_mod; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2422,8 +2511,8 @@ COMMENT ON COLUMN general.permisos_usuario.id_mod IS 'Referencia al módulo sobr
 
 
 --
--- TOC entry 5623 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5634 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: COLUMN permisos_usuario.id_perm; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2431,8 +2520,8 @@ COMMENT ON COLUMN general.permisos_usuario.id_perm IS 'Referencia a la acción p
 
 
 --
--- TOC entry 5624 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5635 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: COLUMN permisos_usuario.alcance; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2440,8 +2529,8 @@ COMMENT ON COLUMN general.permisos_usuario.alcance IS 'NULL=hereda del rol, o va
 
 
 --
--- TOC entry 5625 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5636 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: COLUMN permisos_usuario.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2449,8 +2538,8 @@ COMMENT ON COLUMN general.permisos_usuario.estatus IS 'Indicador de borrado lóg
 
 
 --
--- TOC entry 5626 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5637 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: CONSTRAINT chk_pu_alcance ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2458,8 +2547,8 @@ COMMENT ON CONSTRAINT chk_pu_alcance ON general.permisos_usuario IS 'Valida que 
 
 
 --
--- TOC entry 5627 (class 0 OID 0)
--- Dependencies: 300
+-- TOC entry 5638 (class 0 OID 0)
+-- Dependencies: 302
 -- Name: CONSTRAINT chk_pu_est ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2467,7 +2556,7 @@ COMMENT ON CONSTRAINT chk_pu_est ON general.permisos_usuario IS 'Valida que el e
 
 
 --
--- TOC entry 299 (class 1259 OID 114907)
+-- TOC entry 301 (class 1259 OID 114907)
 -- Name: permisos_usuario_id_pu_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -2483,8 +2572,8 @@ CREATE SEQUENCE general.permisos_usuario_id_pu_seq
 ALTER SEQUENCE general.permisos_usuario_id_pu_seq OWNER TO postgres;
 
 --
--- TOC entry 5628 (class 0 OID 0)
--- Dependencies: 299
+-- TOC entry 5639 (class 0 OID 0)
+-- Dependencies: 301
 -- Name: permisos_usuario_id_pu_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -2492,8 +2581,8 @@ ALTER SEQUENCE general.permisos_usuario_id_pu_seq OWNED BY general.permisos_usua
 
 
 --
--- TOC entry 5629 (class 0 OID 0)
--- Dependencies: 299
+-- TOC entry 5640 (class 0 OID 0)
+-- Dependencies: 301
 -- Name: SEQUENCE permisos_usuario_id_pu_seq; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2501,7 +2590,7 @@ COMMENT ON SEQUENCE general.permisos_usuario_id_pu_seq IS 'Secuencia para genera
 
 
 --
--- TOC entry 255 (class 1259 OID 65637)
+-- TOC entry 257 (class 1259 OID 65637)
 -- Name: roles; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -2517,8 +2606,8 @@ CREATE TABLE general.roles (
 ALTER TABLE general.roles OWNER TO postgres;
 
 --
--- TOC entry 5630 (class 0 OID 0)
--- Dependencies: 255
+-- TOC entry 5641 (class 0 OID 0)
+-- Dependencies: 257
 -- Name: TABLE roles; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2526,8 +2615,8 @@ COMMENT ON TABLE general.roles IS 'Tabla para almacenar los roles del sistema';
 
 
 --
--- TOC entry 5631 (class 0 OID 0)
--- Dependencies: 255
+-- TOC entry 5642 (class 0 OID 0)
+-- Dependencies: 257
 -- Name: COLUMN roles.id_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2535,8 +2624,8 @@ COMMENT ON COLUMN general.roles.id_rol IS 'Identificador serializado para los ro
 
 
 --
--- TOC entry 5632 (class 0 OID 0)
--- Dependencies: 255
+-- TOC entry 5643 (class 0 OID 0)
+-- Dependencies: 257
 -- Name: COLUMN roles.rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2544,8 +2633,8 @@ COMMENT ON COLUMN general.roles.rol IS 'Columna para almacenar el tipo de rol qu
 
 
 --
--- TOC entry 5633 (class 0 OID 0)
--- Dependencies: 255
+-- TOC entry 5644 (class 0 OID 0)
+-- Dependencies: 257
 -- Name: COLUMN roles.descripcion; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2553,8 +2642,8 @@ COMMENT ON COLUMN general.roles.descripcion IS 'Columna para explicar el funcion
 
 
 --
--- TOC entry 5634 (class 0 OID 0)
--- Dependencies: 255
+-- TOC entry 5645 (class 0 OID 0)
+-- Dependencies: 257
 -- Name: COLUMN roles.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2562,8 +2651,8 @@ COMMENT ON COLUMN general.roles.estatus IS 'Columna para borrado lógico en el q
 
 
 --
--- TOC entry 5635 (class 0 OID 0)
--- Dependencies: 255
+-- TOC entry 5646 (class 0 OID 0)
+-- Dependencies: 257
 -- Name: CONSTRAINT chk_rol_est ON roles; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2571,7 +2660,7 @@ COMMENT ON CONSTRAINT chk_rol_est ON general.roles IS 'Revisa el estado del rol'
 
 
 --
--- TOC entry 254 (class 1259 OID 65636)
+-- TOC entry 256 (class 1259 OID 65636)
 -- Name: roles_id_rol_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -2587,8 +2676,8 @@ CREATE SEQUENCE general.roles_id_rol_seq
 ALTER SEQUENCE general.roles_id_rol_seq OWNER TO postgres;
 
 --
--- TOC entry 5636 (class 0 OID 0)
--- Dependencies: 254
+-- TOC entry 5647 (class 0 OID 0)
+-- Dependencies: 256
 -- Name: roles_id_rol_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -2596,7 +2685,7 @@ ALTER SEQUENCE general.roles_id_rol_seq OWNED BY general.roles.id_rol;
 
 
 --
--- TOC entry 261 (class 1259 OID 65681)
+-- TOC entry 263 (class 1259 OID 65681)
 -- Name: usuarios; Type: TABLE; Schema: general; Owner: postgres
 --
 
@@ -2616,8 +2705,8 @@ CREATE TABLE general.usuarios (
 ALTER TABLE general.usuarios OWNER TO postgres;
 
 --
--- TOC entry 5637 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5648 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: TABLE usuarios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2625,8 +2714,8 @@ COMMENT ON TABLE general.usuarios IS 'Tabla para los usuarios del sistema con au
 
 
 --
--- TOC entry 5638 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5649 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: COLUMN usuarios.id_usu; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2634,8 +2723,8 @@ COMMENT ON COLUMN general.usuarios.id_usu IS 'Identificador serializado para el 
 
 
 --
--- TOC entry 5639 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5650 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: COLUMN usuarios.username; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2643,8 +2732,8 @@ COMMENT ON COLUMN general.usuarios.username IS 'Nombre del usuario';
 
 
 --
--- TOC entry 5640 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5651 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: COLUMN usuarios.id_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2652,8 +2741,8 @@ COMMENT ON COLUMN general.usuarios.id_rol IS 'Identificador del rol de usuario c
 
 
 --
--- TOC entry 5641 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5652 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: COLUMN usuarios.estatus; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2661,8 +2750,8 @@ COMMENT ON COLUMN general.usuarios.estatus IS 'Columna para borrado lógico en e
 
 
 --
--- TOC entry 5642 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5653 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: COLUMN usuarios.creado; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2670,8 +2759,8 @@ COMMENT ON COLUMN general.usuarios.creado IS 'Fecha y hora en la que el usuario 
 
 
 --
--- TOC entry 5643 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5654 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: COLUMN usuarios.actualizar; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2679,8 +2768,8 @@ COMMENT ON COLUMN general.usuarios.actualizar IS 'Columna para averiguar en que 
 
 
 --
--- TOC entry 5644 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5655 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: COLUMN usuarios.email; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2688,8 +2777,8 @@ COMMENT ON COLUMN general.usuarios.email IS 'Correo electrónico del usuario, ut
 
 
 --
--- TOC entry 5645 (class 0 OID 0)
--- Dependencies: 261
+-- TOC entry 5656 (class 0 OID 0)
+-- Dependencies: 263
 -- Name: CONSTRAINT chk_usu_est ON usuarios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2697,7 +2786,7 @@ COMMENT ON CONSTRAINT chk_usu_est ON general.usuarios IS 'Regla para revisar el 
 
 
 --
--- TOC entry 260 (class 1259 OID 65680)
+-- TOC entry 262 (class 1259 OID 65680)
 -- Name: usuarios_id_usu_seq; Type: SEQUENCE; Schema: general; Owner: postgres
 --
 
@@ -2713,8 +2802,8 @@ CREATE SEQUENCE general.usuarios_id_usu_seq
 ALTER SEQUENCE general.usuarios_id_usu_seq OWNER TO postgres;
 
 --
--- TOC entry 5646 (class 0 OID 0)
--- Dependencies: 260
+-- TOC entry 5657 (class 0 OID 0)
+-- Dependencies: 262
 -- Name: usuarios_id_usu_seq; Type: SEQUENCE OWNED BY; Schema: general; Owner: postgres
 --
 
@@ -2722,7 +2811,7 @@ ALTER SEQUENCE general.usuarios_id_usu_seq OWNED BY general.usuarios.id_usu;
 
 
 --
--- TOC entry 289 (class 1259 OID 82014)
+-- TOC entry 291 (class 1259 OID 82014)
 -- Name: vw_auditoria_legible; Type: VIEW; Schema: general; Owner: postgres
 --
 
@@ -2759,8 +2848,8 @@ CREATE VIEW general.vw_auditoria_legible AS
 ALTER VIEW general.vw_auditoria_legible OWNER TO postgres;
 
 --
--- TOC entry 5647 (class 0 OID 0)
--- Dependencies: 289
+-- TOC entry 5658 (class 0 OID 0)
+-- Dependencies: 291
 -- Name: VIEW vw_auditoria_legible; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -2768,7 +2857,7 @@ COMMENT ON VIEW general.vw_auditoria_legible IS 'Vista mejorada de auditoría qu
 
 
 --
--- TOC entry 267 (class 1259 OID 65728)
+-- TOC entry 269 (class 1259 OID 65728)
 -- Name: docentes; Type: TABLE; Schema: personas; Owner: postgres
 --
 
@@ -2801,8 +2890,8 @@ CREATE TABLE personas.docentes (
 ALTER TABLE personas.docentes OWNER TO postgres;
 
 --
--- TOC entry 5648 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5659 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: TABLE docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2810,8 +2899,8 @@ COMMENT ON TABLE personas.docentes IS 'Tabla en la qe se almacenan los docentes 
 
 
 --
--- TOC entry 5649 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5660 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.id_doc; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2819,8 +2908,8 @@ COMMENT ON COLUMN personas.docentes.id_doc IS 'Identificador serializado de los 
 
 
 --
--- TOC entry 5650 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5661 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.id_usu; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2828,8 +2917,8 @@ COMMENT ON COLUMN personas.docentes.id_usu IS 'identificador entero del usuario 
 
 
 --
--- TOC entry 5651 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5662 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.cedula; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2837,8 +2926,8 @@ COMMENT ON COLUMN personas.docentes.cedula IS 'Cedula de identidad del docente';
 
 
 --
--- TOC entry 5652 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5663 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.nombre; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2846,8 +2935,8 @@ COMMENT ON COLUMN personas.docentes.nombre IS 'Nombre del docente';
 
 
 --
--- TOC entry 5653 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5664 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.apellido; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2855,8 +2944,8 @@ COMMENT ON COLUMN personas.docentes.apellido IS 'Apellido del docente';
 
 
 --
--- TOC entry 5654 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5665 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.id_mun; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2864,8 +2953,8 @@ COMMENT ON COLUMN personas.docentes.id_mun IS 'Identificador entero del municipi
 
 
 --
--- TOC entry 5655 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5666 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.tipo_contrato; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2873,8 +2962,8 @@ COMMENT ON COLUMN personas.docentes.tipo_contrato IS 'Tipo de contrato que tiene
 
 
 --
--- TOC entry 5656 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5667 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.horas_max_sem; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2882,8 +2971,8 @@ COMMENT ON COLUMN personas.docentes.horas_max_sem IS 'Horas máximas del docente
 
 
 --
--- TOC entry 5657 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5668 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.horas_asignadas; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2891,8 +2980,8 @@ COMMENT ON COLUMN personas.docentes.horas_asignadas IS 'Horas asignadas al docen
 
 
 --
--- TOC entry 5658 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5669 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.horas_disponibles; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2900,8 +2989,8 @@ COMMENT ON COLUMN personas.docentes.horas_disponibles IS 'Horas disponibles del 
 
 
 --
--- TOC entry 5659 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5670 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.telefono; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2909,8 +2998,8 @@ COMMENT ON COLUMN personas.docentes.telefono IS 'Telefono cellular del docente';
 
 
 --
--- TOC entry 5660 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5671 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.observaciones; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2918,8 +3007,8 @@ COMMENT ON COLUMN personas.docentes.observaciones IS 'Notas adicionales sobre el
 
 
 --
--- TOC entry 5661 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5672 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: COLUMN docentes.foto_url; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2927,8 +3016,8 @@ COMMENT ON COLUMN personas.docentes.foto_url IS 'URL de la foto del docente para
 
 
 --
--- TOC entry 5662 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5673 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: CONSTRAINT chk_docentes_cedula_formato ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2936,8 +3025,8 @@ COMMENT ON CONSTRAINT chk_docentes_cedula_formato ON personas.docentes IS 'Valid
 
 
 --
--- TOC entry 5663 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5674 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: CONSTRAINT chk_docentes_contrato ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2945,8 +3034,8 @@ COMMENT ON CONSTRAINT chk_docentes_contrato ON personas.docentes IS 'Revisa el t
 
 
 --
--- TOC entry 5664 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5675 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: CONSTRAINT chk_docentes_est ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2954,8 +3043,8 @@ COMMENT ON CONSTRAINT chk_docentes_est ON personas.docentes IS 'Chequea si el es
 
 
 --
--- TOC entry 5665 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5676 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: CONSTRAINT chk_docentes_horas ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2963,8 +3052,8 @@ COMMENT ON CONSTRAINT chk_docentes_horas ON personas.docentes IS 'Revisa las hor
 
 
 --
--- TOC entry 5666 (class 0 OID 0)
--- Dependencies: 267
+-- TOC entry 5677 (class 0 OID 0)
+-- Dependencies: 269
 -- Name: CONSTRAINT chk_docentes_telefono_formato ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -2972,7 +3061,7 @@ COMMENT ON CONSTRAINT chk_docentes_telefono_formato ON personas.docentes IS 'Val
 
 
 --
--- TOC entry 291 (class 1259 OID 114811)
+-- TOC entry 293 (class 1259 OID 114811)
 -- Name: vw_docentes_por_contrato; Type: VIEW; Schema: general; Owner: postgres
 --
 
@@ -2991,8 +3080,8 @@ CREATE VIEW general.vw_docentes_por_contrato AS
 ALTER VIEW general.vw_docentes_por_contrato OWNER TO postgres;
 
 --
--- TOC entry 5667 (class 0 OID 0)
--- Dependencies: 291
+-- TOC entry 5678 (class 0 OID 0)
+-- Dependencies: 293
 -- Name: VIEW vw_docentes_por_contrato; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -3000,7 +3089,7 @@ COMMENT ON VIEW general.vw_docentes_por_contrato IS 'Vista para comparar la carg
 
 
 --
--- TOC entry 275 (class 1259 OID 65855)
+-- TOC entry 277 (class 1259 OID 65855)
 -- Name: asig_carga_horarias; Type: TABLE; Schema: horarios; Owner: postgres
 --
 
@@ -3028,8 +3117,8 @@ CREATE TABLE horarios.asig_carga_horarias (
 ALTER TABLE horarios.asig_carga_horarias OWNER TO postgres;
 
 --
--- TOC entry 5668 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5679 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: TABLE asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3037,8 +3126,8 @@ COMMENT ON TABLE horarios.asig_carga_horarias IS 'Tabla para la Asignación de c
 
 
 --
--- TOC entry 5669 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5680 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.id_asig; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3046,8 +3135,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.id_asig IS 'Identificador único 
 
 
 --
--- TOC entry 5670 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5681 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.id_doc; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3055,8 +3144,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.id_doc IS 'Identificador como ent
 
 
 --
--- TOC entry 5671 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5682 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.id_esp; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3064,8 +3153,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.id_esp IS 'Identificador entero d
 
 
 --
--- TOC entry 5672 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5683 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.id_dia; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3073,8 +3162,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.id_dia IS 'Identificador del día
 
 
 --
--- TOC entry 5673 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5684 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.id_malla; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3082,8 +3171,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.id_malla IS 'Identificador de la 
 
 
 --
--- TOC entry 5674 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5685 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.id_per; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3091,8 +3180,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.id_per IS 'Identificador del per�
 
 
 --
--- TOC entry 5675 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5686 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.hora_inicio; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3100,8 +3189,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.hora_inicio IS 'Hora exacta de in
 
 
 --
--- TOC entry 5676 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5687 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.hora_fin; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3109,8 +3198,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.hora_fin IS 'Hora exacta de fin d
 
 
 --
--- TOC entry 5677 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5688 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.tipo_actividad; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3118,8 +3207,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.tipo_actividad IS 'Tipode activid
 
 
 --
--- TOC entry 5678 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5689 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.observaciones; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3127,8 +3216,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.observaciones IS 'Notas adicional
 
 
 --
--- TOC entry 5679 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5690 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.estatus; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3136,8 +3225,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.estatus IS 'Estado de borrado: A 
 
 
 --
--- TOC entry 5680 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5691 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.creado; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3145,8 +3234,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.creado IS 'Fecha y hora exacta en
 
 
 --
--- TOC entry 5681 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5692 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.actualizar; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3154,8 +3243,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.actualizar IS 'Fecha y hora de la
 
 
 --
--- TOC entry 5682 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5693 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: COLUMN asig_carga_horarias.id_sec; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3163,8 +3252,8 @@ COMMENT ON COLUMN horarios.asig_carga_horarias.id_sec IS 'Sección a la que pert
 
 
 --
--- TOC entry 5683 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5694 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: CONSTRAINT chk_asig_actividad ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3172,8 +3261,8 @@ COMMENT ON CONSTRAINT chk_asig_actividad ON horarios.asig_carga_horarias IS 'Tip
 
 
 --
--- TOC entry 5684 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5695 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: CONSTRAINT chk_asig_est ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3181,8 +3270,8 @@ COMMENT ON CONSTRAINT chk_asig_est ON horarios.asig_carga_horarias IS 'Borrado l
 
 
 --
--- TOC entry 5685 (class 0 OID 0)
--- Dependencies: 275
+-- TOC entry 5696 (class 0 OID 0)
+-- Dependencies: 277
 -- Name: CONSTRAINT chk_asig_horario ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -3190,7 +3279,7 @@ COMMENT ON CONSTRAINT chk_asig_horario ON horarios.asig_carga_horarias IS 'Restr
 
 
 --
--- TOC entry 273 (class 1259 OID 65809)
+-- TOC entry 275 (class 1259 OID 65809)
 -- Name: espacios_fis; Type: TABLE; Schema: infraestructura; Owner: postgres
 --
 
@@ -3214,8 +3303,8 @@ CREATE TABLE infraestructura.espacios_fis (
 ALTER TABLE infraestructura.espacios_fis OWNER TO postgres;
 
 --
--- TOC entry 5686 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5697 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: TABLE espacios_fis; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3223,8 +3312,8 @@ COMMENT ON TABLE infraestructura.espacios_fis IS 'Tabla para almacenar los espac
 
 
 --
--- TOC entry 5687 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5698 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: COLUMN espacios_fis.id_mun; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3232,8 +3321,8 @@ COMMENT ON COLUMN infraestructura.espacios_fis.id_mun IS 'Identificador como ent
 
 
 --
--- TOC entry 5688 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5699 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: COLUMN espacios_fis.nombre_centro; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3241,8 +3330,8 @@ COMMENT ON COLUMN infraestructura.espacios_fis.nombre_centro IS 'Nombre de donde
 
 
 --
--- TOC entry 5689 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5700 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: COLUMN espacios_fis.ubicacion; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3250,8 +3339,8 @@ COMMENT ON COLUMN infraestructura.espacios_fis.ubicacion IS 'Lugar en el que est
 
 
 --
--- TOC entry 5690 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5701 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: COLUMN espacios_fis.tipo_espacio; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3259,8 +3348,8 @@ COMMENT ON COLUMN infraestructura.espacios_fis.tipo_espacio IS 'Tipo de espacio 
 
 
 --
--- TOC entry 5691 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5702 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: COLUMN espacios_fis.capacidad; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3268,8 +3357,8 @@ COMMENT ON COLUMN infraestructura.espacios_fis.capacidad IS 'Capacidad máxima d
 
 
 --
--- TOC entry 5692 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5703 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: COLUMN espacios_fis.equipamiento; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3277,8 +3366,8 @@ COMMENT ON COLUMN infraestructura.espacios_fis.equipamiento IS 'Espacio para col
 
 
 --
--- TOC entry 5693 (class 0 OID 0)
--- Dependencies: 273
+-- TOC entry 5704 (class 0 OID 0)
+-- Dependencies: 275
 -- Name: COLUMN espacios_fis.disponibilidad; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3286,7 +3375,7 @@ COMMENT ON COLUMN infraestructura.espacios_fis.disponibilidad IS 'Mostar la disp
 
 
 --
--- TOC entry 292 (class 1259 OID 114815)
+-- TOC entry 294 (class 1259 OID 114815)
 -- Name: vw_ocupacion_aulas_sabado; Type: VIEW; Schema: general; Owner: postgres
 --
 
@@ -3307,8 +3396,8 @@ CREATE VIEW general.vw_ocupacion_aulas_sabado AS
 ALTER VIEW general.vw_ocupacion_aulas_sabado OWNER TO postgres;
 
 --
--- TOC entry 5694 (class 0 OID 0)
--- Dependencies: 292
+-- TOC entry 5705 (class 0 OID 0)
+-- Dependencies: 294
 -- Name: VIEW vw_ocupacion_aulas_sabado; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -3316,7 +3405,7 @@ COMMENT ON VIEW general.vw_ocupacion_aulas_sabado IS 'Vista para monitorear la o
 
 
 --
--- TOC entry 303 (class 1259 OID 114990)
+-- TOC entry 305 (class 1259 OID 114990)
 -- Name: vw_permisos_efectivos_usuario; Type: VIEW; Schema: general; Owner: postgres
 --
 
@@ -3345,8 +3434,8 @@ CREATE VIEW general.vw_permisos_efectivos_usuario AS
 ALTER VIEW general.vw_permisos_efectivos_usuario OWNER TO postgres;
 
 --
--- TOC entry 5695 (class 0 OID 0)
--- Dependencies: 303
+-- TOC entry 5706 (class 0 OID 0)
+-- Dependencies: 305
 -- Name: VIEW vw_permisos_efectivos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -3354,7 +3443,7 @@ COMMENT ON VIEW general.vw_permisos_efectivos_usuario IS 'Vista que muestra los 
 
 
 --
--- TOC entry 290 (class 1259 OID 114806)
+-- TOC entry 292 (class 1259 OID 114806)
 -- Name: vw_resumen_estadistico; Type: VIEW; Schema: general; Owner: postgres
 --
 
@@ -3385,8 +3474,8 @@ CREATE VIEW general.vw_resumen_estadistico AS
 ALTER VIEW general.vw_resumen_estadistico OWNER TO postgres;
 
 --
--- TOC entry 5696 (class 0 OID 0)
--- Dependencies: 290
+-- TOC entry 5707 (class 0 OID 0)
+-- Dependencies: 292
 -- Name: VIEW vw_resumen_estadistico; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -3394,7 +3483,7 @@ COMMENT ON VIEW general.vw_resumen_estadistico IS 'Vista de agregación para ali
 
 
 --
--- TOC entry 274 (class 1259 OID 65854)
+-- TOC entry 276 (class 1259 OID 65854)
 -- Name: asig_carga_horarias_id_asig_seq; Type: SEQUENCE; Schema: horarios; Owner: postgres
 --
 
@@ -3410,8 +3499,8 @@ CREATE SEQUENCE horarios.asig_carga_horarias_id_asig_seq
 ALTER SEQUENCE horarios.asig_carga_horarias_id_asig_seq OWNER TO postgres;
 
 --
--- TOC entry 5697 (class 0 OID 0)
--- Dependencies: 274
+-- TOC entry 5708 (class 0 OID 0)
+-- Dependencies: 276
 -- Name: asig_carga_horarias_id_asig_seq; Type: SEQUENCE OWNED BY; Schema: horarios; Owner: postgres
 --
 
@@ -3419,7 +3508,7 @@ ALTER SEQUENCE horarios.asig_carga_horarias_id_asig_seq OWNED BY horarios.asig_c
 
 
 --
--- TOC entry 272 (class 1259 OID 65808)
+-- TOC entry 274 (class 1259 OID 65808)
 -- Name: espacios_fis_id_esp_seq; Type: SEQUENCE; Schema: infraestructura; Owner: postgres
 --
 
@@ -3435,8 +3524,8 @@ CREATE SEQUENCE infraestructura.espacios_fis_id_esp_seq
 ALTER SEQUENCE infraestructura.espacios_fis_id_esp_seq OWNER TO postgres;
 
 --
--- TOC entry 5698 (class 0 OID 0)
--- Dependencies: 272
+-- TOC entry 5709 (class 0 OID 0)
+-- Dependencies: 274
 -- Name: espacios_fis_id_esp_seq; Type: SEQUENCE OWNED BY; Schema: infraestructura; Owner: postgres
 --
 
@@ -3444,7 +3533,7 @@ ALTER SEQUENCE infraestructura.espacios_fis_id_esp_seq OWNED BY infraestructura.
 
 
 --
--- TOC entry 271 (class 1259 OID 65788)
+-- TOC entry 273 (class 1259 OID 65788)
 -- Name: disponibilidad_docente; Type: TABLE; Schema: personas; Owner: postgres
 --
 
@@ -3463,8 +3552,8 @@ CREATE TABLE personas.disponibilidad_docente (
 ALTER TABLE personas.disponibilidad_docente OWNER TO postgres;
 
 --
--- TOC entry 5699 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5710 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: TABLE disponibilidad_docente; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3472,8 +3561,8 @@ COMMENT ON TABLE personas.disponibilidad_docente IS 'Tabla para ver la disponibi
 
 
 --
--- TOC entry 5700 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5711 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: COLUMN disponibilidad_docente.id_disp; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3481,8 +3570,8 @@ COMMENT ON COLUMN personas.disponibilidad_docente.id_disp IS 'Identificador seri
 
 
 --
--- TOC entry 5701 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5712 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: COLUMN disponibilidad_docente.id_doc; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3490,8 +3579,8 @@ COMMENT ON COLUMN personas.disponibilidad_docente.id_doc IS 'Identificador enter
 
 
 --
--- TOC entry 5702 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5713 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: COLUMN disponibilidad_docente.id_dia; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3499,8 +3588,8 @@ COMMENT ON COLUMN personas.disponibilidad_docente.id_dia IS 'Identificador del d
 
 
 --
--- TOC entry 5703 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5714 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: COLUMN disponibilidad_docente.hora_inicio; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3508,8 +3597,8 @@ COMMENT ON COLUMN personas.disponibilidad_docente.hora_inicio IS 'Hora en la que
 
 
 --
--- TOC entry 5704 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5715 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: COLUMN disponibilidad_docente.hora_fin; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3517,8 +3606,8 @@ COMMENT ON COLUMN personas.disponibilidad_docente.hora_fin IS 'Hora de fin';
 
 
 --
--- TOC entry 5705 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5716 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: CONSTRAINT chk_disp_est ON disponibilidad_docente; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3526,8 +3615,8 @@ COMMENT ON CONSTRAINT chk_disp_est ON personas.disponibilidad_docente IS 'Revisa
 
 
 --
--- TOC entry 5706 (class 0 OID 0)
--- Dependencies: 271
+-- TOC entry 5717 (class 0 OID 0)
+-- Dependencies: 273
 -- Name: CONSTRAINT chk_disp_horarios ON disponibilidad_docente; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3535,7 +3624,7 @@ COMMENT ON CONSTRAINT chk_disp_horarios ON personas.disponibilidad_docente IS 'r
 
 
 --
--- TOC entry 270 (class 1259 OID 65787)
+-- TOC entry 272 (class 1259 OID 65787)
 -- Name: disponibilidad_docente_id_disp_seq; Type: SEQUENCE; Schema: personas; Owner: postgres
 --
 
@@ -3551,8 +3640,8 @@ CREATE SEQUENCE personas.disponibilidad_docente_id_disp_seq
 ALTER SEQUENCE personas.disponibilidad_docente_id_disp_seq OWNER TO postgres;
 
 --
--- TOC entry 5707 (class 0 OID 0)
--- Dependencies: 270
+-- TOC entry 5718 (class 0 OID 0)
+-- Dependencies: 272
 -- Name: disponibilidad_docente_id_disp_seq; Type: SEQUENCE OWNED BY; Schema: personas; Owner: postgres
 --
 
@@ -3560,7 +3649,7 @@ ALTER SEQUENCE personas.disponibilidad_docente_id_disp_seq OWNED BY personas.dis
 
 
 --
--- TOC entry 266 (class 1259 OID 65727)
+-- TOC entry 268 (class 1259 OID 65727)
 -- Name: docentes_id_doc_seq; Type: SEQUENCE; Schema: personas; Owner: postgres
 --
 
@@ -3576,8 +3665,8 @@ CREATE SEQUENCE personas.docentes_id_doc_seq
 ALTER SEQUENCE personas.docentes_id_doc_seq OWNER TO postgres;
 
 --
--- TOC entry 5708 (class 0 OID 0)
--- Dependencies: 266
+-- TOC entry 5719 (class 0 OID 0)
+-- Dependencies: 268
 -- Name: docentes_id_doc_seq; Type: SEQUENCE OWNED BY; Schema: personas; Owner: postgres
 --
 
@@ -3585,7 +3674,7 @@ ALTER SEQUENCE personas.docentes_id_doc_seq OWNED BY personas.docentes.id_doc;
 
 
 --
--- TOC entry 268 (class 1259 OID 65763)
+-- TOC entry 270 (class 1259 OID 65763)
 -- Name: estudiantes_id_est_seq; Type: SEQUENCE; Schema: personas; Owner: postgres
 --
 
@@ -3601,8 +3690,8 @@ CREATE SEQUENCE personas.estudiantes_id_est_seq
 ALTER SEQUENCE personas.estudiantes_id_est_seq OWNER TO postgres;
 
 --
--- TOC entry 5709 (class 0 OID 0)
--- Dependencies: 268
+-- TOC entry 5720 (class 0 OID 0)
+-- Dependencies: 270
 -- Name: estudiantes_id_est_seq; Type: SEQUENCE OWNED BY; Schema: personas; Owner: postgres
 --
 
@@ -3610,7 +3699,7 @@ ALTER SEQUENCE personas.estudiantes_id_est_seq OWNED BY personas.estudiantes.id_
 
 
 --
--- TOC entry 288 (class 1259 OID 66163)
+-- TOC entry 290 (class 1259 OID 66163)
 -- Name: vw_docentes_por_programa_municipio; Type: VIEW; Schema: personas; Owner: postgres
 --
 
@@ -3633,7 +3722,7 @@ CREATE VIEW personas.vw_docentes_por_programa_municipio AS
 ALTER VIEW personas.vw_docentes_por_programa_municipio OWNER TO postgres;
 
 --
--- TOC entry 305 (class 1259 OID 139604)
+-- TOC entry 307 (class 1259 OID 139604)
 -- Name: vw_horario_completo_docente; Type: VIEW; Schema: personas; Owner: postgres
 --
 
@@ -3672,8 +3761,8 @@ CREATE VIEW personas.vw_horario_completo_docente AS
 ALTER VIEW personas.vw_horario_completo_docente OWNER TO postgres;
 
 --
--- TOC entry 5710 (class 0 OID 0)
--- Dependencies: 305
+-- TOC entry 5721 (class 0 OID 0)
+-- Dependencies: 307
 -- Name: VIEW vw_horario_completo_docente; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -3681,7 +3770,7 @@ COMMENT ON VIEW personas.vw_horario_completo_docente IS 'Vista completa del hora
 
 
 --
--- TOC entry 4976 (class 2604 OID 65918)
+-- TOC entry 4981 (class 2604 OID 205129)
 -- Name: ejes_formativos id_eje; Type: DEFAULT; Schema: academico; Owner: postgres
 --
 
@@ -3689,7 +3778,7 @@ ALTER TABLE ONLY academico.ejes_formativos ALTER COLUMN id_eje SET DEFAULT nextv
 
 
 --
--- TOC entry 4982 (class 2604 OID 65957)
+-- TOC entry 4987 (class 2604 OID 205130)
 -- Name: malla_curricular id_malla; Type: DEFAULT; Schema: academico; Owner: postgres
 --
 
@@ -3697,7 +3786,7 @@ ALTER TABLE ONLY academico.malla_curricular ALTER COLUMN id_malla SET DEFAULT ne
 
 
 --
--- TOC entry 4978 (class 2604 OID 65934)
+-- TOC entry 4983 (class 2604 OID 205131)
 -- Name: materias id_mat; Type: DEFAULT; Schema: academico; Owner: postgres
 --
 
@@ -3705,7 +3794,7 @@ ALTER TABLE ONLY academico.materias ALTER COLUMN id_mat SET DEFAULT nextval('aca
 
 
 --
--- TOC entry 5005 (class 2604 OID 114944)
+-- TOC entry 5010 (class 2604 OID 205132)
 -- Name: notas id_nota; Type: DEFAULT; Schema: academico; Owner: postgres
 --
 
@@ -3713,7 +3802,7 @@ ALTER TABLE ONLY academico.notas ALTER COLUMN id_nota SET DEFAULT nextval('acade
 
 
 --
--- TOC entry 4987 (class 2604 OID 65980)
+-- TOC entry 4992 (class 2604 OID 205133)
 -- Name: periodos_academicos id_per; Type: DEFAULT; Schema: academico; Owner: postgres
 --
 
@@ -3721,7 +3810,7 @@ ALTER TABLE ONLY academico.periodos_academicos ALTER COLUMN id_per SET DEFAULT n
 
 
 --
--- TOC entry 4972 (class 2604 OID 65893)
+-- TOC entry 4977 (class 2604 OID 205134)
 -- Name: programas id_pro; Type: DEFAULT; Schema: academico; Owner: postgres
 --
 
@@ -3729,7 +3818,7 @@ ALTER TABLE ONLY academico.programas ALTER COLUMN id_pro SET DEFAULT nextval('ac
 
 
 --
--- TOC entry 4992 (class 2604 OID 66006)
+-- TOC entry 4997 (class 2604 OID 205135)
 -- Name: secciones id_sec; Type: DEFAULT; Schema: academico; Owner: postgres
 --
 
@@ -3737,7 +3826,7 @@ ALTER TABLE ONLY academico.secciones ALTER COLUMN id_sec SET DEFAULT nextval('ac
 
 
 --
--- TOC entry 4942 (class 2604 OID 65714)
+-- TOC entry 4947 (class 2604 OID 205136)
 -- Name: aud_mov id_aud; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3745,7 +3834,7 @@ ALTER TABLE ONLY general.aud_mov ALTER COLUMN id_aud SET DEFAULT nextval('genera
 
 
 --
--- TOC entry 4940 (class 2604 OID 65701)
+-- TOC entry 4945 (class 2604 OID 205137)
 -- Name: credenciales id_cre; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3753,7 +3842,7 @@ ALTER TABLE ONLY general.credenciales ALTER COLUMN id_cre SET DEFAULT nextval('g
 
 
 --
--- TOC entry 4934 (class 2604 OID 65669)
+-- TOC entry 4939 (class 2604 OID 205138)
 -- Name: dias_laborales id_dia; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3761,7 +3850,7 @@ ALTER TABLE ONLY general.dias_laborales ALTER COLUMN id_dia SET DEFAULT nextval(
 
 
 --
--- TOC entry 4997 (class 2604 OID 114844)
+-- TOC entry 5002 (class 2604 OID 205139)
 -- Name: modulos id_mod; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3769,7 +3858,7 @@ ALTER TABLE ONLY general.modulos ALTER COLUMN id_mod SET DEFAULT nextval('genera
 
 
 --
--- TOC entry 4932 (class 2604 OID 65655)
+-- TOC entry 4937 (class 2604 OID 205140)
 -- Name: municipios id_mun; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3777,7 +3866,7 @@ ALTER TABLE ONLY general.municipios ALTER COLUMN id_mun SET DEFAULT nextval('gen
 
 
 --
--- TOC entry 4999 (class 2604 OID 114861)
+-- TOC entry 5004 (class 2604 OID 205141)
 -- Name: permisos id_perm; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3785,7 +3874,7 @@ ALTER TABLE ONLY general.permisos ALTER COLUMN id_perm SET DEFAULT nextval('gene
 
 
 --
--- TOC entry 5000 (class 2604 OID 114875)
+-- TOC entry 5005 (class 2604 OID 205142)
 -- Name: permisos_rol id_pr; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3793,7 +3882,7 @@ ALTER TABLE ONLY general.permisos_rol ALTER COLUMN id_pr SET DEFAULT nextval('ge
 
 
 --
--- TOC entry 5003 (class 2604 OID 114911)
+-- TOC entry 5008 (class 2604 OID 205143)
 -- Name: permisos_usuario id_pu; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3801,7 +3890,7 @@ ALTER TABLE ONLY general.permisos_usuario ALTER COLUMN id_pu SET DEFAULT nextval
 
 
 --
--- TOC entry 4930 (class 2604 OID 65640)
+-- TOC entry 4935 (class 2604 OID 205144)
 -- Name: roles id_rol; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3809,7 +3898,7 @@ ALTER TABLE ONLY general.roles ALTER COLUMN id_rol SET DEFAULT nextval('general.
 
 
 --
--- TOC entry 4936 (class 2604 OID 65684)
+-- TOC entry 4941 (class 2604 OID 205145)
 -- Name: usuarios id_usu; Type: DEFAULT; Schema: general; Owner: postgres
 --
 
@@ -3817,7 +3906,7 @@ ALTER TABLE ONLY general.usuarios ALTER COLUMN id_usu SET DEFAULT nextval('gener
 
 
 --
--- TOC entry 4967 (class 2604 OID 65858)
+-- TOC entry 4972 (class 2604 OID 205146)
 -- Name: asig_carga_horarias id_asig; Type: DEFAULT; Schema: horarios; Owner: postgres
 --
 
@@ -3825,7 +3914,7 @@ ALTER TABLE ONLY horarios.asig_carga_horarias ALTER COLUMN id_asig SET DEFAULT n
 
 
 --
--- TOC entry 4959 (class 2604 OID 65812)
+-- TOC entry 4964 (class 2604 OID 205147)
 -- Name: espacios_fis id_esp; Type: DEFAULT; Schema: infraestructura; Owner: postgres
 --
 
@@ -3833,7 +3922,7 @@ ALTER TABLE ONLY infraestructura.espacios_fis ALTER COLUMN id_esp SET DEFAULT ne
 
 
 --
--- TOC entry 4957 (class 2604 OID 65791)
+-- TOC entry 4962 (class 2604 OID 205148)
 -- Name: disponibilidad_docente id_disp; Type: DEFAULT; Schema: personas; Owner: postgres
 --
 
@@ -3841,7 +3930,7 @@ ALTER TABLE ONLY personas.disponibilidad_docente ALTER COLUMN id_disp SET DEFAUL
 
 
 --
--- TOC entry 4945 (class 2604 OID 65731)
+-- TOC entry 4950 (class 2604 OID 205149)
 -- Name: docentes id_doc; Type: DEFAULT; Schema: personas; Owner: postgres
 --
 
@@ -3849,7 +3938,7 @@ ALTER TABLE ONLY personas.docentes ALTER COLUMN id_doc SET DEFAULT nextval('pers
 
 
 --
--- TOC entry 4953 (class 2604 OID 65767)
+-- TOC entry 4958 (class 2604 OID 205150)
 -- Name: estudiantes id_est; Type: DEFAULT; Schema: personas; Owner: postgres
 --
 
@@ -3857,8 +3946,8 @@ ALTER TABLE ONLY personas.estudiantes ALTER COLUMN id_est SET DEFAULT nextval('p
 
 
 --
--- TOC entry 5420 (class 0 OID 65915)
--- Dependencies: 279
+-- TOC entry 5431 (class 0 OID 65915)
+-- Dependencies: 281
 -- Data for Name: ejes_formativos; Type: TABLE DATA; Schema: academico; Owner: postgres
 --
 
@@ -3873,8 +3962,8 @@ COPY academico.ejes_formativos (id_eje, codigo, nombre, descripcion, estatus) FR
 
 
 --
--- TOC entry 5424 (class 0 OID 65954)
--- Dependencies: 283
+-- TOC entry 5435 (class 0 OID 65954)
+-- Dependencies: 285
 -- Data for Name: malla_curricular; Type: TABLE DATA; Schema: academico; Owner: postgres
 --
 
@@ -3895,6 +3984,8 @@ COPY academico.malla_curricular (id_malla, id_pro, id_mat, trayecto, periodo, or
 97	1	97	1	1	2	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
 98	2	98	1	1	1	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
 99	2	99	1	1	2	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
+100	1	100	1	1	3	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04
+101	2	101	1	1	3	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04
 52	2	52	1	1	2	\N	A	2026-10-02 19:07:13.667971-04	2026-10-02 19:07:13.667971-04
 53	2	53	1	1	3	\N	A	2026-10-02 19:07:13.667971-04	2026-10-02 19:07:13.667971-04
 54	2	54	1	1	4	\N	A	2026-10-02 19:07:13.667971-04	2026-10-02 19:07:13.667971-04
@@ -3982,8 +4073,8 @@ COPY academico.malla_curricular (id_malla, id_pro, id_mat, trayecto, periodo, or
 
 
 --
--- TOC entry 5422 (class 0 OID 65931)
--- Dependencies: 281
+-- TOC entry 5433 (class 0 OID 65931)
+-- Dependencies: 283
 -- Data for Name: materias; Type: TABLE DATA; Schema: academico; Owner: postgres
 --
 
@@ -4087,118 +4178,56 @@ COPY academico.materias (id_mat, codigo, nombre, id_eje, unidades_creditos, desc
 97	MAT-LPRI-102	Matemática en el Nivel Primario	3	3	Fundamentos y resolución de problemas en primaria	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
 98	MAT-LESP-101	Atención a la Diversidad en el Aula	3	3	Estrategias inclusivas y adaptaciones curriculares	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
 99	MAT-LESP-102	Desarrollo del Lenguaje en Necesidades Especiales	3	3	Estimulación y apoyo comunicativo	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
+100	MAT-LPRI-PROY	Proyecto Socioeducativo I	1	4	Desarrollo de proyecto en el contexto comunitario	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04
+101	MAT-LESP-PROY	Proyecto Socioeducativo I	1	4	Desarrollo de proyecto en el contexto comunitario	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04
 \.
 
 
 --
--- TOC entry 5438 (class 0 OID 114941)
--- Dependencies: 302
+-- TOC entry 5449 (class 0 OID 114941)
+-- Dependencies: 304
 -- Data for Name: notas; Type: TABLE DATA; Schema: academico; Owner: postgres
 --
 
-COPY academico.notas (id_nota, id_est, id_malla, id_per, nota, tipo_evaluacion, observaciones, fecha_registro, estatus, creado, actualizar) FROM stdin;
-29	9	27	1	8.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-30	9	28	1	11.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-31	9	29	1	14.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-33	12	27	1	17.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-34	12	28	1	8.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-35	12	29	1	11.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-37	13	27	1	12.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-1	7	26	1	18.00	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
-2	8	26	1	15.50	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
-3	9	26	1	12.00	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
-4	10	26	1	16.75	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
-5	11	26	1	9.50	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
-6	12	26	1	14.25	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	I	2026-11-13 16:55:56.866854-04	2026-11-17 00:01:05.65978-04
-10	3	74	2	18.25	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
-11	4	74	2	11.00	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
-38	13	28	1	15.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-8	1	74	2	16.00	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
-39	13	29	1	18.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-9	2	74	2	13.50	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-17 00:12:12.025187-04
-41	7	27	1	18.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-42	7	28	1	9.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-43	7	29	1	12.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-45	10	27	1	15.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-46	10	28	1	18.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-13	6	74	2	17.50	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	A	2026-11-17 00:01:05.65978-04	2026-11-20 01:09:24.253805-04
-47	10	29	1	9.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-49	2	75	2	15.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-7	13	26	1	19.00	Final	Acta de demostración — Proyecto III (T3·P1)	2026-11-13 16:55:56.866854-04	A	2026-11-13 16:55:56.866854-04	2026-11-20 01:35:58.829939-04
-12	5	74	2	8.75	Final	Acta de demostración — PSI V (T3·P1)	2026-11-17 00:01:05.65978-04	I	2026-11-17 00:01:05.65978-04	2026-11-20 22:35:10.803523-04
-21	8	27	1	13.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-22	8	28	1	16.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-23	8	29	1	19.25	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-25	11	27	1	10.50	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-26	11	28	1	13.75	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-27	11	29	1	16.00	Final	Acta de demostración — carga masiva LPRI T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-50	2	76	2	18.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-51	2	77	2	9.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-52	2	78	2	12.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-53	2	79	2	15.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-55	3	75	2	8.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-56	3	76	2	11.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-57	3	77	2	14.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-58	3	78	2	17.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-59	3	79	2	8.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-61	4	75	2	13.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-62	4	76	2	16.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-63	4	77	2	19.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-64	4	78	2	10.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-65	4	79	2	13.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-67	5	75	2	18.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-68	5	76	2	9.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-69	5	77	2	12.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-70	5	78	2	15.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-71	5	79	2	18.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-73	6	75	2	11.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-74	6	76	2	14.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-75	6	77	2	17.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-76	6	78	2	8.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-77	6	79	2	11.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-79	1	75	2	10.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-80	1	76	2	13.25	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-81	1	77	2	16.50	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-82	1	78	2	19.75	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-83	1	79	2	10.00	Final	Acta de demostración — carga masiva LESP T3P1	2026-11-21 09:23:06.684512-04	A	2026-11-21 09:23:06.684512-04	2026-11-21 09:23:06.684512-04
-204	14	96	1	18.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-205	15	96	1	15.50	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-206	16	96	1	18.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-207	17	96	1	15.50	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-208	18	96	1	18.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-209	19	96	1	15.50	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-210	20	96	1	15.50	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-211	21	96	1	15.50	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-212	22	96	1	15.50	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-213	23	96	1	15.50	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-214	34	98	1	19.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-215	35	98	1	16.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-216	36	98	1	19.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-217	37	98	1	16.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-218	38	98	1	19.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-219	39	98	1	16.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-220	40	98	1	16.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-221	41	98	1	16.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-222	42	98	1	16.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-223	43	98	1	16.00	Final	Aprobado	2026-11-21 19:25:06.609056-04	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
+COPY academico.notas (id_nota, id_est, id_malla, id_per, nota, tipo_evaluacion, observaciones, fecha_registro, estatus, creado, actualizar, estado_revision, revisado_por, fecha_revision, motivo_rechazo) FROM stdin;
+1	23	98	2	16.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+2	30	98	2	18.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+3	21	98	2	14.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+4	25	98	2	12.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+5	26	98	2	17.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+6	24	98	2	18.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+7	22	98	2	10.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+8	27	98	2	12.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+9	29	98	2	17.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+10	28	98	2	13.00	Final	\N	2026-11-22 17:13:54.574378-04	A	2026-11-22 17:13:54.574378-04	2026-11-22 17:13:54.574378-04	A	\N	\N	\N
+11	23	51	2	17.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+12	30	51	2	18.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+13	21	51	2	19.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+14	25	51	2	20.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+15	26	51	2	20.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+16	24	51	2	18.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+17	22	51	2	17.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+18	27	51	2	18.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 17:14:21.500181-04	A	\N	\N	\N
+20	28	51	2	16.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 20:35:16.81066-04	A	\N	\N	\N
+19	29	51	2	19.00	Final	\N	2026-11-22 17:14:21.500181-04	A	2026-11-22 17:14:21.500181-04	2026-11-22 20:35:17.494772-04	A	\N	\N	\N
 \.
 
 
 --
--- TOC entry 5426 (class 0 OID 65977)
--- Dependencies: 285
+-- TOC entry 5437 (class 0 OID 65977)
+-- Dependencies: 287
 -- Data for Name: periodos_academicos; Type: TABLE DATA; Schema: academico; Owner: postgres
 --
 
 COPY academico.periodos_academicos (id_per, nombre, anio, numero_periodo, tipo, fecha_inicio, fecha_fin, activo, estatus, creado, actualizar) FROM stdin;
-2	Semestre 2025-I	2025	1	Semestre	2025-02-01	2025-07-30	t	A	2026-10-03 10:55:20.264002-04	2026-10-03 10:55:20.264002-04
-1	Trimestre 2025-I	2025	1	Trimestre	2025-01-20	2025-04-30	t	A	2026-10-03 10:55:20.264002-04	2026-11-21 17:17:20.199741-04
+2	Semestre 2026-I	2026	1	Semestre	2025-02-01	2025-07-30	t	A	2026-10-03 10:55:20.264002-04	2026-11-22 11:15:07.151811-04
+1	Trimestre 2026-I	2026	1	Trimestre	2026-02-01	2026-07-31	t	A	2026-10-03 10:55:20.264002-04	2026-11-22 17:07:18.033409-04
 \.
 
 
 --
--- TOC entry 5418 (class 0 OID 65890)
--- Dependencies: 277
+-- TOC entry 5429 (class 0 OID 65890)
+-- Dependencies: 279
 -- Data for Name: programas; Type: TABLE DATA; Schema: academico; Owner: postgres
 --
 
@@ -4209,22 +4238,22 @@ COPY academico.programas (id_pro, codigo, nombre, tipo_sistema, total_trayectos,
 
 
 --
--- TOC entry 5428 (class 0 OID 66003)
--- Dependencies: 287
+-- TOC entry 5439 (class 0 OID 66003)
+-- Dependencies: 289
 -- Data for Name: secciones; Type: TABLE DATA; Schema: academico; Owner: postgres
 --
 
-COPY academico.secciones (id_sec, codigo, id_pro, trayecto, periodo, capacidad_maxima, estatus, creado, actualizar) FROM stdin;
-7	NT.2021.LPRI.20.01	1	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-8	NT.2021.LPRI.20.02	1	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-9	NT.2021.LESP.20.01	2	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
-10	NT.2021.LESP.20.02	2	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04
+COPY academico.secciones (id_sec, codigo, id_pro, trayecto, periodo, capacidad_maxima, estatus, creado, actualizar, id_per) FROM stdin;
+10	NT.2026.LESP.20.02	2	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-22 12:07:15.294923-04	2
+7	NT.2026.LPRI.20.01	1	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-22 12:07:20.551932-04	1
+8	NT.2026.LPRI.20.02	1	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-22 12:07:24.059961-04	1
+9	NT.2026.LESP.20.01	2	1	1	30	A	2026-11-21 19:25:06.609056-04	2026-11-22 19:33:18.933906-04	2
 \.
 
 
 --
--- TOC entry 5406 (class 0 OID 65711)
--- Dependencies: 265
+-- TOC entry 5417 (class 0 OID 65711)
+-- Dependencies: 267
 -- Data for Name: aud_mov; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
@@ -4253,6 +4282,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 100	\N	malla_curricular	UPDATE	{"orden": 3, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 15, "id_pro": 1, "estatus": "A", "periodo": 4, "id_malla": 15, "trayecto": 2, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 3, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 15, "id_pro": 1, "estatus": "A", "periodo": 1, "id_malla": 15, "trayecto": 2, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 101	\N	malla_curricular	UPDATE	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 16, "id_pro": 1, "estatus": "A", "periodo": 4, "id_malla": 16, "trayecto": 2, "actualizar": "2026-10-02T19:07:13.667971-04:00", "perequisito_id_mat": null}	{"orden": 4, "creado": "2026-10-02T19:07:13.667971-04:00", "id_mat": 16, "id_pro": 1, "estatus": "A", "periodo": 1, "id_malla": 16, "trayecto": 2, "actualizar": "2026-11-16T23:55:27.897546-04:00", "perequisito_id_mat": null}	2026-11-16 23:55:27.897546-04	\N	A
 281	\N	dias_laborales	UPDATE	{"dia": "Miércoles", "orden": 3, "id_dia": 3, "estatus": "I"}	{"dia": "Miércoles", "orden": 3, "id_dia": 3, "estatus": "A"}	2026-11-17 07:40:12.943628-04	\N	A
+1229	\N	permisos_usuario	DELETE	{"id_pu": 10, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 1}	\N	2026-11-22 11:04:54.885656-04	\N	A
 15	\N	estudiantes	UPDATE	{"cedula": "V-7873867", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 10, "id_mun": 28, "id_pro": 1, "id_sec": 6, "id_usu": null, "nombre": "NIRIA ZULAY", "estatus": "A", "apellido": "COLINA GONZALEZ", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:21:21.543171-04:00"}	{"cedula": "V-7873867", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 10, "id_mun": 28, "id_pro": 1, "id_sec": 6, "id_usu": null, "nombre": "NIRIA ZULAY", "estatus": "I", "apellido": "COLINA GONZALEZ", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:38:37.995597-04:00"}	2026-11-15 11:38:37.995597-04	\N	A
 16	\N	estudiantes	UPDATE	{"cedula": "V-7873867", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 10, "id_mun": 28, "id_pro": 1, "id_sec": 6, "id_usu": null, "nombre": "NIRIA ZULAY", "estatus": "I", "apellido": "COLINA GONZALEZ", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:38:37.995597-04:00"}	{"cedula": "V-7873867", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 10, "id_mun": 28, "id_pro": 1, "id_sec": 6, "id_usu": null, "nombre": "NIRIA ZULAY", "estatus": "A", "apellido": "COLINA GONZALEZ", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:38:45.167368-04:00"}	2026-11-15 11:38:45.167368-04	\N	A
 72	\N	programas	UPDATE	{"codigo": "LESP", "creado": "2026-10-02T18:44:50.034531-04:00", "id_pro": 2, "nombre": "PNF Licenciatura en Educación Especial", "estatus": "A", "total_uc": 182, "actualizar": "2026-10-02T18:44:50.034531-04:00", "tipo_sistema": "Semestral", "total_trayectos": 4}	{"codigo": "LESP", "creado": "2026-10-02T18:44:50.034531-04:00", "id_pro": 2, "nombre": "PNF Licenciatura en Educación Especial", "estatus": "I", "total_uc": 182, "actualizar": "2026-11-16T20:53:53.787195-04:00", "tipo_sistema": "Semestral", "total_trayectos": 4}	2026-11-16 20:53:53.787195-04	\N	A
@@ -4603,8 +4633,8 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 400	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T18:55:54.805877-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T19:15:22.223346-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-20 19:15:22.219089-04	\N	A
 404	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-20T19:03:23.713987-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-20T22:26:07.024889-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-20 22:26:07.018321-04	\N	A
 405	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T19:15:22.223346-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T22:33:22.690875-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-20 22:33:22.68869-04	\N	A
-406	2	notas	UPDATE	{"nota": 8.75, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 12, "id_malla": 74, "actualizar": "2026-11-20T01:13:08.697868-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	{"nota": 8.75, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 5, "id_per": 2, "estatus": "I", "id_nota": 12, "id_malla": 74, "actualizar": "2026-11-20T22:35:10.803523-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	2026-11-20 22:35:10.803523-04	127.0.0.1	A
 407	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-20T22:26:07.024889-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-20T22:38:38.728901-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-20 22:38:38.727887-04	\N	A
+406	\N	notas	UPDATE	{"nota": 8.75, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 12, "id_malla": 74, "actualizar": "2026-11-20T01:13:08.697868-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	{"nota": 8.75, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 5, "id_per": 2, "estatus": "I", "id_nota": 12, "id_malla": 74, "actualizar": "2026-11-20T22:35:10.803523-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	2026-11-20 22:35:10.803523-04	127.0.0.1	A
 410	\N	permisos_rol	UPDATE	{"id_pr": 104, "id_mod": 14, "id_rol": 3, "alcance": "SP", "estatus": "A", "id_perm": 2}	{"id_pr": 104, "id_mod": 14, "id_rol": 3, "alcance": "SP", "estatus": "I", "id_perm": 2}	2026-11-20 23:17:01.594141-04	\N	A
 411	\N	permisos_rol	DELETE	{"id_pr": 108, "id_mod": 11, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 3}	\N	2026-11-20 23:32:49.74866-04	\N	A
 412	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T22:33:22.690875-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$iLF2LqUUgtB6b.3937s3Bg$s8i.pCBKeTR.qN9PlQ64bagD0EOYlWsUHJ/g77JvFrg", "ultimo_acceso": "2026-11-20T23:36:01.35986-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-20 23:36:01.353343-04	\N	A
@@ -4842,6 +4872,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 637	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T10:53:50.796868-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T13:52:32.049108-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 13:52:32.04725-04	\N	A
 638	1	usuarios	UPDATE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 2, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 3, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	2026-11-21 13:53:00.724729-04	127.0.0.1	A
 639	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T13:52:32.049108-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T13:53:03.415025-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 13:53:03.41323-04	\N	A
+1230	\N	permisos_usuario	DELETE	{"id_pu": 11, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 2}	\N	2026-11-22 11:04:54.885656-04	\N	A
 640	1	usuarios	UPDATE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 3, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 2, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	2026-11-21 13:53:12.844591-04	127.0.0.1	A
 641	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T13:53:03.415025-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T13:53:15.879382-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 13:53:15.875334-04	\N	A
 645	1	usuarios	UPDATE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 3, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 4, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	2026-11-21 13:54:40.021311-04	127.0.0.1	A
@@ -4951,6 +4982,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 808	\N	estudiantes	UPDATE	{"cedula": "V-14602580", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 3, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "YASMIN VICTORIA", "estatus": "A", "apellido": "GOMEZ DE OCORO", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:37:12.091811-04:00"}	{"cedula": "V-14602580", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 3, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "YASMIN VICTORIA", "estatus": "A", "apellido": "GOMEZ DE OCORO", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 809	\N	estudiantes	UPDATE	{"cedula": "V-14606863", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 4, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "LUZ MARINA", "estatus": "A", "apellido": "GOMEZ URIBE", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:37:18.853449-04:00"}	{"cedula": "V-14606863", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 4, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "LUZ MARINA", "estatus": "A", "apellido": "GOMEZ URIBE", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 810	\N	estudiantes	UPDATE	{"cedula": "V-16230741", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 5, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "YURI COROMOTO", "estatus": "A", "apellido": "MESA GARZON", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:37:39.9358-04:00"}	{"cedula": "V-16230741", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 5, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "YURI COROMOTO", "estatus": "A", "apellido": "MESA GARZON", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
+1231	\N	permisos_usuario	DELETE	{"id_pu": 13, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 4}	\N	2026-11-22 11:04:54.885656-04	\N	A
 811	\N	estudiantes	UPDATE	{"cedula": "V-20618493", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 6, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "SIASKA LORENA", "estatus": "A", "apellido": "GRANADOS JAIMES", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-15T11:37:23.889603-04:00"}	{"cedula": "V-20618493", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 6, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "SIASKA LORENA", "estatus": "A", "apellido": "GRANADOS JAIMES", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 812	\N	estudiantes	UPDATE	{"cedula": "V-12516920", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 1, "id_mun": 23, "id_pro": 2, "id_sec": 5, "id_usu": null, "nombre": "JAHYDDY GUADALUPE", "estatus": "A", "apellido": "HANTUCH MENDOZA", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T00:32:30.593315-04:00"}	{"cedula": "V-12516920", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 1, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "JAHYDDY GUADALUPE", "estatus": "A", "apellido": "HANTUCH MENDOZA", "foto_url": null, "trayecto": 3, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 813	\N	asig_carga_horarias	UPDATE	{"creado": "2026-11-21T16:23:01.268782-04:00", "id_dia": 5, "id_doc": 2, "id_esp": 14, "id_per": 2, "id_sec": 5, "estatus": "A", "id_asig": 9, "hora_fin": "17:00:00", "id_malla": 74, "actualizar": "2026-11-21T16:23:01.268782-04:00", "hora_inicio": "14:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	{"creado": "2026-11-21T16:23:01.268782-04:00", "id_dia": 5, "id_doc": 2, "id_esp": 14, "id_per": 2, "id_sec": null, "estatus": "A", "id_asig": 9, "hora_fin": "17:00:00", "id_malla": 74, "actualizar": "2026-11-21T19:25:06.609056-04:00", "hora_inicio": "14:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-21 19:25:06.609056-04	\N	A
@@ -5003,6 +5035,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 862	\N	estudiantes	INSERT	\N	{"cedula": "V-7228261", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 35, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "LESBIA", "estatus": "A", "apellido": "PERNIA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 863	\N	estudiantes	INSERT	\N	{"cedula": "V-7302789", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 36, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "WOLFGANG", "estatus": "A", "apellido": "CRESPO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 864	\N	estudiantes	INSERT	\N	{"cedula": "V-7778299", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 37, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "URANIA", "estatus": "A", "apellido": "PEREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
+1232	\N	permisos_usuario	DELETE	{"id_pu": 22, "id_mod": 2, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 4}	\N	2026-11-22 11:04:54.885656-04	\N	A
 865	\N	estudiantes	INSERT	\N	{"cedula": "V-7959168", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 38, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "DENYS", "estatus": "A", "apellido": "NUÑEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 866	\N	estudiantes	INSERT	\N	{"cedula": "V-8091641", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 39, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "ANA", "estatus": "A", "apellido": "PEREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
 867	\N	estudiantes	INSERT	\N	{"cedula": "V-8096010", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 40, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "MARIELA", "estatus": "A", "apellido": "RAMIREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	2026-11-21 19:25:06.609056-04	\N	A
@@ -5038,6 +5071,7 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 897	\N	notas	INSERT	\N	{"nota": 19.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 36, "id_per": 1, "estatus": "A", "id_nota": 216, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	2026-11-21 19:25:06.609056-04	\N	A
 898	\N	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 37, "id_per": 1, "estatus": "A", "id_nota": 217, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	2026-11-21 19:25:06.609056-04	\N	A
 899	\N	notas	INSERT	\N	{"nota": 19.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 38, "id_per": 1, "estatus": "A", "id_nota": 218, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	2026-11-21 19:25:06.609056-04	\N	A
+1233	\N	permisos_usuario	DELETE	{"id_pu": 28, "id_mod": 9, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 3}	\N	2026-11-22 11:04:54.885656-04	\N	A
 900	\N	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 39, "id_per": 1, "estatus": "A", "id_nota": 219, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	2026-11-21 19:25:06.609056-04	\N	A
 901	\N	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 40, "id_per": 1, "estatus": "A", "id_nota": 220, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	2026-11-21 19:25:06.609056-04	\N	A
 902	\N	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 41, "id_per": 1, "estatus": "A", "id_nota": 221, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	2026-11-21 19:25:06.609056-04	\N	A
@@ -5075,26 +5109,557 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 934	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T18:35:49.887242-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T20:07:49.435802-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 20:07:49.432094-04	\N	A
 935	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T19:42:02.388464-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T20:07:58.533076-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 20:07:58.530179-04	\N	A
 936	1	permisos_usuario	UPDATE	{"id_pu": 28, "id_mod": 9, "id_usu": 4, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pu": 28, "id_mod": 9, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 3}	2026-11-21 20:08:13.276693-04	127.0.0.1	A
+937	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T20:07:58.533076-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T21:55:26.706655-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 21:55:26.699808-04	\N	A
+938	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T21:55:26.706655-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T22:28:47.976173-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 22:28:47.970076-04	\N	A
+939	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T22:28:47.976173-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T23:17:24.711114-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 23:17:24.704278-04	\N	A
+940	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T23:17:24.711114-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T23:18:24.412266-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-21 23:18:24.406185-04	\N	A
+941	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-21T23:18:24.412266-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T08:48:40.450649-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 08:48:40.405585-04	\N	A
+942	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T08:48:40.450649-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T09:47:03.115233-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 09:47:03.108657-04	\N	A
+943	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T09:47:03.115233-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T09:49:18.023156-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 09:49:18.019546-04	\N	A
+944	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-21T20:07:49.435802-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-22T09:51:47.708853-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 09:51:47.706808-04	\N	A
+1026	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 22, "id_per": 1, "estatus": "A", "id_nota": 212, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+945	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-22T09:51:47.708853-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-22T10:03:40.943392-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 10:03:40.93731-04	\N	A
+946	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T09:49:18.023156-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T10:26:17.899503-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 10:26:17.893477-04	\N	A
+947	1	asig_carga_horarias	UPDATE	{"creado": "2026-11-18T01:36:18.511075-04:00", "id_dia": 5, "id_doc": 4, "id_esp": 3, "id_per": 2, "id_sec": null, "estatus": "A", "id_asig": 8, "hora_fin": "08:00:00", "id_malla": 3, "actualizar": "2026-11-18T01:36:18.511082-04:00", "hora_inicio": "07:00:00", "observaciones": "Asignación directa", "tipo_actividad": "Carga Académica"}	{"creado": "2026-11-18T01:36:18.511075-04:00", "id_dia": 5, "id_doc": 4, "id_esp": 3, "id_per": 2, "id_sec": null, "estatus": "A", "id_asig": 8, "hora_fin": "10:00:00", "id_malla": 3, "actualizar": "2026-11-22T10:33:26.334969-04:00", "hora_inicio": "07:00:00", "observaciones": "Asignación directa", "tipo_actividad": "Carga Académica"}	2026-11-22 10:33:26.334969-04	127.0.0.1	A
+948	1	docentes	UPDATE	{"cedula": "V-13792150", "creado": "2026-11-13T16:55:56.866854-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "ERIKA DE LA CONSOLACION", "estatus": "A", "apellido": "VARELA SAYAGO", "foto_url": null, "telefono": "04264937637", "actualizar": "2026-11-17T21:36:18.469709-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 1, "horas_disponibles": 19}	{"cedula": "V-13792150", "creado": "2026-11-13T16:55:56.866854-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "ERIKA DE LA CONSOLACION", "estatus": "A", "apellido": "VARELA SAYAGO", "foto_url": null, "telefono": "04264937637", "actualizar": "2026-11-22T10:33:26.334969-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 3, "horas_disponibles": 17}	2026-11-22 10:33:26.334969-04	127.0.0.1	A
+949	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-22T10:03:40.943392-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-22T10:39:19.29917-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 10:39:19.292092-04	\N	A
+950	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-21T16:55:37.59242-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-22T10:40:31.006071-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 10:40:31.002652-04	\N	A
+951	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T10:26:17.899503-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T10:42:05.340326-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 10:42:05.339486-04	\N	A
+952	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-22T10:40:31.006071-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-22T10:42:18.356194-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 10:42:18.355371-04	\N	A
+953	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T10:42:05.340326-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T10:44:50.836317-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 10:44:50.834646-04	\N	A
+954	\N	notas	DELETE	{"nota": 8.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 29, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+955	\N	notas	DELETE	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 30, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+956	\N	notas	DELETE	{"nota": 14.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 31, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1234	\N	credenciales	DELETE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE", "ultimo_acceso": "2026-11-22T10:39:19.29917-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	\N	2026-11-22 11:04:54.885656-04	\N	A
+957	\N	notas	DELETE	{"nota": 17.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 33, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+958	\N	notas	DELETE	{"nota": 8.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 34, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+959	\N	notas	DELETE	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 35, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+960	\N	notas	DELETE	{"nota": 12.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 37, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+961	\N	notas	DELETE	{"nota": 18.00, "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 7, "id_per": 1, "estatus": "I", "id_nota": 1, "id_malla": 26, "actualizar": "2026-11-17T00:01:05.65978-04:00", "observaciones": "Acta de demostración — Proyecto III (T3·P1)", "fecha_registro": "2026-11-13T16:55:56.866854-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+962	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 8, "id_per": 1, "estatus": "I", "id_nota": 2, "id_malla": 26, "actualizar": "2026-11-17T00:01:05.65978-04:00", "observaciones": "Acta de demostración — Proyecto III (T3·P1)", "fecha_registro": "2026-11-13T16:55:56.866854-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+963	\N	notas	DELETE	{"nota": 12.00, "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 9, "id_per": 1, "estatus": "I", "id_nota": 3, "id_malla": 26, "actualizar": "2026-11-17T00:01:05.65978-04:00", "observaciones": "Acta de demostración — Proyecto III (T3·P1)", "fecha_registro": "2026-11-13T16:55:56.866854-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+964	\N	notas	DELETE	{"nota": 16.75, "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 10, "id_per": 1, "estatus": "I", "id_nota": 4, "id_malla": 26, "actualizar": "2026-11-17T00:01:05.65978-04:00", "observaciones": "Acta de demostración — Proyecto III (T3·P1)", "fecha_registro": "2026-11-13T16:55:56.866854-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+965	\N	notas	DELETE	{"nota": 9.50, "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 11, "id_per": 1, "estatus": "I", "id_nota": 5, "id_malla": 26, "actualizar": "2026-11-17T00:01:05.65978-04:00", "observaciones": "Acta de demostración — Proyecto III (T3·P1)", "fecha_registro": "2026-11-13T16:55:56.866854-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+966	\N	notas	DELETE	{"nota": 14.25, "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 12, "id_per": 1, "estatus": "I", "id_nota": 6, "id_malla": 26, "actualizar": "2026-11-17T00:01:05.65978-04:00", "observaciones": "Acta de demostración — Proyecto III (T3·P1)", "fecha_registro": "2026-11-13T16:55:56.866854-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+967	\N	notas	DELETE	{"nota": 18.25, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 10, "id_malla": 74, "actualizar": "2026-11-17T00:12:12.025187-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+968	\N	notas	DELETE	{"nota": 11.00, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 11, "id_malla": 74, "actualizar": "2026-11-17T00:12:12.025187-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+969	\N	notas	DELETE	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 38, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+970	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 8, "id_malla": 74, "actualizar": "2026-11-17T00:12:12.025187-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+971	\N	notas	DELETE	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 39, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+972	\N	notas	DELETE	{"nota": 13.50, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 9, "id_malla": 74, "actualizar": "2026-11-17T00:12:12.025187-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+973	\N	notas	DELETE	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 41, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+974	\N	notas	DELETE	{"nota": 9.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 42, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+975	\N	notas	DELETE	{"nota": 12.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 43, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+976	\N	notas	DELETE	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 45, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+977	\N	notas	DELETE	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 46, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+978	\N	notas	DELETE	{"nota": 17.50, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 13, "id_malla": 74, "actualizar": "2026-11-20T01:09:24.253805-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+979	\N	notas	DELETE	{"nota": 9.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 47, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+980	\N	notas	DELETE	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 49, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+981	\N	notas	DELETE	{"nota": 19.00, "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 7, "id_malla": 26, "actualizar": "2026-11-20T01:35:58.829939-04:00", "observaciones": "Acta de demostración — Proyecto III (T3·P1)", "fecha_registro": "2026-11-13T16:55:56.866854-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+982	\N	notas	DELETE	{"nota": 8.75, "creado": "2026-11-17T00:01:05.65978-04:00", "id_est": 5, "id_per": 2, "estatus": "I", "id_nota": 12, "id_malla": 74, "actualizar": "2026-11-20T22:35:10.803523-04:00", "observaciones": "Acta de demostración — PSI V (T3·P1)", "fecha_registro": "2026-11-17T00:01:05.65978-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+983	\N	notas	DELETE	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 21, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+984	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 22, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+985	\N	notas	DELETE	{"nota": 19.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 23, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+986	\N	notas	DELETE	{"nota": 10.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 25, "id_malla": 27, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+987	\N	notas	DELETE	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 26, "id_malla": 28, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+988	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 27, "id_malla": 29, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LPRI T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+989	\N	notas	DELETE	{"nota": 18.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 50, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+990	\N	notas	DELETE	{"nota": 9.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 51, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+991	\N	notas	DELETE	{"nota": 12.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 52, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+992	\N	notas	DELETE	{"nota": 15.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 2, "id_per": 2, "estatus": "A", "id_nota": 53, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+993	\N	notas	DELETE	{"nota": 8.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 55, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+994	\N	notas	DELETE	{"nota": 11.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 56, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+995	\N	notas	DELETE	{"nota": 14.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 57, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+996	\N	notas	DELETE	{"nota": 17.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 58, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+997	\N	notas	DELETE	{"nota": 8.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 3, "id_per": 2, "estatus": "A", "id_nota": 59, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+998	\N	notas	DELETE	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 61, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+999	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 62, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1000	\N	notas	DELETE	{"nota": 19.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 63, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1001	\N	notas	DELETE	{"nota": 10.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 64, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1002	\N	notas	DELETE	{"nota": 13.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 4, "id_per": 2, "estatus": "A", "id_nota": 65, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1003	\N	notas	DELETE	{"nota": 18.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 67, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1004	\N	notas	DELETE	{"nota": 9.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 68, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1005	\N	notas	DELETE	{"nota": 12.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 69, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1006	\N	notas	DELETE	{"nota": 15.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 70, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1007	\N	notas	DELETE	{"nota": 18.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 5, "id_per": 2, "estatus": "A", "id_nota": 71, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1008	\N	notas	DELETE	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 73, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1009	\N	notas	DELETE	{"nota": 14.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 74, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1010	\N	notas	DELETE	{"nota": 17.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 75, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1011	\N	notas	DELETE	{"nota": 8.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 76, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1012	\N	notas	DELETE	{"nota": 11.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 6, "id_per": 2, "estatus": "A", "id_nota": 77, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1013	\N	notas	DELETE	{"nota": 10.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 79, "id_malla": 75, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1014	\N	notas	DELETE	{"nota": 13.25, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 80, "id_malla": 76, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1015	\N	notas	DELETE	{"nota": 16.50, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 81, "id_malla": 77, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1016	\N	notas	DELETE	{"nota": 19.75, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 82, "id_malla": 78, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1017	\N	notas	DELETE	{"nota": 10.00, "creado": "2026-11-21T09:23:06.684512-04:00", "id_est": 1, "id_per": 2, "estatus": "A", "id_nota": 83, "id_malla": 79, "actualizar": "2026-11-21T09:23:06.684512-04:00", "observaciones": "Acta de demostración — carga masiva LESP T3P1", "fecha_registro": "2026-11-21T09:23:06.684512-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1018	\N	notas	DELETE	{"nota": 18.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 14, "id_per": 1, "estatus": "A", "id_nota": 204, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1019	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 15, "id_per": 1, "estatus": "A", "id_nota": 205, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1020	\N	notas	DELETE	{"nota": 18.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 16, "id_per": 1, "estatus": "A", "id_nota": 206, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1021	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 17, "id_per": 1, "estatus": "A", "id_nota": 207, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1022	\N	notas	DELETE	{"nota": 18.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 18, "id_per": 1, "estatus": "A", "id_nota": 208, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1023	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 19, "id_per": 1, "estatus": "A", "id_nota": 209, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1024	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 20, "id_per": 1, "estatus": "A", "id_nota": 210, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1025	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 21, "id_per": 1, "estatus": "A", "id_nota": 211, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1027	\N	notas	DELETE	{"nota": 15.50, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 23, "id_per": 1, "estatus": "A", "id_nota": 213, "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1028	\N	notas	DELETE	{"nota": 19.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 34, "id_per": 1, "estatus": "A", "id_nota": 214, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1029	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 35, "id_per": 1, "estatus": "A", "id_nota": 215, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1030	\N	notas	DELETE	{"nota": 19.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 36, "id_per": 1, "estatus": "A", "id_nota": 216, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1031	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 37, "id_per": 1, "estatus": "A", "id_nota": 217, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1032	\N	notas	DELETE	{"nota": 19.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 38, "id_per": 1, "estatus": "A", "id_nota": 218, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1033	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 39, "id_per": 1, "estatus": "A", "id_nota": 219, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1034	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 40, "id_per": 1, "estatus": "A", "id_nota": 220, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1035	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 41, "id_per": 1, "estatus": "A", "id_nota": 221, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1036	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 42, "id_per": 1, "estatus": "A", "id_nota": 222, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1037	\N	notas	DELETE	{"nota": 16.00, "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 43, "id_per": 1, "estatus": "A", "id_nota": 223, "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-21T19:25:06.609056-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1038	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-21T16:23:01.268782-04:00", "id_dia": 6, "id_doc": 2, "id_esp": 15, "id_per": 1, "id_sec": null, "estatus": "A", "id_asig": 10, "hora_fin": "11:00:00", "id_malla": 26, "actualizar": "2026-11-21T19:25:06.609056-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1039	\N	docentes	UPDATE	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-21T19:33:52.624019-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 6, "horas_disponibles": 24}	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 0, "horas_disponibles": 30}	2026-11-22 11:01:53.657385-04	\N	A
+1040	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-21T16:23:01.268782-04:00", "id_dia": 5, "id_doc": 2, "id_esp": 14, "id_per": 2, "id_sec": null, "estatus": "A", "id_asig": 9, "hora_fin": "17:00:00", "id_malla": 74, "actualizar": "2026-11-21T19:25:06.609056-04:00", "hora_inicio": "14:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1041	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-21T19:25:06.609056-04:00", "id_dia": 5, "id_doc": 5, "id_esp": 1, "id_per": 1, "id_sec": 7, "estatus": "A", "id_asig": 11, "hora_fin": "12:00:00", "id_malla": 96, "actualizar": "2026-11-21T19:25:06.609056-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1054	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-18T01:36:18.511075-04:00", "id_dia": 5, "id_doc": 4, "id_esp": 3, "id_per": 2, "id_sec": null, "estatus": "A", "id_asig": 8, "hora_fin": "10:00:00", "id_malla": 3, "actualizar": "2026-11-22T10:33:26.334969-04:00", "hora_inicio": "07:00:00", "observaciones": "Asignación directa", "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1073	\N	estudiantes	DELETE	{"cedula": "V-5676743", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 24, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "NIDIA", "estatus": "A", "apellido": "SANTOS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1042	\N	docentes	UPDATE	{"cedula": "V-2554227", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 5, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-2554227", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 5, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1043	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-21T19:25:06.609056-04:00", "id_dia": 6, "id_doc": 7, "id_esp": 2, "id_per": 1, "id_sec": 9, "estatus": "A", "id_asig": 12, "hora_fin": "12:00:00", "id_malla": 98, "actualizar": "2026-11-21T19:25:06.609056-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1044	\N	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 7, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 7, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1045	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-12T22:24:22.497011-04:00", "id_dia": 1, "id_doc": 2, "id_esp": 10, "id_per": 1, "id_sec": null, "estatus": "I", "id_asig": 4, "hora_fin": "08:00:00", "id_malla": 2, "actualizar": "2026-11-21T19:33:38.549272-04:00", "hora_inicio": "07:00:00", "observaciones": "Asignación directa", "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1046	\N	asig_carga_horarias	DELETE	{"creado": "2026-10-03T10:55:20.264002-04:00", "id_dia": 1, "id_doc": 1, "id_esp": 1, "id_per": 1, "id_sec": null, "estatus": "I", "id_asig": 1, "hora_fin": "10:00:00", "id_malla": 1, "actualizar": "2026-11-21T19:33:42.580063-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1047	\N	docentes	UPDATE	{"cedula": "V-12345678", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "María", "estatus": "A", "apellido": "González", "foto_url": null, "telefono": "04149998877", "actualizar": "2026-11-21T19:33:50.704139-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	{"cedula": "V-12345678", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "María", "estatus": "A", "apellido": "González", "foto_url": null, "telefono": "04149998877", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1048	\N	asig_carga_horarias	DELETE	{"creado": "2026-10-03T10:55:20.264002-04:00", "id_dia": 1, "id_doc": 2, "id_esp": 2, "id_per": 2, "id_sec": null, "estatus": "I", "id_asig": 2, "hora_fin": "10:00:00", "id_malla": 51, "actualizar": "2026-11-21T19:33:44.440164-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1049	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-12T22:54:26.031262-04:00", "id_dia": 3, "id_doc": 2, "id_esp": 1, "id_per": 1, "id_sec": null, "estatus": "I", "id_asig": 6, "hora_fin": "08:00:00", "id_malla": 8, "actualizar": "2026-11-21T19:33:48.477686-04:00", "hora_inicio": "07:00:00", "observaciones": "Asignación directa", "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1050	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-13T02:56:20.453382-04:00", "id_dia": 2, "id_doc": 1, "id_esp": 11, "id_per": 1, "id_sec": null, "estatus": "I", "id_asig": 7, "hora_fin": "11:00:00", "id_malla": 4, "actualizar": "2026-11-21T19:33:50.704139-04:00", "hora_inicio": "07:00:00", "observaciones": "Asignación directa", "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1051	\N	asig_carga_horarias	DELETE	{"creado": "2026-10-03T10:55:20.264002-04:00", "id_dia": 2, "id_doc": 2, "id_esp": 3, "id_per": 2, "id_sec": null, "estatus": "I", "id_asig": 3, "hora_fin": "12:00:00", "id_malla": null, "actualizar": "2026-11-21T19:33:52.624019-04:00", "hora_inicio": "10:00:00", "observaciones": null, "tipo_actividad": "Asesoría"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1052	\N	asig_carga_horarias	DELETE	{"creado": "2026-11-21T20:00:31.874313-04:00", "id_dia": 5, "id_doc": 3, "id_esp": 12, "id_per": 2, "id_sec": 9, "estatus": "A", "id_asig": 14, "hora_fin": "12:00:00", "id_malla": 74, "actualizar": "2026-11-21T20:00:31.874313-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1053	\N	docentes	UPDATE	{"cedula": "V-11492534", "creado": "2026-11-13T16:20:59.408443-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "IRIS MARISOL", "estatus": "A", "apellido": "RAMIREZ HERNANDEZ", "foto_url": null, "telefono": "04161740853", "actualizar": "2026-11-21T20:00:31.874313-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-11492534", "creado": "2026-11-13T16:20:59.408443-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "IRIS MARISOL", "estatus": "A", "apellido": "RAMIREZ HERNANDEZ", "foto_url": null, "telefono": "04161740853", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1055	\N	docentes	UPDATE	{"cedula": "V-13792150", "creado": "2026-11-13T16:55:56.866854-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "ERIKA DE LA CONSOLACION", "estatus": "A", "apellido": "VARELA SAYAGO", "foto_url": null, "telefono": "04264937637", "actualizar": "2026-11-22T10:33:26.334969-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 3, "horas_disponibles": 17}	{"cedula": "V-13792150", "creado": "2026-11-13T16:55:56.866854-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "ERIKA DE LA CONSOLACION", "estatus": "A", "apellido": "VARELA SAYAGO", "foto_url": null, "telefono": "04264937637", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1056	\N	estudiantes	DELETE	{"cedula": "V-13172105", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 8, "id_mun": 23, "id_pro": 1, "id_sec": null, "id_usu": null, "nombre": "GERMAN YOBANNY", "estatus": "A", "apellido": "GUERRERO MORA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1057	\N	estudiantes	DELETE	{"cedula": "V-14225517", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 2, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "MAYE ALEJANDRA", "estatus": "A", "apellido": "NIÑO COLMENARES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1058	\N	estudiantes	DELETE	{"cedula": "V-14602580", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 3, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "YASMIN VICTORIA", "estatus": "A", "apellido": "GOMEZ DE OCORO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1059	\N	estudiantes	DELETE	{"cedula": "V-14606863", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 4, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "LUZ MARINA", "estatus": "A", "apellido": "GOMEZ URIBE", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1060	\N	estudiantes	DELETE	{"cedula": "V-16230741", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 5, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "YURI COROMOTO", "estatus": "A", "apellido": "MESA GARZON", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1061	\N	estudiantes	DELETE	{"cedula": "V-20618493", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 6, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "SIASKA LORENA", "estatus": "A", "apellido": "GRANADOS JAIMES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1062	\N	estudiantes	DELETE	{"cedula": "V-10167912", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 11, "id_mun": 23, "id_pro": 1, "id_sec": null, "id_usu": null, "nombre": "LUZ MARINA", "estatus": "A", "apellido": "MONTILVA DE ORTEGA", "foto_url": null, "trayecto": 2, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1063	\N	estudiantes	DELETE	{"cedula": "V-5642825", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 14, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "LUIS", "estatus": "A", "apellido": "GOMEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1064	\N	estudiantes	DELETE	{"cedula": "V-5643183", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 15, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "CARMEN", "estatus": "A", "apellido": "VEGA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1065	\N	estudiantes	DELETE	{"cedula": "V-5646174", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 16, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "ROSA", "estatus": "A", "apellido": "ROA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1066	\N	estudiantes	DELETE	{"cedula": "V-5646993", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 17, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "WALMORE", "estatus": "A", "apellido": "COLMERANES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1067	\N	estudiantes	DELETE	{"cedula": "V-5657500", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 18, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "BETTY", "estatus": "A", "apellido": "BARRERA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1068	\N	estudiantes	DELETE	{"cedula": "V-5658165", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 19, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "LUZ", "estatus": "A", "apellido": "MORALES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1069	\N	estudiantes	DELETE	{"cedula": "V-5660839", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 20, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "JORGE", "estatus": "A", "apellido": "COLMENARES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1070	\N	estudiantes	DELETE	{"cedula": "V-5669540", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 21, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "ANA", "estatus": "A", "apellido": "ORTEGA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1071	\N	estudiantes	DELETE	{"cedula": "V-5674792", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 22, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "CONTRERAS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1072	\N	estudiantes	DELETE	{"cedula": "V-5676539", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 23, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "MARISELA", "estatus": "A", "apellido": "CHAPARRO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1074	\N	estudiantes	DELETE	{"cedula": "V-5682527", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 25, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "NESTOR", "estatus": "A", "apellido": "MARTINEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1075	\N	estudiantes	DELETE	{"cedula": "V-5683228", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 26, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "APOLINAR", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1076	\N	estudiantes	DELETE	{"cedula": "V-5685463", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 27, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "WILSON", "estatus": "A", "apellido": "CONTRERAS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1077	\N	estudiantes	DELETE	{"cedula": "V-5688899", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 28, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "MORA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1078	\N	estudiantes	DELETE	{"cedula": "V-5728715", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 29, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "MIRIAM", "estatus": "A", "apellido": "RIVERA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1079	\N	estudiantes	DELETE	{"cedula": "V-6018577", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 30, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "LIRIS", "estatus": "A", "apellido": "GONZALEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1080	\N	estudiantes	DELETE	{"cedula": "V-6195135", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 31, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "CLAUDIA", "estatus": "A", "apellido": "VERDUGO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1081	\N	estudiantes	DELETE	{"cedula": "V-6553213", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 32, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "ZORAIDA", "estatus": "A", "apellido": "ROJAS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1082	\N	estudiantes	DELETE	{"cedula": "V-6792584", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 33, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "RAUL", "estatus": "A", "apellido": "DUQUE", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1083	\N	estudiantes	DELETE	{"cedula": "V-6940552", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 34, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "NIDIA", "estatus": "A", "apellido": "GUERRERO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1084	\N	estudiantes	DELETE	{"cedula": "V-7228261", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 35, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "LESBIA", "estatus": "A", "apellido": "PERNIA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1085	\N	estudiantes	DELETE	{"cedula": "V-7302789", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 36, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "WOLFGANG", "estatus": "A", "apellido": "CRESPO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1086	\N	estudiantes	DELETE	{"cedula": "V-7778299", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 37, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "URANIA", "estatus": "A", "apellido": "PEREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1087	\N	estudiantes	DELETE	{"cedula": "V-7959168", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 38, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "DENYS", "estatus": "A", "apellido": "NUÑEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1088	\N	estudiantes	DELETE	{"cedula": "V-8091641", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 39, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "ANA", "estatus": "A", "apellido": "PEREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1089	\N	estudiantes	DELETE	{"cedula": "V-8096010", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 40, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "MARIELA", "estatus": "A", "apellido": "RAMIREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1090	\N	estudiantes	DELETE	{"cedula": "V-8097470", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 41, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "LUZMILA", "estatus": "A", "apellido": "ZAPATA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1091	\N	estudiantes	DELETE	{"cedula": "V-8098551", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 42, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "ENEIDA", "estatus": "A", "apellido": "URDANETA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1092	\N	estudiantes	DELETE	{"cedula": "V-8102634", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 43, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "ALIX", "estatus": "A", "apellido": "DIAZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1093	\N	estudiantes	DELETE	{"cedula": "V-8106976", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 44, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "NUBIA", "estatus": "A", "apellido": "GARCIA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1094	\N	estudiantes	DELETE	{"cedula": "V-8107362", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 45, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "MARIA", "estatus": "A", "apellido": "ANDRADE", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1095	\N	estudiantes	DELETE	{"cedula": "V-8107783", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 46, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "LUISA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1096	\N	estudiantes	DELETE	{"cedula": "V-8108564", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 47, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "CARLOS", "estatus": "A", "apellido": "COLMENARES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1097	\N	estudiantes	DELETE	{"cedula": "V-8712686", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 48, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "BELSA", "estatus": "A", "apellido": "ARELLANO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1098	\N	estudiantes	DELETE	{"cedula": "V-8993449", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 49, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "IRIS", "estatus": "A", "apellido": "DAVILA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1099	\N	estudiantes	DELETE	{"cedula": "V-8994208", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 50, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "YUSMELY", "estatus": "A", "apellido": "MALDONADO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1100	\N	estudiantes	DELETE	{"cedula": "V-9128464", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 51, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "NELLY", "estatus": "A", "apellido": "RAMIREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1101	\N	estudiantes	DELETE	{"cedula": "V-9137449", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 52, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "LUIS", "estatus": "A", "apellido": "GOMEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1102	\N	estudiantes	DELETE	{"cedula": "V-9143975", "creado": "2026-11-21T19:25:06.609056-04:00", "id_est": 53, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "NICOLASA", "estatus": "A", "apellido": "CARRILLO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1103	\N	estudiantes	DELETE	{"cedula": "V-13171134", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 7, "id_mun": 23, "id_pro": 1, "id_sec": null, "id_usu": null, "nombre": "DAYGNE YUBISAY", "estatus": "A", "apellido": "TREJO MORALES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1104	\N	estudiantes	DELETE	{"cedula": "V-12516920", "creado": "2026-11-13T16:20:59.408443-04:00", "id_est": 1, "id_mun": 23, "id_pro": 2, "id_sec": null, "id_usu": null, "nombre": "JAHYDDY GUADALUPE", "estatus": "A", "apellido": "HANTUCH MENDOZA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1105	\N	estudiantes	DELETE	{"cedula": "V-15157076", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 9, "id_mun": 23, "id_pro": 1, "id_sec": null, "id_usu": null, "nombre": "YADELSY MAGALY", "estatus": "A", "apellido": "NOVA BECERRA", "foto_url": null, "trayecto": 2, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1106	\N	estudiantes	DELETE	{"cedula": "V-15881009", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 12, "id_mun": 23, "id_pro": 1, "id_sec": null, "id_usu": null, "nombre": "INGRID NAYARI", "estatus": "A", "apellido": "ONTIVEROS ONTIVEROS", "foto_url": null, "trayecto": 2, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1107	\N	estudiantes	DELETE	{"cedula": "V-21003553", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 13, "id_mun": 23, "id_pro": 1, "id_sec": null, "id_usu": null, "nombre": "ANNY YOHANA", "estatus": "A", "apellido": "SANABRIA ONTIVEROS", "foto_url": null, "trayecto": 2, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1108	\N	estudiantes	DELETE	{"cedula": "V-7873867", "creado": "2026-11-13T16:55:56.866854-04:00", "id_est": 10, "id_mun": 23, "id_pro": 1, "id_sec": null, "id_usu": null, "nombre": "NIRIA ZULAY", "estatus": "A", "apellido": "COLINA GONZALEZ", "foto_url": null, "trayecto": 2, "actualizar": "2026-11-21T19:31:02.122352-04:00"}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1109	\N	docentes	DELETE	{"cedula": "V-12345678", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "María", "estatus": "A", "apellido": "González", "foto_url": null, "telefono": "04149998877", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1110	\N	docentes	DELETE	{"cedula": "V-87654321", "creado": "2026-10-03T10:55:20.264002-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "Carlos", "estatus": "A", "apellido": "Rodríguez López", "foto_url": null, "telefono": "04249876543", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 0, "horas_disponibles": 30}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1235	\N	credenciales	DELETE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU", "ultimo_acceso": "2026-11-22T10:42:18.356194-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1111	\N	docentes	DELETE	{"cedula": "V-11492534", "creado": "2026-11-13T16:20:59.408443-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "IRIS MARISOL", "estatus": "A", "apellido": "RAMIREZ HERNANDEZ", "foto_url": null, "telefono": "04161740853", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1112	\N	docentes	DELETE	{"cedula": "V-13792150", "creado": "2026-11-13T16:55:56.866854-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "ERIKA DE LA CONSOLACION", "estatus": "A", "apellido": "VARELA SAYAGO", "foto_url": null, "telefono": "04264937637", "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1113	\N	docentes	DELETE	{"cedula": "V-3566882", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 6, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1114	\N	docentes	DELETE	{"cedula": "V-3999595", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 8, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1115	\N	docentes	DELETE	{"cedula": "V-4111042", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 9, "id_mun": 23, "id_usu": null, "nombre": "CARMEN", "estatus": "A", "apellido": "REYES", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 0, "horas_disponibles": 30}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1116	\N	docentes	DELETE	{"cedula": "V-4113092", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 10, "id_mun": 23, "id_usu": null, "nombre": "ANDRES", "estatus": "A", "apellido": "VIVAS", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1117	\N	docentes	DELETE	{"cedula": "V-4212279", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 11, "id_mun": 23, "id_usu": null, "nombre": "ANA", "estatus": "A", "apellido": "BUITRAGO", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1118	\N	docentes	DELETE	{"cedula": "V-4327611", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 12, "id_mun": 23, "id_usu": null, "nombre": "ESNEIRA", "estatus": "A", "apellido": "PARRA", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1119	\N	docentes	DELETE	{"cedula": "V-4627736", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 13, "id_mun": 23, "id_usu": null, "nombre": "LUCY", "estatus": "A", "apellido": "COLMENARES", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Especial", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 0, "horas_disponibles": 30}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1120	\N	docentes	DELETE	{"cedula": "V-4632504", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 14, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "DERUBEIS", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1121	\N	docentes	DELETE	{"cedula": "V-5027637", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 15, "id_mun": 23, "id_usu": null, "nombre": "JESUS", "estatus": "A", "apellido": "ZAMUDIO", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1122	\N	docentes	DELETE	{"cedula": "V-5166914", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 16, "id_mun": 23, "id_usu": null, "nombre": "TIBISAY", "estatus": "A", "apellido": "PEREZ", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1123	\N	docentes	DELETE	{"cedula": "V-5327258", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 17, "id_mun": 23, "id_usu": null, "nombre": "ANA", "estatus": "A", "apellido": "URIBE", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1124	\N	docentes	DELETE	{"cedula": "V-5511889", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 18, "id_mun": 23, "id_usu": null, "nombre": "SONIA", "estatus": "A", "apellido": "FLORES", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 30, "observaciones": null, "tipo_contrato": "Contratado", "horas_asignadas": 0, "horas_disponibles": 30}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1141	\N	estudiantes	INSERT	\N	{"cedula": "V-5657500", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 5, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "BETTY", "estatus": "A", "apellido": "BARRERA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1125	\N	docentes	DELETE	{"cedula": "V-5580341", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 19, "id_mun": 23, "id_usu": null, "nombre": "ANGEL", "estatus": "A", "apellido": "PULIDO", "foto_url": null, "telefono": null, "actualizar": "2026-11-21T19:25:06.609056-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1126	\N	docentes	DELETE	{"cedula": "V-2554227", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 5, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1127	\N	docentes	DELETE	{"cedula": "V-3815135", "creado": "2026-11-21T19:25:06.609056-04:00", "id_doc": 7, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	\N	2026-11-22 11:01:53.657385-04	\N	A
+1128	\N	periodos_academicos	UPDATE	{"anio": 2025, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2025-I", "estatus": "A", "fecha_fin": "2025-04-30", "actualizar": "2026-11-21T17:17:20.199741-04:00", "fecha_inicio": "2025-01-20", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:01:53.657385-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:01:53.657385-04	\N	A
+1129	\N	materias	INSERT	\N	{"codigo": "MAT-LPRI-PROY", "creado": "2026-11-22T11:01:53.657385-04:00", "id_eje": 1, "id_mat": 100, "nombre": "Proyecto Socioeducativo I", "estatus": "A", "actualizar": "2026-11-22T11:01:53.657385-04:00", "descripcion": "Desarrollo de proyecto en el contexto comunitario", "unidades_creditos": 4}	2026-11-22 11:01:53.657385-04	\N	A
+1130	\N	materias	INSERT	\N	{"codigo": "MAT-LESP-PROY", "creado": "2026-11-22T11:01:53.657385-04:00", "id_eje": 1, "id_mat": 101, "nombre": "Proyecto Socioeducativo I", "estatus": "A", "actualizar": "2026-11-22T11:01:53.657385-04:00", "descripcion": "Desarrollo de proyecto en el contexto comunitario", "unidades_creditos": 4}	2026-11-22 11:01:53.657385-04	\N	A
+1131	\N	malla_curricular	INSERT	\N	{"orden": 3, "creado": "2026-11-22T11:01:53.657385-04:00", "id_mat": 100, "id_pro": 1, "estatus": "A", "periodo": 1, "id_malla": 100, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00", "perequisito_id_mat": null}	2026-11-22 11:01:53.657385-04	\N	A
+1132	\N	malla_curricular	INSERT	\N	{"orden": 3, "creado": "2026-11-22T11:01:53.657385-04:00", "id_mat": 101, "id_pro": 2, "estatus": "A", "periodo": 1, "id_malla": 101, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00", "perequisito_id_mat": null}	2026-11-22 11:01:53.657385-04	\N	A
+1133	\N	docentes	INSERT	\N	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1134	\N	docentes	INSERT	\N	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1135	\N	docentes	INSERT	\N	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1136	\N	docentes	INSERT	\N	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	2026-11-22 11:01:53.657385-04	\N	A
+1137	\N	estudiantes	INSERT	\N	{"cedula": "V-5642825", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 1, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "LUIS", "estatus": "A", "apellido": "GOMEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1138	\N	estudiantes	INSERT	\N	{"cedula": "V-5643183", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 2, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "CARMEN", "estatus": "A", "apellido": "VEGA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1139	\N	estudiantes	INSERT	\N	{"cedula": "V-5646174", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 3, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "ROSA", "estatus": "A", "apellido": "ROA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1140	\N	estudiantes	INSERT	\N	{"cedula": "V-5646993", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 4, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "WALMORE", "estatus": "A", "apellido": "COLMERANES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1226	\N	permisos_usuario	DELETE	{"id_pu": 1, "id_mod": 10, "id_usu": 2, "alcance": "TODO", "estatus": "I", "id_perm": 4}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1142	\N	estudiantes	INSERT	\N	{"cedula": "V-5658165", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 6, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "LUZ", "estatus": "A", "apellido": "MORALES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1143	\N	estudiantes	INSERT	\N	{"cedula": "V-5660839", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 7, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "JORGE", "estatus": "A", "apellido": "COLMENARES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1144	\N	estudiantes	INSERT	\N	{"cedula": "V-5669540", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 8, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "ANA", "estatus": "A", "apellido": "ORTEGA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1145	\N	estudiantes	INSERT	\N	{"cedula": "V-5674792", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 9, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "CONTRERAS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1146	\N	estudiantes	INSERT	\N	{"cedula": "V-5676539", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 10, "id_mun": 23, "id_pro": 1, "id_sec": 7, "id_usu": null, "nombre": "MARISELA", "estatus": "A", "apellido": "CHAPARRO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1147	\N	estudiantes	INSERT	\N	{"cedula": "V-5676743", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 11, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "NIDIA", "estatus": "A", "apellido": "SANTOS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1148	\N	estudiantes	INSERT	\N	{"cedula": "V-5682527", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 12, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "NESTOR", "estatus": "A", "apellido": "MARTINEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1149	\N	estudiantes	INSERT	\N	{"cedula": "V-5683228", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 13, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "APOLINAR", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1150	\N	estudiantes	INSERT	\N	{"cedula": "V-5685463", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 14, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "WILSON", "estatus": "A", "apellido": "CONTRERAS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1151	\N	estudiantes	INSERT	\N	{"cedula": "V-5688899", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 15, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "MORA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1152	\N	estudiantes	INSERT	\N	{"cedula": "V-5728715", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 16, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "MIRIAM", "estatus": "A", "apellido": "RIVERA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1153	\N	estudiantes	INSERT	\N	{"cedula": "V-6018577", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 17, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "LIRIS", "estatus": "A", "apellido": "GONZALEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1154	\N	estudiantes	INSERT	\N	{"cedula": "V-6195135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 18, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "CLAUDIA", "estatus": "A", "apellido": "VERDUGO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1155	\N	estudiantes	INSERT	\N	{"cedula": "V-6553213", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 19, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "ZORAIDA", "estatus": "A", "apellido": "ROJAS", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1156	\N	estudiantes	INSERT	\N	{"cedula": "V-6792584", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 20, "id_mun": 23, "id_pro": 1, "id_sec": 8, "id_usu": null, "nombre": "RAUL", "estatus": "A", "apellido": "DUQUE", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1157	\N	estudiantes	INSERT	\N	{"cedula": "V-6940552", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 21, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "NIDIA", "estatus": "A", "apellido": "GUERRERO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1158	\N	estudiantes	INSERT	\N	{"cedula": "V-7228261", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 22, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "LESBIA", "estatus": "A", "apellido": "PERNIA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1159	\N	estudiantes	INSERT	\N	{"cedula": "V-7302789", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 23, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "WOLFGANG", "estatus": "A", "apellido": "CRESPO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1160	\N	estudiantes	INSERT	\N	{"cedula": "V-7778299", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 24, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "URANIA", "estatus": "A", "apellido": "PEREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1227	\N	permisos_usuario	DELETE	{"id_pu": 7, "id_mod": 14, "id_usu": 2, "alcance": "TODO", "estatus": "I", "id_perm": 1}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1161	\N	estudiantes	INSERT	\N	{"cedula": "V-7959168", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 25, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "DENYS", "estatus": "A", "apellido": "NUÑEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1162	\N	estudiantes	INSERT	\N	{"cedula": "V-8091641", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 26, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "ANA", "estatus": "A", "apellido": "PEREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1163	\N	estudiantes	INSERT	\N	{"cedula": "V-8096010", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 27, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "MARIELA", "estatus": "A", "apellido": "RAMIREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1164	\N	estudiantes	INSERT	\N	{"cedula": "V-8097470", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 28, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "LUZMILA", "estatus": "A", "apellido": "ZAPATA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1165	\N	estudiantes	INSERT	\N	{"cedula": "V-8098551", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 29, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "ENEIDA", "estatus": "A", "apellido": "URDANETA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1166	\N	estudiantes	INSERT	\N	{"cedula": "V-8102634", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 30, "id_mun": 23, "id_pro": 2, "id_sec": 9, "id_usu": null, "nombre": "ALIX", "estatus": "A", "apellido": "DIAZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1167	\N	estudiantes	INSERT	\N	{"cedula": "V-8106976", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 31, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "NUBIA", "estatus": "A", "apellido": "GARCIA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1168	\N	estudiantes	INSERT	\N	{"cedula": "V-8107362", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 32, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "MARIA", "estatus": "A", "apellido": "ANDRADE", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1169	\N	estudiantes	INSERT	\N	{"cedula": "V-8107783", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 33, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "LUISA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1170	\N	estudiantes	INSERT	\N	{"cedula": "V-8108564", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 34, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "CARLOS", "estatus": "A", "apellido": "COLMENARES", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1171	\N	estudiantes	INSERT	\N	{"cedula": "V-8712686", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 35, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "BELSA", "estatus": "A", "apellido": "ARELLANO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1172	\N	estudiantes	INSERT	\N	{"cedula": "V-8993449", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 36, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "IRIS", "estatus": "A", "apellido": "DAVILA", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1173	\N	estudiantes	INSERT	\N	{"cedula": "V-8994208", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 37, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "YUSMELY", "estatus": "A", "apellido": "MALDONADO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1174	\N	estudiantes	INSERT	\N	{"cedula": "V-9128464", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 38, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "NELLY", "estatus": "A", "apellido": "RAMIREZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1175	\N	estudiantes	INSERT	\N	{"cedula": "V-9137449", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 39, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "LUIS", "estatus": "A", "apellido": "GOMEZ", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1176	\N	estudiantes	INSERT	\N	{"cedula": "V-9143975", "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 40, "id_mun": 23, "id_pro": 2, "id_sec": 10, "id_usu": null, "nombre": "NICOLASA", "estatus": "A", "apellido": "CARRILLO", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-22T11:01:53.657385-04:00"}	2026-11-22 11:01:53.657385-04	\N	A
+1177	\N	asig_carga_horarias	INSERT	\N	{"creado": "2026-11-22T11:01:53.657385-04:00", "id_dia": 5, "id_doc": 1, "id_esp": 1, "id_per": 1, "id_sec": 7, "estatus": "A", "id_asig": 15, "hora_fin": "12:00:00", "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-22 11:01:53.657385-04	\N	A
+1178	\N	docentes	UPDATE	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 11:01:53.657385-04	\N	A
+1179	\N	asig_carga_horarias	INSERT	\N	{"creado": "2026-11-22T11:01:53.657385-04:00", "id_dia": 5, "id_doc": 2, "id_esp": 2, "id_per": 1, "id_sec": 8, "estatus": "A", "id_asig": 16, "hora_fin": "18:00:00", "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "hora_inicio": "14:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-22 11:01:53.657385-04	\N	A
+1180	\N	docentes	UPDATE	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 11:01:53.657385-04	\N	A
+1181	\N	asig_carga_horarias	INSERT	\N	{"creado": "2026-11-22T11:01:53.657385-04:00", "id_dia": 6, "id_doc": 3, "id_esp": 1, "id_per": 1, "id_sec": 9, "estatus": "A", "id_asig": 17, "hora_fin": "12:00:00", "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "hora_inicio": "08:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-22 11:01:53.657385-04	\N	A
+1182	\N	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 11:01:53.657385-04	\N	A
+1183	\N	asig_carga_horarias	INSERT	\N	{"creado": "2026-11-22T11:01:53.657385-04:00", "id_dia": 6, "id_doc": 4, "id_esp": 2, "id_per": 1, "id_sec": 10, "estatus": "A", "id_asig": 18, "hora_fin": "18:00:00", "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "hora_inicio": "14:00:00", "observaciones": null, "tipo_actividad": "Carga Académica"}	2026-11-22 11:01:53.657385-04	\N	A
+1184	\N	docentes	UPDATE	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 0, "horas_disponibles": 20}	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 11:01:53.657385-04	\N	A
+1185	\N	notas	INSERT	\N	{"nota": 19.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 1, "id_per": 1, "estatus": "A", "id_nota": 224, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1186	\N	notas	INSERT	\N	{"nota": 19.70, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 2, "id_per": 1, "estatus": "A", "id_nota": 225, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1187	\N	notas	INSERT	\N	{"nota": 19.30, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 3, "id_per": 1, "estatus": "A", "id_nota": 226, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1188	\N	notas	INSERT	\N	{"nota": 16.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 4, "id_per": 1, "estatus": "A", "id_nota": 227, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1189	\N	notas	INSERT	\N	{"nota": 15.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 5, "id_per": 1, "estatus": "A", "id_nota": 228, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1190	\N	notas	INSERT	\N	{"nota": 14.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 6, "id_per": 1, "estatus": "A", "id_nota": 229, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1191	\N	notas	INSERT	\N	{"nota": 14.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 230, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1192	\N	notas	INSERT	\N	{"nota": 17.70, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 231, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1193	\N	notas	INSERT	\N	{"nota": 16.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 232, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1194	\N	notas	INSERT	\N	{"nota": 17.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 233, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1195	\N	notas	INSERT	\N	{"nota": 18.50, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 234, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1196	\N	notas	INSERT	\N	{"nota": 19.50, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 235, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1197	\N	notas	INSERT	\N	{"nota": 17.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 236, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1198	\N	notas	INSERT	\N	{"nota": 19.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 14, "id_per": 1, "estatus": "A", "id_nota": 237, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1199	\N	notas	INSERT	\N	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 15, "id_per": 1, "estatus": "A", "id_nota": 238, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1200	\N	notas	INSERT	\N	{"nota": 15.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 16, "id_per": 1, "estatus": "A", "id_nota": 239, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1201	\N	notas	INSERT	\N	{"nota": 19.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 17, "id_per": 1, "estatus": "A", "id_nota": 240, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1202	\N	notas	INSERT	\N	{"nota": 17.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 18, "id_per": 1, "estatus": "A", "id_nota": 241, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1203	\N	notas	INSERT	\N	{"nota": 16.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 19, "id_per": 1, "estatus": "A", "id_nota": 242, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1204	\N	notas	INSERT	\N	{"nota": 19.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 20, "id_per": 1, "estatus": "A", "id_nota": 243, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1205	\N	notas	INSERT	\N	{"nota": 14.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 21, "id_per": 1, "estatus": "A", "id_nota": 244, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1206	\N	notas	INSERT	\N	{"nota": 19.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 22, "id_per": 1, "estatus": "A", "id_nota": 245, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1207	\N	notas	INSERT	\N	{"nota": 17.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 23, "id_per": 1, "estatus": "A", "id_nota": 246, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1208	\N	notas	INSERT	\N	{"nota": 17.50, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 24, "id_per": 1, "estatus": "A", "id_nota": 247, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1209	\N	notas	INSERT	\N	{"nota": 14.00, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 25, "id_per": 1, "estatus": "A", "id_nota": 248, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1210	\N	notas	INSERT	\N	{"nota": 18.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 26, "id_per": 1, "estatus": "A", "id_nota": 249, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1228	\N	permisos_usuario	DELETE	{"id_pu": 8, "id_mod": 1, "id_usu": 4, "alcance": "TODO", "estatus": "I", "id_perm": 3}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1211	\N	notas	INSERT	\N	{"nota": 16.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 27, "id_per": 1, "estatus": "A", "id_nota": 250, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1212	\N	notas	INSERT	\N	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 28, "id_per": 1, "estatus": "A", "id_nota": 251, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1213	\N	notas	INSERT	\N	{"nota": 14.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 29, "id_per": 1, "estatus": "A", "id_nota": 252, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1214	\N	notas	INSERT	\N	{"nota": 17.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 30, "id_per": 1, "estatus": "A", "id_nota": 253, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1215	\N	notas	INSERT	\N	{"nota": 18.30, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 31, "id_per": 1, "estatus": "A", "id_nota": 254, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1216	\N	notas	INSERT	\N	{"nota": 16.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 32, "id_per": 1, "estatus": "A", "id_nota": 255, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1217	\N	notas	INSERT	\N	{"nota": 14.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 33, "id_per": 1, "estatus": "A", "id_nota": 256, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1218	\N	notas	INSERT	\N	{"nota": 19.00, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 34, "id_per": 1, "estatus": "A", "id_nota": 257, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1219	\N	notas	INSERT	\N	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 35, "id_per": 1, "estatus": "A", "id_nota": 258, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1220	\N	notas	INSERT	\N	{"nota": 14.80, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 36, "id_per": 1, "estatus": "A", "id_nota": 259, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1221	\N	notas	INSERT	\N	{"nota": 15.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 37, "id_per": 1, "estatus": "A", "id_nota": 260, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1222	\N	notas	INSERT	\N	{"nota": 16.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 38, "id_per": 1, "estatus": "A", "id_nota": 261, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1223	\N	notas	INSERT	\N	{"nota": 19.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 39, "id_per": 1, "estatus": "A", "id_nota": 262, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1224	\N	notas	INSERT	\N	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 40, "id_per": 1, "estatus": "A", "id_nota": 263, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	2026-11-22 11:01:53.657385-04	\N	A
+1225	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T10:44:50.836317-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:02:06.991392-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 11:02:06.989319-04	\N	A
+1236	\N	credenciales	DELETE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs", "ultimo_acceso": "2026-11-21T17:38:35.993085-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1237	\N	usuarios	DELETE	{"email": "docente1@unem.edu.ve", "creado": "2026-11-21T15:16:35.317659-04:00", "id_rol": 4, "id_usu": 3, "estatus": "A", "username": "docente1", "actualizar": "2026-11-21T15:16:35.317659-04:00"}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1238	\N	usuarios	DELETE	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-20T18:29:53.653537-04:00", "id_rol": 3, "id_usu": 2, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-20T18:29:53.653537-04:00"}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1239	\N	usuarios	DELETE	{"email": "carlo@gmail.com", "creado": "2026-11-21T17:35:10.416941-04:00", "id_rol": 2, "id_usu": 4, "estatus": "A", "username": "carlo", "actualizar": "2026-11-21T17:35:10.416941-04:00"}	\N	2026-11-22 11:04:54.885656-04	\N	A
+1241	\N	periodos_academicos	UPDATE	{"anio": 2025, "tipo": "Semestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2025-I", "estatus": "A", "fecha_fin": "2025-07-30", "actualizar": "2026-10-03T10:55:20.264002-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	{"anio": 2025, "tipo": "Semestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2025-I", "estatus": "I", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:13:54.611733-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	2026-11-22 11:13:54.611733-04	\N	A
+1242	\N	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:01:53.657385-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:13:54.611733-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:13:54.611733-04	\N	A
+1243	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:02:06.991392-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:14:05.068311-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 11:14:05.066289-04	\N	A
+1244	1	periodos_academicos	UPDATE	{"anio": 2025, "tipo": "Semestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2025-I", "estatus": "I", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:13:54.611733-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Semestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "I", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:19.759188-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	2026-11-22 11:14:19.759188-04	127.0.0.1	A
+1245	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Semestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "I", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:19.759188-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Semestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "A", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:20.974552-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	2026-11-22 11:14:20.974552-04	127.0.0.1	A
+1246	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Semestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "A", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:20.974552-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Semestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "A", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:31.477604-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	2026-11-22 11:14:31.477604-04	127.0.0.1	A
+1247	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Semestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "A", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:31.477604-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Semestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "I", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:34.100728-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	2026-11-22 11:14:34.100728-04	127.0.0.1	A
+1248	\N	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:13:54.611733-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:14:42.410484-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:14:42.410484-04	\N	A
+1249	\N	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:14:42.410484-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:14:52.545335-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:14:52.545335-04	\N	A
+1250	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:14:05.068311-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:14:54.643222-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 11:14:54.642324-04	\N	A
+1252	1	secciones	UPDATE	{"codigo": "NT.2021.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:25.647399-04:00", "capacidad_maxima": 30}	2026-11-22 11:16:25.647399-04	127.0.0.1	A
+1251	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Semestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "I", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:14:34.100728-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Semestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 2, "nombre": "Semestre 2026-I", "estatus": "A", "fecha_fin": "2025-07-30", "actualizar": "2026-11-22T11:15:07.151811-04:00", "fecha_inicio": "2025-02-01", "numero_periodo": 1}	2026-11-22 11:15:07.151811-04	127.0.0.1	A
+1255	1	secciones	UPDATE	{"codigo": "NT.2021.LESP.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 10, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 10, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:46.352102-04:00", "capacidad_maxima": 30}	2026-11-22 11:16:46.352102-04	127.0.0.1	A
+1253	1	secciones	UPDATE	{"codigo": "NT.2021.LPRI.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 1, "id_sec": 8, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LPRI.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 1, "id_sec": 8, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:34.325622-04:00", "capacidad_maxima": 30}	2026-11-22 11:16:34.325622-04	127.0.0.1	A
+1254	1	secciones	UPDATE	{"codigo": "NT.2021.LPRI.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 1, "id_sec": 7, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-21T19:25:06.609056-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LPRI.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 1, "id_sec": 7, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:39.491962-04:00", "capacidad_maxima": 30}	2026-11-22 11:16:39.491962-04	127.0.0.1	A
+1256	1	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:25.647399-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 9, "estatus": "I", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:49.72912-04:00", "capacidad_maxima": 30}	2026-11-22 11:16:49.72912-04	127.0.0.1	A
+1257	1	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 9, "estatus": "I", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:49.72912-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:54.848839-04:00", "capacidad_maxima": 30}	2026-11-22 11:16:54.848839-04	127.0.0.1	A
+1258	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:14:54.643222-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:22:39.421396-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 11:22:39.41571-04	\N	A
+1259	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:22:39.421396-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:30:25.965054-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 11:30:25.958299-04	\N	A
+1260	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:30:25.965054-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:35:51.499556-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 11:35:51.492525-04	\N	A
+1261	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:14:52.545335-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:36:01.733348-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:36:01.733348-04	127.0.0.1	A
+1262	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:36:01.733348-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:36:07.234286-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:36:07.234286-04	127.0.0.1	A
+1263	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:35:51.499556-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:44:56.862244-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 11:44:56.855633-04	\N	A
+1264	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:36:07.234286-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:12.594042-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:46:12.594042-04	127.0.0.1	A
+1265	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:12.594042-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "I", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:17.412907-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:46:17.412907-04	127.0.0.1	A
+1266	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "I", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:17.412907-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:21.836533-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:46:21.836533-04	127.0.0.1	A
+1267	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:21.836533-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:25.545699-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 11:46:25.545699-04	127.0.0.1	A
+1372	\N	notas	DELETE	{"nota": 19.30, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 3, "id_per": 1, "estatus": "A", "id_nota": 226, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1469	\N	permisos_rol	UPDATE	{"id_pr": 107, "id_mod": 10, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 2}	{"id_pr": 107, "id_mod": 10, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:11:51.351492-04	\N	A
+1268	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T11:44:56.862244-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T12:06:42.35463-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 12:06:42.347643-04	\N	A
+1269	1	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": null, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:54.848839-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T12:07:08.806393-04:00", "capacidad_maxima": 30}	2026-11-22 12:07:08.806393-04	127.0.0.1	A
+1270	1	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": null, "id_pro": 2, "id_sec": 10, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:46.352102-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 10, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T12:07:15.294923-04:00", "capacidad_maxima": 30}	2026-11-22 12:07:15.294923-04	127.0.0.1	A
+1271	1	secciones	UPDATE	{"codigo": "NT.2026.LPRI.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": null, "id_pro": 1, "id_sec": 7, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:39.491962-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LPRI.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 1, "id_pro": 1, "id_sec": 7, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T12:07:20.551932-04:00", "capacidad_maxima": 30}	2026-11-22 12:07:20.551932-04	127.0.0.1	A
+1272	1	secciones	UPDATE	{"codigo": "NT.2026.LPRI.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": null, "id_pro": 1, "id_sec": 8, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T11:16:34.325622-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LPRI.20.02", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 1, "id_pro": 1, "id_sec": 8, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T12:07:24.059961-04:00", "capacidad_maxima": 30}	2026-11-22 12:07:24.059961-04	127.0.0.1	A
+1273	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T12:06:42.35463-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T12:20:46.540827-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 12:20:46.534-04	\N	A
+1306	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T12:20:46.540827-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T12:23:14.178045-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 12:23:14.137648-04	\N	A
+1370	\N	notas	DELETE	{"nota": 19.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 1, "id_per": 1, "estatus": "A", "id_nota": 224, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1490	\N	permisos_rol	INSERT	\N	{"id_pr": 237, "id_mod": 2, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1333	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T12:23:14.178045-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T13:08:27.672162-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 13:08:27.638786-04	\N	A
+1334	1	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T12:07:08.806393-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 2, "trayecto": 1, "actualizar": "2026-11-22T13:12:55.747206-04:00", "capacidad_maxima": 30}	2026-11-22 13:12:55.747206-04	127.0.0.1	A
+1335	1	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 2, "trayecto": 1, "actualizar": "2026-11-22T13:12:55.747206-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T13:13:18.586136-04:00", "capacidad_maxima": 30}	2026-11-22 13:13:18.586136-04	127.0.0.1	A
+1336	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T13:08:27.672162-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T13:23:09.098088-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 13:23:09.093484-04	\N	A
+1337	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T13:23:09.098088-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T15:58:42.679682-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 15:58:42.628635-04	\N	A
+1338	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T15:58:42.679682-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:38:15.060317-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:38:15.030184-04	\N	A
+1339	\N	usuarios	INSERT	\N	{"email": "vicerrector1@unem.edu.ve", "creado": "2026-11-22T16:45:58.976952-04:00", "id_rol": 2, "id_usu": 2, "estatus": "A", "username": "vicerrector1", "actualizar": "2026-11-22T16:45:58.976952-04:00"}	2026-11-22 16:45:58.976952-04	\N	A
+1340	\N	usuarios	INSERT	\N	{"email": "coordinador1@unem.edu.ve", "creado": "2026-11-22T16:45:58.976952-04:00", "id_rol": 3, "id_usu": 3, "estatus": "A", "username": "coordinador1", "actualizar": "2026-11-22T16:45:58.976952-04:00"}	2026-11-22 16:45:58.976952-04	\N	A
+1341	\N	usuarios	INSERT	\N	{"email": "docente1@unem.edu.ve", "creado": "2026-11-22T16:45:58.976952-04:00", "id_rol": 4, "id_usu": 4, "estatus": "A", "username": "docente1", "actualizar": "2026-11-22T16:45:58.976952-04:00"}	2026-11-22 16:45:58.976952-04	\N	A
+1342	\N	credenciales	INSERT	\N	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:45:58.976952-04	\N	A
+1343	\N	credenciales	INSERT	\N	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:45:58.976952-04	\N	A
+1344	\N	credenciales	INSERT	\N	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:45:58.976952-04	\N	A
+1345	\N	docentes	UPDATE	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:45:58.976952-04	\N	A
+1346	\N	docentes	UPDATE	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:45:58.976952-04	\N	A
+1491	\N	permisos_rol	INSERT	\N	{"id_pr": 238, "id_mod": 2, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1347	\N	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:45:58.976952-04	\N	A
+1348	\N	docentes	UPDATE	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": null, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": 2, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:45:58.976952-04	\N	A
+1349	\N	docentes	UPDATE	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": null, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:45:58.976952-04	\N	A
+1350	\N	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:45:58.976952-04	\N	A
+1351	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:38:15.060317-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:46:15.787784-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:46:15.784474-04	\N	A
+1352	1	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:44.166209-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:46:44.166209-04	127.0.0.1	A
+1353	1	docentes	UPDATE	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T11:01:53.657385-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": 4, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:44.166209-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:46:44.166209-04	127.0.0.1	A
+1354	1	docentes	UPDATE	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": 4, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:44.166209-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:56.462335-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:46:56.462335-04	127.0.0.1	A
+1355	1	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:44.166209-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:56.462335-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:46:56.462335-04	127.0.0.1	A
+1356	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:46:15.787784-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:47:30.50511-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:47:30.502415-04	\N	A
+1358	1	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:56.462335-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:53:00.719521-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:53:00.719521-04	127.0.0.1	A
+1359	1	docentes	UPDATE	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:46:56.462335-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": 4, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:53:00.719521-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:53:00.719521-04	127.0.0.1	A
+1357	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:47:30.50511-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:52:55.512098-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:52:55.510051-04	\N	A
+1360	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:52:55.512098-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:55:03.91231-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 16:55:03.905703-04	\N	A
+1361	1	docentes	UPDATE	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": 4, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:53:00.719521-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:55:08.496939-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:55:08.496939-04	127.0.0.1	A
+1362	1	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:53:00.719521-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:55:08.496939-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:55:08.496939-04	127.0.0.1	A
+1363	1	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:55:08.496939-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:57:46.825365-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:57:46.825365-04	127.0.0.1	A
+1364	1	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": null, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:57:46.825365-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:57:46.825365-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 16:57:46.825365-04	127.0.0.1	A
+1365	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T16:55:03.91231-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T17:03:15.831635-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 17:03:15.82865-04	\N	A
+1366	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T11:46:25.545699-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T17:07:03.021735-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 17:07:03.021735-04	127.0.0.1	A
+1367	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T17:07:03.021735-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "I", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T17:07:04.611007-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 17:07:04.611007-04	127.0.0.1	A
+1371	\N	notas	DELETE	{"nota": 19.70, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 2, "id_per": 1, "estatus": "A", "id_nota": 225, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1368	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "I", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T17:07:04.611007-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T17:07:12.243203-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 17:07:12.243203-04	127.0.0.1	A
+1369	1	periodos_academicos	UPDATE	{"anio": 2026, "tipo": "Trimestre", "activo": false, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T17:07:12.243203-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	{"anio": 2026, "tipo": "Trimestre", "activo": true, "creado": "2026-10-03T10:55:20.264002-04:00", "id_per": 1, "nombre": "Trimestre 2026-I", "estatus": "A", "fecha_fin": "2026-07-31", "actualizar": "2026-11-22T17:07:18.033409-04:00", "fecha_inicio": "2026-02-01", "numero_periodo": 1}	2026-11-22 17:07:18.033409-04	127.0.0.1	A
+1373	\N	notas	DELETE	{"nota": 16.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 4, "id_per": 1, "estatus": "A", "id_nota": 227, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1374	\N	notas	DELETE	{"nota": 15.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 5, "id_per": 1, "estatus": "A", "id_nota": 228, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1375	\N	notas	DELETE	{"nota": 14.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 6, "id_per": 1, "estatus": "A", "id_nota": 229, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1376	\N	notas	DELETE	{"nota": 14.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 7, "id_per": 1, "estatus": "A", "id_nota": 230, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1377	\N	notas	DELETE	{"nota": 17.70, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 8, "id_per": 1, "estatus": "A", "id_nota": 231, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1378	\N	notas	DELETE	{"nota": 16.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 9, "id_per": 1, "estatus": "A", "id_nota": 232, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1379	\N	notas	DELETE	{"nota": 17.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 10, "id_per": 1, "estatus": "A", "id_nota": 233, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1380	\N	notas	DELETE	{"nota": 18.50, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 11, "id_per": 1, "estatus": "A", "id_nota": 234, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1381	\N	notas	DELETE	{"nota": 19.50, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 12, "id_per": 1, "estatus": "A", "id_nota": 235, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1382	\N	notas	DELETE	{"nota": 17.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 13, "id_per": 1, "estatus": "A", "id_nota": 236, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1383	\N	notas	DELETE	{"nota": 19.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 14, "id_per": 1, "estatus": "A", "id_nota": 237, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1384	\N	notas	DELETE	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 15, "id_per": 1, "estatus": "A", "id_nota": 238, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1385	\N	notas	DELETE	{"nota": 15.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 16, "id_per": 1, "estatus": "A", "id_nota": 239, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1386	\N	notas	DELETE	{"nota": 19.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 17, "id_per": 1, "estatus": "A", "id_nota": 240, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1387	\N	notas	DELETE	{"nota": 17.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 18, "id_per": 1, "estatus": "A", "id_nota": 241, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1388	\N	notas	DELETE	{"nota": 16.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 19, "id_per": 1, "estatus": "A", "id_nota": 242, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1389	\N	notas	DELETE	{"nota": 19.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 20, "id_per": 1, "estatus": "A", "id_nota": 243, "id_malla": 100, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1390	\N	notas	DELETE	{"nota": 14.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 21, "id_per": 1, "estatus": "A", "id_nota": 244, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1391	\N	notas	DELETE	{"nota": 19.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 22, "id_per": 1, "estatus": "A", "id_nota": 245, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1392	\N	notas	DELETE	{"nota": 17.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 23, "id_per": 1, "estatus": "A", "id_nota": 246, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1393	\N	notas	DELETE	{"nota": 17.50, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 24, "id_per": 1, "estatus": "A", "id_nota": 247, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1394	\N	notas	DELETE	{"nota": 14.00, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 25, "id_per": 1, "estatus": "A", "id_nota": 248, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1395	\N	notas	DELETE	{"nota": 18.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 26, "id_per": 1, "estatus": "A", "id_nota": 249, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1396	\N	notas	DELETE	{"nota": 16.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 27, "id_per": 1, "estatus": "A", "id_nota": 250, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1397	\N	notas	DELETE	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 28, "id_per": 1, "estatus": "A", "id_nota": 251, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1398	\N	notas	DELETE	{"nota": 14.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 29, "id_per": 1, "estatus": "A", "id_nota": 252, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1399	\N	notas	DELETE	{"nota": 17.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 30, "id_per": 1, "estatus": "A", "id_nota": 253, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1400	\N	notas	DELETE	{"nota": 18.30, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 31, "id_per": 1, "estatus": "A", "id_nota": 254, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1401	\N	notas	DELETE	{"nota": 16.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 32, "id_per": 1, "estatus": "A", "id_nota": 255, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1402	\N	notas	DELETE	{"nota": 14.10, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 33, "id_per": 1, "estatus": "A", "id_nota": 256, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1403	\N	notas	DELETE	{"nota": 19.00, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 34, "id_per": 1, "estatus": "A", "id_nota": 257, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1404	\N	notas	DELETE	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 35, "id_per": 1, "estatus": "A", "id_nota": 258, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1405	\N	notas	DELETE	{"nota": 14.80, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 36, "id_per": 1, "estatus": "A", "id_nota": 259, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1406	\N	notas	DELETE	{"nota": 15.40, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 37, "id_per": 1, "estatus": "A", "id_nota": 260, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1407	\N	notas	DELETE	{"nota": 16.20, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 38, "id_per": 1, "estatus": "A", "id_nota": 261, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1408	\N	notas	DELETE	{"nota": 19.60, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 39, "id_per": 1, "estatus": "A", "id_nota": 262, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Aprobado", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1409	\N	notas	DELETE	{"nota": 15.90, "creado": "2026-11-22T11:01:53.657385-04:00", "id_est": 40, "id_per": 1, "estatus": "A", "id_nota": 263, "id_malla": 101, "actualizar": "2026-11-22T11:01:53.657385-04:00", "observaciones": "Reprobado (Mínimo 16 en Proyecto)", "fecha_registro": "2026-11-22T11:01:53.657385-04:00", "tipo_evaluacion": "Final"}	\N	2026-11-22 17:12:52.282096-04	\N	A
+1410	1	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 23, "id_per": 2, "estatus": "A", "id_nota": 1, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1411	1	notas	INSERT	\N	{"nota": 18.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 30, "id_per": 2, "estatus": "A", "id_nota": 2, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1412	1	notas	INSERT	\N	{"nota": 14.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 21, "id_per": 2, "estatus": "A", "id_nota": 3, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1413	1	notas	INSERT	\N	{"nota": 12.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 25, "id_per": 2, "estatus": "A", "id_nota": 4, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1414	1	notas	INSERT	\N	{"nota": 17.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 26, "id_per": 2, "estatus": "A", "id_nota": 5, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1415	1	notas	INSERT	\N	{"nota": 18.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 24, "id_per": 2, "estatus": "A", "id_nota": 6, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1416	1	notas	INSERT	\N	{"nota": 10.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 22, "id_per": 2, "estatus": "A", "id_nota": 7, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1417	1	notas	INSERT	\N	{"nota": 12.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 27, "id_per": 2, "estatus": "A", "id_nota": 8, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1418	1	notas	INSERT	\N	{"nota": 17.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 29, "id_per": 2, "estatus": "A", "id_nota": 9, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1419	1	notas	INSERT	\N	{"nota": 13.00, "creado": "2026-11-22T17:13:54.574378-04:00", "id_est": 28, "id_per": 2, "estatus": "A", "id_nota": 10, "id_malla": 98, "actualizar": "2026-11-22T17:13:54.574378-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:13:54.574378-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:13:54.574378-04	127.0.0.1	A
+1420	1	notas	INSERT	\N	{"nota": 17.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 23, "id_per": 2, "estatus": "A", "id_nota": 11, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1421	1	notas	INSERT	\N	{"nota": 18.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 30, "id_per": 2, "estatus": "A", "id_nota": 12, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1422	1	notas	INSERT	\N	{"nota": 19.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 21, "id_per": 2, "estatus": "A", "id_nota": 13, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1423	1	notas	INSERT	\N	{"nota": 20.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 25, "id_per": 2, "estatus": "A", "id_nota": 14, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1424	1	notas	INSERT	\N	{"nota": 20.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 26, "id_per": 2, "estatus": "A", "id_nota": 15, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1425	1	notas	INSERT	\N	{"nota": 18.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 24, "id_per": 2, "estatus": "A", "id_nota": 16, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1426	1	notas	INSERT	\N	{"nota": 17.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 22, "id_per": 2, "estatus": "A", "id_nota": 17, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1427	1	notas	INSERT	\N	{"nota": 18.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 27, "id_per": 2, "estatus": "A", "id_nota": 18, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1428	1	notas	INSERT	\N	{"nota": 19.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 29, "id_per": 2, "estatus": "A", "id_nota": 19, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1429	1	notas	INSERT	\N	{"nota": 16.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 28, "id_per": 2, "estatus": "A", "id_nota": 20, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "tipo_evaluacion": "Final"}	2026-11-22 17:14:21.500181-04	127.0.0.1	A
+1453	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T19:23:15.560396-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 19:23:15.532281-04	\N	A
+1454	2	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T13:13:18.586136-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 2, "trayecto": 1, "actualizar": "2026-11-22T19:24:01.073142-04:00", "capacidad_maxima": 30}	2026-11-22 19:24:01.073142-04	127.0.0.1	A
+1455	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T19:23:15.560396-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T19:33:09.285428-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 19:33:09.278571-04	\N	A
+1456	2	secciones	UPDATE	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 2, "trayecto": 1, "actualizar": "2026-11-22T19:24:01.073142-04:00", "capacidad_maxima": 30}	{"codigo": "NT.2026.LESP.20.01", "creado": "2026-11-21T19:25:06.609056-04:00", "id_per": 2, "id_pro": 2, "id_sec": 9, "estatus": "A", "periodo": 1, "trayecto": 1, "actualizar": "2026-11-22T19:33:18.933906-04:00", "capacidad_maxima": 30}	2026-11-22 19:33:18.933906-04	127.0.0.1	A
+1457	\N	permisos_rol	UPDATE	{"id_pr": 77, "id_mod": 5, "id_rol": 2, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 77, "id_mod": 5, "id_rol": 2, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 19:58:54.043744-04	\N	A
+1458	\N	permisos_rol	UPDATE	{"id_pr": 78, "id_mod": 5, "id_rol": 2, "alcance": "TODO", "estatus": "A", "id_perm": 1}	{"id_pr": 78, "id_mod": 5, "id_rol": 2, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 19:58:54.043744-04	\N	A
+1459	\N	permisos_rol	UPDATE	{"id_pr": 79, "id_mod": 5, "id_rol": 2, "alcance": "TODO", "estatus": "A", "id_perm": 2}	{"id_pr": 79, "id_mod": 5, "id_rol": 2, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 19:58:54.043744-04	\N	A
+1460	\N	permisos_rol	UPDATE	{"id_pr": 137, "id_mod": 15, "id_rol": 2, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pr": 137, "id_mod": 15, "id_rol": 2, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 19:58:54.043744-04	\N	A
+1461	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T17:03:15.831635-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:00:40.311335-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 20:00:40.309054-04	\N	A
+1462	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:01:36.467171-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 20:01:36.464791-04	\N	A
+1463	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T19:33:09.285428-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:05:49.067585-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 20:05:49.065471-04	\N	A
+1464	\N	permisos_rol	UPDATE	{"id_pr": 37, "id_mod": 10, "id_rol": 1, "alcance": "TODO", "estatus": "A", "id_perm": 1}	{"id_pr": 37, "id_mod": 10, "id_rol": 1, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:11:51.351492-04	\N	A
+1465	\N	permisos_rol	UPDATE	{"id_pr": 38, "id_mod": 10, "id_rol": 1, "alcance": "TODO", "estatus": "A", "id_perm": 2}	{"id_pr": 38, "id_mod": 10, "id_rol": 1, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:11:51.351492-04	\N	A
+1466	\N	permisos_rol	UPDATE	{"id_pr": 40, "id_mod": 10, "id_rol": 1, "alcance": "TODO", "estatus": "A", "id_perm": 4}	{"id_pr": 40, "id_mod": 10, "id_rol": 1, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:11:51.351492-04	\N	A
+1467	\N	permisos_rol	INSERT	\N	{"id_pr": 181, "id_mod": 10, "id_rol": 2, "alcance": "TODO", "estatus": "A", "id_perm": 4}	2026-11-22 20:11:51.351492-04	\N	A
+1468	\N	permisos_rol	UPDATE	{"id_pr": 106, "id_mod": 10, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 1}	{"id_pr": 106, "id_mod": 10, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:11:51.351492-04	\N	A
+1470	\N	permisos_rol	UPDATE	{"id_pr": 155, "id_mod": 10, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 4}	{"id_pr": 155, "id_mod": 10, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:11:51.351492-04	\N	A
+1471	\N	permisos_rol	UPDATE	{"id_pr": 167, "id_mod": 10, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 1}	{"id_pr": 167, "id_mod": 10, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:11:51.351492-04	\N	A
+1472	\N	permisos_rol	INSERT	\N	{"id_pr": 186, "id_mod": 10, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:11:51.351492-04	\N	A
+1473	\N	permisos_rol	INSERT	\N	{"id_pr": 187, "id_mod": 10, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:11:51.351492-04	\N	A
+1474	\N	permisos_rol	INSERT	\N	{"id_pr": 188, "id_mod": 10, "id_rol": 5, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:11:51.351492-04	\N	A
+1475	\N	permisos_rol	INSERT	\N	{"id_pr": 189, "id_mod": 10, "id_rol": 5, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:11:51.351492-04	\N	A
+1476	\N	permisos_rol	INSERT	\N	{"id_pr": 190, "id_mod": 10, "id_rol": 5, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:11:51.351492-04	\N	A
+1477	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:05:49.067585-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:12:14.101229-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 20:12:14.094509-04	\N	A
+1478	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:01:36.467171-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:14:36.814589-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 20:14:36.810467-04	\N	A
+1479	\N	permisos_rol	INSERT	\N	{"id_pr": 206, "id_mod": 7, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:21:13.914399-04	\N	A
+1480	\N	permisos_rol	INSERT	\N	{"id_pr": 208, "id_mod": 7, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:21:13.914399-04	\N	A
+1481	\N	permisos_rol	UPDATE	{"id_pr": 119, "id_mod": 7, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pr": 119, "id_mod": 7, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:21:13.914399-04	\N	A
+1482	\N	permisos_rol	UPDATE	{"id_pr": 105, "id_mod": 10, "id_rol": 3, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pr": 105, "id_mod": 10, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:21:13.914399-04	\N	A
+1483	\N	permisos_rol	INSERT	\N	{"id_pr": 212, "id_mod": 7, "id_rol": 3, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:21:13.914399-04	\N	A
+1484	3	notas	UPDATE	{"nota": 16.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 28, "id_per": 2, "estatus": "A", "id_nota": 20, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	{"nota": 16.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 28, "id_per": 2, "estatus": "I", "id_nota": 20, "id_malla": 51, "actualizar": "2026-11-22T20:34:49.177152-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	2026-11-22 20:34:49.177152-04	127.0.0.1	A
+1485	3	notas	UPDATE	{"nota": 19.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 29, "id_per": 2, "estatus": "A", "id_nota": 19, "id_malla": 51, "actualizar": "2026-11-22T17:14:21.500181-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	{"nota": 19.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 29, "id_per": 2, "estatus": "I", "id_nota": 19, "id_malla": 51, "actualizar": "2026-11-22T20:34:59.233226-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	2026-11-22 20:34:59.233226-04	127.0.0.1	A
+1486	3	notas	UPDATE	{"nota": 16.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 28, "id_per": 2, "estatus": "I", "id_nota": 20, "id_malla": 51, "actualizar": "2026-11-22T20:34:49.177152-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	{"nota": 16.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 28, "id_per": 2, "estatus": "A", "id_nota": 20, "id_malla": 51, "actualizar": "2026-11-22T20:35:16.81066-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	2026-11-22 20:35:16.81066-04	127.0.0.1	A
+1487	3	notas	UPDATE	{"nota": 19.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 29, "id_per": 2, "estatus": "I", "id_nota": 19, "id_malla": 51, "actualizar": "2026-11-22T20:34:59.233226-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	{"nota": 19.00, "creado": "2026-11-22T17:14:21.500181-04:00", "id_est": 29, "id_per": 2, "estatus": "A", "id_nota": 19, "id_malla": 51, "actualizar": "2026-11-22T20:35:17.494772-04:00", "revisado_por": null, "observaciones": null, "fecha_registro": "2026-11-22T17:14:21.500181-04:00", "fecha_revision": null, "motivo_rechazo": null, "estado_revision": "A", "tipo_evaluacion": "Final"}	2026-11-22 20:35:17.494772-04	127.0.0.1	A
+1488	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:00:40.311335-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:38:09.277903-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 20:38:09.273564-04	\N	A
+1489	\N	credenciales	UPDATE	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 4, "id_usu": 4, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:38:23.699778-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 20:38:23.698851-04	\N	A
+1492	\N	permisos_rol	UPDATE	{"id_pr": 129, "id_mod": 2, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 129, "id_mod": 2, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1493	\N	permisos_rol	INSERT	\N	{"id_pr": 240, "id_mod": 2, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1494	\N	permisos_rol	INSERT	\N	{"id_pr": 241, "id_mod": 3, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1495	\N	permisos_rol	INSERT	\N	{"id_pr": 242, "id_mod": 3, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1496	\N	permisos_rol	UPDATE	{"id_pr": 130, "id_mod": 3, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 130, "id_mod": 3, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1497	\N	permisos_rol	INSERT	\N	{"id_pr": 244, "id_mod": 3, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1498	\N	permisos_rol	INSERT	\N	{"id_pr": 245, "id_mod": 4, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1499	\N	permisos_rol	INSERT	\N	{"id_pr": 246, "id_mod": 4, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1500	\N	permisos_rol	UPDATE	{"id_pr": 131, "id_mod": 4, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 131, "id_mod": 4, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1501	\N	permisos_rol	INSERT	\N	{"id_pr": 248, "id_mod": 4, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1502	\N	permisos_rol	INSERT	\N	{"id_pr": 249, "id_mod": 5, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1503	\N	permisos_rol	INSERT	\N	{"id_pr": 250, "id_mod": 5, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1504	\N	permisos_rol	INSERT	\N	{"id_pr": 252, "id_mod": 5, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1505	\N	permisos_rol	INSERT	\N	{"id_pr": 253, "id_mod": 6, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1506	\N	permisos_rol	INSERT	\N	{"id_pr": 254, "id_mod": 6, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1507	\N	permisos_rol	INSERT	\N	{"id_pr": 255, "id_mod": 6, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1508	\N	permisos_rol	INSERT	\N	{"id_pr": 256, "id_mod": 6, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1509	\N	permisos_rol	INSERT	\N	{"id_pr": 257, "id_mod": 7, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1510	\N	permisos_rol	INSERT	\N	{"id_pr": 258, "id_mod": 7, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1511	\N	permisos_rol	UPDATE	{"id_pr": 133, "id_mod": 7, "id_rol": 4, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pr": 133, "id_mod": 7, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1512	\N	permisos_rol	INSERT	\N	{"id_pr": 260, "id_mod": 7, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1513	\N	permisos_rol	INSERT	\N	{"id_pr": 261, "id_mod": 8, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1514	\N	permisos_rol	INSERT	\N	{"id_pr": 262, "id_mod": 8, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1515	\N	permisos_rol	UPDATE	{"id_pr": 134, "id_mod": 8, "id_rol": 4, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pr": 134, "id_mod": 8, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1516	\N	permisos_rol	INSERT	\N	{"id_pr": 264, "id_mod": 8, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1517	\N	permisos_rol	INSERT	\N	{"id_pr": 269, "id_mod": 11, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1518	\N	permisos_rol	INSERT	\N	{"id_pr": 270, "id_mod": 11, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1519	\N	permisos_rol	UPDATE	{"id_pr": 127, "id_mod": 11, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 127, "id_mod": 11, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1520	\N	permisos_rol	INSERT	\N	{"id_pr": 272, "id_mod": 11, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1521	\N	permisos_rol	UPDATE	{"id_pr": 164, "id_mod": 12, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 1}	{"id_pr": 164, "id_mod": 12, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1522	\N	permisos_rol	UPDATE	{"id_pr": 165, "id_mod": 12, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 2}	{"id_pr": 165, "id_mod": 12, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1523	\N	permisos_rol	INSERT	\N	{"id_pr": 275, "id_mod": 12, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1524	\N	permisos_rol	UPDATE	{"id_pr": 166, "id_mod": 12, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 4}	{"id_pr": 166, "id_mod": 12, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1525	\N	permisos_rol	INSERT	\N	{"id_pr": 277, "id_mod": 13, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1526	\N	permisos_rol	INSERT	\N	{"id_pr": 278, "id_mod": 13, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1527	\N	permisos_rol	INSERT	\N	{"id_pr": 280, "id_mod": 13, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1528	\N	permisos_rol	INSERT	\N	{"id_pr": 281, "id_mod": 14, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1529	\N	permisos_rol	UPDATE	{"id_pr": 125, "id_mod": 14, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 2}	{"id_pr": 125, "id_mod": 14, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1530	\N	permisos_rol	INSERT	\N	{"id_pr": 284, "id_mod": 14, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1531	\N	permisos_rol	INSERT	\N	{"id_pr": 285, "id_mod": 15, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1532	\N	permisos_rol	INSERT	\N	{"id_pr": 288, "id_mod": 15, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1533	\N	permisos_rol	INSERT	\N	{"id_pr": 289, "id_mod": 16, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1534	\N	permisos_rol	INSERT	\N	{"id_pr": 290, "id_mod": 16, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1535	\N	permisos_rol	UPDATE	{"id_pr": 148, "id_mod": 16, "id_rol": 4, "alcance": "TODO", "estatus": "A", "id_perm": 3}	{"id_pr": 148, "id_mod": 16, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1536	\N	permisos_rol	INSERT	\N	{"id_pr": 292, "id_mod": 16, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1537	\N	permisos_rol	INSERT	\N	{"id_pr": 293, "id_mod": 1, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1538	\N	permisos_rol	INSERT	\N	{"id_pr": 294, "id_mod": 1, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1539	\N	permisos_rol	INSERT	\N	{"id_pr": 295, "id_mod": 1, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1540	\N	permisos_rol	INSERT	\N	{"id_pr": 296, "id_mod": 1, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1541	\N	permisos_rol	INSERT	\N	{"id_pr": 297, "id_mod": 9, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 1}	2026-11-22 20:55:57.150616-04	\N	A
+1542	\N	permisos_rol	UPDATE	{"id_pr": 136, "id_mod": 9, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 2}	{"id_pr": 136, "id_mod": 9, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 2}	2026-11-22 20:55:57.150616-04	\N	A
+1543	\N	permisos_rol	UPDATE	{"id_pr": 135, "id_mod": 9, "id_rol": 4, "alcance": "SP", "estatus": "A", "id_perm": 3}	{"id_pr": 135, "id_mod": 9, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 3}	2026-11-22 20:55:57.150616-04	\N	A
+1544	\N	permisos_rol	INSERT	\N	{"id_pr": 300, "id_mod": 9, "id_rol": 4, "alcance": "NAD", "estatus": "A", "id_perm": 4}	2026-11-22 20:55:57.150616-04	\N	A
+1556	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:38:09.277903-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:06:19.939793-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 21:06:19.929965-04	\N	A
+1557	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:14:36.814589-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:06:28.793312-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 21:06:28.789655-04	\N	A
+1558	\N	credenciales	UPDATE	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T20:12:14.101229-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 2, "id_usu": 2, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:06:35.873136-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 21:06:35.869068-04	\N	A
+1559	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:06:19.939793-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:06:44.113344-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 21:06:44.109906-04	\N	A
+1560	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:06:44.113344-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:49:19.164741-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 21:49:19.158769-04	\N	A
+1561	\N	docentes	UPDATE	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": 2, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-2554227", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 1, "id_mun": 23, "id_usu": 2, "nombre": "RAFAEL", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T22:15:39.500772-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 22:15:39.500772-04	\N	A
+1562	\N	docentes	UPDATE	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:45:58.976952-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3566882", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 2, "id_mun": 23, "id_usu": 3, "nombre": "JOSE", "estatus": "A", "apellido": "PEÑALOZA", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T22:15:39.500772-04:00", "especialidad": "PNF Licenciatura en Educación Primaria", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 22:15:39.500772-04	\N	A
+1563	\N	docentes	UPDATE	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:57:46.825365-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3815135", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 3, "id_mun": 23, "id_usu": 4, "nombre": "YDAIS", "estatus": "A", "apellido": "NIEVES", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T22:15:39.500772-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 22:15:39.500772-04	\N	A
+1564	\N	docentes	UPDATE	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T16:55:08.496939-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	{"cedula": "V-3999595", "creado": "2026-11-22T11:01:53.657385-04:00", "id_doc": 4, "id_mun": 23, "id_usu": null, "nombre": "AURA", "estatus": "A", "apellido": "CHACON", "foto_url": null, "telefono": null, "actualizar": "2026-11-22T22:15:39.500772-04:00", "especialidad": "PNF Licenciatura en Educación Especial", "horas_max_sem": 20, "observaciones": null, "tipo_contrato": "Estipendio", "horas_asignadas": 4, "horas_disponibles": 16}	2026-11-22 22:15:39.500772-04	\N	A
+1565	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:49:19.164741-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T22:16:11.140778-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-22 22:16:11.137115-04	\N	A
 \.
 
 
 --
--- TOC entry 5404 (class 0 OID 65698)
--- Dependencies: 263
+-- TOC entry 5415 (class 0 OID 65698)
+-- Dependencies: 265
 -- Data for Name: credenciales; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
 COPY general.credenciales (id_cre, id_usu, password_hash, ultimo_acceso, intentos_fallidos, bloqueado_hasta) FROM stdin;
-3	3	$pbkdf2-sha256$29000$dO79f09pzVmLMWasFeJcKw$wXiAXBmx9kW6U6wUcoNvVjQyPRu9cl9QmXSrcGNuKgU	2026-11-21 16:55:37.59242-04	0	\N
-2	2	$pbkdf2-sha256$29000$thbC2PvfO4eQck6pldL6/w$9PoUxLam8CVQo0A3nK4k0xXKuUNLA3O4KboMALpZVUs	2026-11-21 17:38:35.993085-04	0	\N
-4	4	$pbkdf2-sha256$29000$HsOY876Xck6JsRbifG8t5Q$6fCF3T7VYfOxCUOnL4BVZ6sZ5zIlKRV3Un2xdnWSUkE	2026-11-21 20:07:49.435802-04	0	\N
-1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-21 20:07:58.533076-04	0	\N
+2	2	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-22 21:06:35.873136-04	0	\N
+1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-22 22:16:11.140778-04	0	\N
+4	4	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-22 20:38:23.699778-04	0	\N
+3	3	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-22 21:06:28.793312-04	0	\N
 \.
 
 
 --
--- TOC entry 5400 (class 0 OID 65666)
--- Dependencies: 259
+-- TOC entry 5411 (class 0 OID 65666)
+-- Dependencies: 261
 -- Data for Name: dias_laborales; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
@@ -5109,8 +5674,8 @@ COPY general.dias_laborales (id_dia, dia, orden, estatus) FROM stdin;
 
 
 --
--- TOC entry 5430 (class 0 OID 114841)
--- Dependencies: 294
+-- TOC entry 5441 (class 0 OID 114841)
+-- Dependencies: 296
 -- Data for Name: modulos; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
@@ -5135,8 +5700,8 @@ COPY general.modulos (id_mod, codigo, nombre, descripcion, estatus) FROM stdin;
 
 
 --
--- TOC entry 5398 (class 0 OID 65652)
--- Dependencies: 257
+-- TOC entry 5409 (class 0 OID 65652)
+-- Dependencies: 259
 -- Data for Name: municipios; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
@@ -5174,8 +5739,8 @@ COPY general.municipios (id_mun, nombre, estatus) FROM stdin;
 
 
 --
--- TOC entry 5432 (class 0 OID 114858)
--- Dependencies: 296
+-- TOC entry 5443 (class 0 OID 114858)
+-- Dependencies: 298
 -- Data for Name: permisos; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
@@ -5188,8 +5753,8 @@ COPY general.permisos (id_perm, codigo, nombre, descripcion) FROM stdin;
 
 
 --
--- TOC entry 5434 (class 0 OID 114872)
--- Dependencies: 298
+-- TOC entry 5445 (class 0 OID 114872)
+-- Dependencies: 300
 -- Data for Name: permisos_rol; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
@@ -5230,10 +5795,7 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 34	1	9	2	TODO	A
 35	1	9	3	TODO	A
 36	1	9	4	TODO	A
-37	1	10	1	TODO	A
-38	1	10	2	TODO	A
 39	1	10	3	TODO	A
-40	1	10	4	TODO	A
 41	1	11	1	TODO	A
 42	1	11	2	TODO	A
 43	1	11	3	TODO	A
@@ -5268,17 +5830,13 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 72	2	2	1	TODO	A
 73	2	2	2	TODO	A
 74	2	10	3	SP	A
-75	2	10	1	TODO	A
-76	2	10	2	TODO	A
-77	2	5	3	SP	A
-78	2	5	1	TODO	A
-79	2	5	2	TODO	A
 80	2	4	3	SP	A
 81	2	4	1	TODO	A
 82	2	4	2	TODO	A
 83	2	11	3	TODO	A
 84	2	11	1	TODO	A
 85	2	11	2	TODO	A
+237	4	2	1	NAD	A
 87	2	7	3	TODO	A
 88	2	7	1	TODO	A
 89	2	7	2	TODO	A
@@ -5293,8 +5851,7 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 98	2	3	3	SP	A
 99	2	3	1	TODO	A
 100	2	3	2	TODO	A
-106	3	10	1	TODO	A
-107	3	10	2	TODO	A
+238	4	2	2	NAD	A
 109	3	12	3	SP	A
 110	3	12	1	TODO	A
 111	3	12	2	TODO	A
@@ -5304,28 +5861,21 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 116	3	3	3	SP	A
 117	3	4	3	SP	A
 118	3	5	3	SP	A
-119	3	7	3	TODO	A
 120	3	8	3	TODO	A
 121	3	9	3	SP	A
 122	3	9	2	SP	A
-125	4	14	2	SP	A
-127	4	11	3	SP	A
-130	4	3	3	SP	A
-131	4	4	3	SP	A
-133	4	7	3	TODO	A
-134	4	8	3	TODO	A
-135	4	9	3	SP	A
-136	4	9	2	SP	A
 156	2	6	1	NAD	A
-137	2	15	3	TODO	A
+129	4	2	3	NAD	A
+240	4	2	4	NAD	A
 157	2	6	2	NAD	A
+77	2	5	3	NAD	A
 158	2	6	3	NAD	A
-147	4	15	2	SP	A
-148	4	16	3	TODO	A
+78	2	5	1	NAD	A
+79	2	5	2	NAD	A
+137	2	15	3	NAD	A
 146	2	16	3	TODO	A
 153	3	16	3	SP	A
 154	3	15	4	TODO	A
-155	3	10	4	TODO	A
 159	2	6	4	NAD	A
 160	3	6	1	NAD	A
 161	3	6	2	NAD	A
@@ -5334,48 +5884,106 @@ COPY general.permisos_rol (id_pr, id_rol, id_mod, id_perm, alcance, estatus) FRO
 103	3	14	3	TODO	A
 102	3	13	2	SP	I
 104	3	14	2	SP	I
+37	1	10	1	NAD	A
 163	3	6	4	NAD	A
-164	4	12	1	SP	A
-165	4	12	2	SP	A
-166	4	12	4	SP	A
-167	4	10	1	SP	A
-128	4	15	3	SP	A
-123	4	13	3	SP	A
-124	4	14	3	SP	A
-126	4	10	3	SP	A
-132	4	5	3	SP	A
-129	4	2	3	SP	A
 112	3	15	3	TODO	A
-105	3	10	3	TODO	A
+206	3	7	1	NAD	A
+241	4	3	1	NAD	A
+208	3	7	2	NAD	A
+242	4	3	2	NAD	A
+119	3	7	3	NAD	A
+105	3	10	3	NAD	A
+130	4	3	3	NAD	A
+244	4	3	4	NAD	A
+245	4	4	1	NAD	A
+246	4	4	2	NAD	A
+131	4	4	3	NAD	A
+248	4	4	4	NAD	A
+212	3	7	4	NAD	A
+249	4	5	1	NAD	A
+38	1	10	2	NAD	A
+250	4	5	2	NAD	A
+132	4	5	3	SP	A
+252	4	5	4	NAD	A
+253	4	6	1	NAD	A
+254	4	6	2	NAD	A
+255	4	6	3	NAD	A
+40	1	10	4	NAD	A
+75	2	10	1	TODO	A
+76	2	10	2	TODO	A
+181	2	10	4	TODO	A
+106	3	10	1	NAD	A
+107	3	10	2	NAD	A
+155	3	10	4	NAD	A
+188	5	10	1	NAD	A
+189	5	10	2	NAD	A
+190	5	10	4	NAD	A
+256	4	6	4	NAD	A
+257	4	7	1	NAD	A
+258	4	7	2	NAD	A
+133	4	7	3	NAD	A
+260	4	7	4	NAD	A
+261	4	8	1	NAD	A
+262	4	8	2	NAD	A
+134	4	8	3	NAD	A
+264	4	8	4	NAD	A
+167	4	10	1	NAD	A
+186	4	10	2	NAD	A
+126	4	10	3	SP	A
+187	4	10	4	NAD	A
+269	4	11	1	NAD	A
+270	4	11	2	NAD	A
+127	4	11	3	NAD	A
+272	4	11	4	NAD	A
+164	4	12	1	NAD	A
+165	4	12	2	NAD	A
+275	4	12	3	NAD	A
+166	4	12	4	NAD	A
+277	4	13	1	NAD	A
+278	4	13	2	NAD	A
+123	4	13	3	SP	A
+280	4	13	4	NAD	A
+281	4	14	1	NAD	A
+125	4	14	2	NAD	A
+124	4	14	3	SP	A
+284	4	14	4	NAD	A
+285	4	15	1	SP	A
+147	4	15	2	SP	A
+128	4	15	3	SP	A
+288	4	15	4	NAD	A
+289	4	16	1	NAD	A
+290	4	16	2	NAD	A
+148	4	16	3	NAD	A
+292	4	16	4	NAD	A
+293	4	1	1	NAD	A
+294	4	1	2	NAD	A
+295	4	1	3	NAD	A
+296	4	1	4	NAD	A
+297	4	9	1	NAD	A
+136	4	9	2	NAD	A
+135	4	9	3	NAD	A
+300	4	9	4	NAD	A
 \.
 
 
 --
--- TOC entry 5436 (class 0 OID 114908)
--- Dependencies: 300
+-- TOC entry 5447 (class 0 OID 114908)
+-- Dependencies: 302
 -- Data for Name: permisos_usuario; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
 COPY general.permisos_usuario (id_pu, id_usu, id_mod, id_perm, alcance, estatus) FROM stdin;
-1	2	10	4	TODO	I
 2	1	1	3	TODO	I
 3	1	4	1	TODO	I
 4	1	4	2	TODO	I
 5	1	4	3	TODO	I
 6	1	4	4	TODO	I
-7	2	14	1	TODO	I
-8	4	1	3	TODO	I
-10	4	1	1	TODO	I
-11	4	1	2	TODO	I
-13	4	1	4	TODO	I
-22	4	2	4	TODO	I
-28	4	9	3	TODO	I
 \.
 
 
 --
--- TOC entry 5396 (class 0 OID 65637)
--- Dependencies: 255
+-- TOC entry 5407 (class 0 OID 65637)
+-- Dependencies: 257
 -- Data for Name: roles; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
@@ -5389,44 +5997,36 @@ COPY general.roles (id_rol, rol, descripcion, estatus) FROM stdin;
 
 
 --
--- TOC entry 5402 (class 0 OID 65681)
--- Dependencies: 261
+-- TOC entry 5413 (class 0 OID 65681)
+-- Dependencies: 263
 -- Data for Name: usuarios; Type: TABLE DATA; Schema: general; Owner: postgres
 --
 
 COPY general.usuarios (id_usu, username, id_rol, estatus, creado, actualizar, email) FROM stdin;
 1	admin	1	A	2026-10-29 03:05:47.546227-04	2026-10-29 03:05:47.546404-04	\N
-3	docente1	4	A	2026-11-21 15:16:35.317659-04	2026-11-21 15:16:35.317659-04	docente1@unem.edu.ve
-2	coordinador1	3	A	2026-11-20 18:29:53.653537-04	2026-11-20 18:29:53.653537-04	coordinador1@unem.edu.ve
-4	carlo	2	A	2026-11-21 17:35:10.416941-04	2026-11-21 17:35:10.416941-04	carlo@gmail.com
+2	vicerrector1	2	A	2026-11-22 16:45:58.976952-04	2026-11-22 16:45:58.976952-04	vicerrector1@unem.edu.ve
+3	coordinador1	3	A	2026-11-22 16:45:58.976952-04	2026-11-22 16:45:58.976952-04	coordinador1@unem.edu.ve
+4	docente1	4	A	2026-11-22 16:45:58.976952-04	2026-11-22 16:45:58.976952-04	docente1@unem.edu.ve
 \.
 
 
 --
--- TOC entry 5416 (class 0 OID 65855)
--- Dependencies: 275
+-- TOC entry 5427 (class 0 OID 65855)
+-- Dependencies: 277
 -- Data for Name: asig_carga_horarias; Type: TABLE DATA; Schema: horarios; Owner: postgres
 --
 
 COPY horarios.asig_carga_horarias (id_asig, id_doc, id_esp, id_dia, id_malla, id_per, hora_inicio, hora_fin, tipo_actividad, observaciones, estatus, creado, actualizar, id_sec) FROM stdin;
-8	4	3	5	3	2	07:00:00	08:00:00	Carga Académica	Asignación directa	A	2026-11-18 01:36:18.511075-04	2026-11-18 01:36:18.511082-04	\N
-10	2	15	6	26	1	08:00:00	11:00:00	Carga Académica	\N	A	2026-11-21 16:23:01.268782-04	2026-11-21 19:25:06.609056-04	\N
-9	2	14	5	74	2	14:00:00	17:00:00	Carga Académica	\N	A	2026-11-21 16:23:01.268782-04	2026-11-21 19:25:06.609056-04	\N
-11	5	1	5	96	1	08:00:00	12:00:00	Carga Académica	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	7
-12	7	2	6	98	1	08:00:00	12:00:00	Carga Académica	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	9
-4	2	10	1	2	1	07:00:00	08:00:00	Carga Académica	Asignación directa	I	2026-11-12 22:24:22.497011-04	2026-11-21 19:33:38.549272-04	\N
-1	1	1	1	1	1	08:00:00	10:00:00	Carga Académica	\N	I	2026-10-03 10:55:20.264002-04	2026-11-21 19:33:42.580063-04	\N
-2	2	2	1	51	2	08:00:00	10:00:00	Carga Académica	\N	I	2026-10-03 10:55:20.264002-04	2026-11-21 19:33:44.440164-04	\N
-6	2	1	3	8	1	07:00:00	08:00:00	Carga Académica	Asignación directa	I	2026-11-12 22:54:26.031262-04	2026-11-21 19:33:48.477686-04	\N
-7	1	11	2	4	1	07:00:00	11:00:00	Carga Académica	Asignación directa	I	2026-11-13 02:56:20.453382-04	2026-11-21 19:33:50.704139-04	\N
-3	2	3	2	\N	2	10:00:00	12:00:00	Asesoría	\N	I	2026-10-03 10:55:20.264002-04	2026-11-21 19:33:52.624019-04	\N
-14	3	12	5	74	2	08:00:00	12:00:00	Carga Académica	\N	A	2026-11-21 20:00:31.874313-04	2026-11-21 20:00:31.874313-04	9
+15	1	1	5	100	1	08:00:00	12:00:00	Carga Académica	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	7
+16	2	2	5	100	1	14:00:00	18:00:00	Carga Académica	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	8
+17	3	1	6	101	1	08:00:00	12:00:00	Carga Académica	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	9
+18	4	2	6	101	1	14:00:00	18:00:00	Carga Académica	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	10
 \.
 
 
 --
--- TOC entry 5414 (class 0 OID 65809)
--- Dependencies: 273
+-- TOC entry 5425 (class 0 OID 65809)
+-- Dependencies: 275
 -- Data for Name: espacios_fis; Type: TABLE DATA; Schema: infraestructura; Owner: postgres
 --
 
@@ -5451,8 +6051,8 @@ COPY infraestructura.espacios_fis (id_esp, id_mun, nombre_centro, ubicacion, tip
 
 
 --
--- TOC entry 5412 (class 0 OID 65788)
--- Dependencies: 271
+-- TOC entry 5423 (class 0 OID 65788)
+-- Dependencies: 273
 -- Data for Name: disponibilidad_docente; Type: TABLE DATA; Schema: personas; Owner: postgres
 --
 
@@ -5461,100 +6061,72 @@ COPY personas.disponibilidad_docente (id_disp, id_doc, id_dia, hora_inicio, hora
 
 
 --
--- TOC entry 5408 (class 0 OID 65728)
--- Dependencies: 267
+-- TOC entry 5419 (class 0 OID 65728)
+-- Dependencies: 269
 -- Data for Name: docentes; Type: TABLE DATA; Schema: personas; Owner: postgres
 --
 
 COPY personas.docentes (id_doc, id_usu, cedula, nombre, apellido, id_mun, especialidad, tipo_contrato, horas_max_sem, horas_asignadas, horas_disponibles, telefono, estatus, creado, actualizar, observaciones, foto_url) FROM stdin;
-4	\N	V-13792150	ERIKA DE LA CONSOLACION	VARELA SAYAGO	23	Educación Primaria	Estipendio	20	1	19	04264937637	A	2026-11-13 16:55:56.866854-04	2026-11-17 21:36:18.469709-04	\N	\N
-6	\N	V-3566882	JOSE	PEÑALOZA	23	Educación Primaria	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-8	\N	V-3999595	AURA	CHACON	23	Educación Especial	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-9	\N	V-4111042	CARMEN	REYES	23	Educación Primaria	Contratado	30	0	30	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-10	\N	V-4113092	ANDRES	VIVAS	23	Educación Primaria	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-11	\N	V-4212279	ANA	BUITRAGO	23	Educación Especial	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-12	\N	V-4327611	ESNEIRA	PARRA	23	Educación Primaria	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-13	\N	V-4627736	LUCY	COLMENARES	23	Educación Especial	Contratado	30	0	30	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-14	\N	V-4632504	JOSE	DERUBEIS	23	Educación Primaria	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-15	\N	V-5027637	JESUS	ZAMUDIO	23	Educación Especial	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-16	\N	V-5166914	TIBISAY	PEREZ	23	Educación Primaria	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-17	\N	V-5327258	ANA	URIBE	23	Educación Especial	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-18	\N	V-5511889	SONIA	FLORES	23	Educación Primaria	Contratado	30	0	30	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-19	\N	V-5580341	ANGEL	PULIDO	23	Educación Especial	Estipendio	20	0	20	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-5	\N	V-2554227	RAFAEL	CHACON	23	Educación Primaria	Estipendio	20	4	16	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-7	\N	V-3815135	YDAIS	NIEVES	23	Educación Especial	Estipendio	20	4	16	\N	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N	\N
-1	\N	V-12345678	María	González	23	Educación Primaria	Estipendio	20	0	20	04149998877	A	2026-10-03 10:55:20.264002-04	2026-11-21 19:33:50.704139-04	\N	\N
-2	3	V-87654321	Carlos	Rodríguez López	23	Educación Especial	Contratado	30	6	24	04249876543	A	2026-10-03 10:55:20.264002-04	2026-11-21 19:33:52.624019-04	\N	\N
-3	\N	V-11492534	IRIS MARISOL	RAMIREZ HERNANDEZ	23	Educación Especial	Estipendio	20	4	16	04161740853	A	2026-11-13 16:20:59.408443-04	2026-11-21 20:00:31.874313-04	\N	\N
+1	2	V-2554227	RAFAEL	CHACON	23	PNF Licenciatura en Educación Primaria	Estipendio	20	4	16	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 22:15:39.500772-04	\N	\N
+2	3	V-3566882	JOSE	PEÑALOZA	23	PNF Licenciatura en Educación Primaria	Estipendio	20	4	16	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 22:15:39.500772-04	\N	\N
+3	4	V-3815135	YDAIS	NIEVES	23	PNF Licenciatura en Educación Especial	Estipendio	20	4	16	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 22:15:39.500772-04	\N	\N
+4	\N	V-3999595	AURA	CHACON	23	PNF Licenciatura en Educación Especial	Estipendio	20	4	16	\N	A	2026-11-22 11:01:53.657385-04	2026-11-22 22:15:39.500772-04	\N	\N
 \.
 
 
 --
--- TOC entry 5410 (class 0 OID 65764)
--- Dependencies: 269
+-- TOC entry 5421 (class 0 OID 65764)
+-- Dependencies: 271
 -- Data for Name: estudiantes; Type: TABLE DATA; Schema: personas; Owner: postgres
 --
 
 COPY personas.estudiantes (id_est, id_usu, cedula, id_mun, nombre, apellido, id_pro, id_sec, trayecto, estatus, creado, actualizar, foto_url) FROM stdin;
-8	\N	V-13172105	23	GERMAN YOBANNY	GUERRERO MORA	1	\N	1	A	2026-11-13 16:55:56.866854-04	2026-11-21 19:31:02.122352-04	\N
-2	\N	V-14225517	23	MAYE ALEJANDRA	NIÑO COLMENARES	2	\N	1	A	2026-11-13 16:20:59.408443-04	2026-11-21 19:31:02.122352-04	\N
-3	\N	V-14602580	23	YASMIN VICTORIA	GOMEZ DE OCORO	2	\N	1	A	2026-11-13 16:20:59.408443-04	2026-11-21 19:31:02.122352-04	\N
-4	\N	V-14606863	23	LUZ MARINA	GOMEZ URIBE	2	\N	1	A	2026-11-13 16:20:59.408443-04	2026-11-21 19:31:02.122352-04	\N
-5	\N	V-16230741	23	YURI COROMOTO	MESA GARZON	2	\N	1	A	2026-11-13 16:20:59.408443-04	2026-11-21 19:31:02.122352-04	\N
-6	\N	V-20618493	23	SIASKA LORENA	GRANADOS JAIMES	2	\N	1	A	2026-11-13 16:20:59.408443-04	2026-11-21 19:31:02.122352-04	\N
-11	\N	V-10167912	23	LUZ MARINA	MONTILVA DE ORTEGA	1	\N	2	A	2026-11-13 16:55:56.866854-04	2026-11-21 19:31:02.122352-04	\N
-14	\N	V-5642825	23	LUIS	GOMEZ	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-15	\N	V-5643183	23	CARMEN	VEGA	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-16	\N	V-5646174	23	ROSA	ROA	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-17	\N	V-5646993	23	WALMORE	COLMERANES	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-18	\N	V-5657500	23	BETTY	BARRERA	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-19	\N	V-5658165	23	LUZ	MORALES	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-20	\N	V-5660839	23	JORGE	COLMENARES	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-21	\N	V-5669540	23	ANA	ORTEGA	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-22	\N	V-5674792	23	JOSE	CONTRERAS	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-23	\N	V-5676539	23	MARISELA	CHAPARRO	1	7	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-24	\N	V-5676743	23	NIDIA	SANTOS	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-25	\N	V-5682527	23	NESTOR	MARTINEZ	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-26	\N	V-5683228	23	JOSE	APOLINAR	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-27	\N	V-5685463	23	WILSON	CONTRERAS	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-28	\N	V-5688899	23	JOSE	MORA	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-29	\N	V-5728715	23	MIRIAM	RIVERA	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-30	\N	V-6018577	23	LIRIS	GONZALEZ	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-31	\N	V-6195135	23	CLAUDIA	VERDUGO	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-32	\N	V-6553213	23	ZORAIDA	ROJAS	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-33	\N	V-6792584	23	RAUL	DUQUE	1	8	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-34	\N	V-6940552	23	NIDIA	GUERRERO	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-35	\N	V-7228261	23	LESBIA	PERNIA	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-36	\N	V-7302789	23	WOLFGANG	CRESPO	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-37	\N	V-7778299	23	URANIA	PEREZ	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-38	\N	V-7959168	23	DENYS	NUÑEZ	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-39	\N	V-8091641	23	ANA	PEREZ	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-40	\N	V-8096010	23	MARIELA	RAMIREZ	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-41	\N	V-8097470	23	LUZMILA	ZAPATA	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-42	\N	V-8098551	23	ENEIDA	URDANETA	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-43	\N	V-8102634	23	ALIX	DIAZ	2	9	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-44	\N	V-8106976	23	NUBIA	GARCIA	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-45	\N	V-8107362	23	MARIA	ANDRADE	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-46	\N	V-8107783	23	LUISA	CHACON	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-47	\N	V-8108564	23	CARLOS	COLMENARES	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-48	\N	V-8712686	23	BELSA	ARELLANO	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-49	\N	V-8993449	23	IRIS	DAVILA	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-50	\N	V-8994208	23	YUSMELY	MALDONADO	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-51	\N	V-9128464	23	NELLY	RAMIREZ	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-52	\N	V-9137449	23	LUIS	GOMEZ	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-53	\N	V-9143975	23	NICOLASA	CARRILLO	2	10	1	A	2026-11-21 19:25:06.609056-04	2026-11-21 19:25:06.609056-04	\N
-7	\N	V-13171134	23	DAYGNE YUBISAY	TREJO MORALES	1	\N	1	A	2026-11-13 16:55:56.866854-04	2026-11-21 19:31:02.122352-04	\N
-1	\N	V-12516920	23	JAHYDDY GUADALUPE	HANTUCH MENDOZA	2	\N	1	A	2026-11-13 16:20:59.408443-04	2026-11-21 19:31:02.122352-04	\N
-9	\N	V-15157076	23	YADELSY MAGALY	NOVA BECERRA	1	\N	2	A	2026-11-13 16:55:56.866854-04	2026-11-21 19:31:02.122352-04	\N
-12	\N	V-15881009	23	INGRID NAYARI	ONTIVEROS ONTIVEROS	1	\N	2	A	2026-11-13 16:55:56.866854-04	2026-11-21 19:31:02.122352-04	\N
-13	\N	V-21003553	23	ANNY YOHANA	SANABRIA ONTIVEROS	1	\N	2	A	2026-11-13 16:55:56.866854-04	2026-11-21 19:31:02.122352-04	\N
-10	\N	V-7873867	23	NIRIA ZULAY	COLINA GONZALEZ	1	\N	2	A	2026-11-13 16:55:56.866854-04	2026-11-21 19:31:02.122352-04	\N
+1	\N	V-5642825	23	LUIS	GOMEZ	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+2	\N	V-5643183	23	CARMEN	VEGA	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+3	\N	V-5646174	23	ROSA	ROA	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+4	\N	V-5646993	23	WALMORE	COLMERANES	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+5	\N	V-5657500	23	BETTY	BARRERA	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+6	\N	V-5658165	23	LUZ	MORALES	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+7	\N	V-5660839	23	JORGE	COLMENARES	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+8	\N	V-5669540	23	ANA	ORTEGA	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+9	\N	V-5674792	23	JOSE	CONTRERAS	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+10	\N	V-5676539	23	MARISELA	CHAPARRO	1	7	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+11	\N	V-5676743	23	NIDIA	SANTOS	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+12	\N	V-5682527	23	NESTOR	MARTINEZ	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+13	\N	V-5683228	23	JOSE	APOLINAR	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+14	\N	V-5685463	23	WILSON	CONTRERAS	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+15	\N	V-5688899	23	JOSE	MORA	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+16	\N	V-5728715	23	MIRIAM	RIVERA	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+17	\N	V-6018577	23	LIRIS	GONZALEZ	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+18	\N	V-6195135	23	CLAUDIA	VERDUGO	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+19	\N	V-6553213	23	ZORAIDA	ROJAS	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+20	\N	V-6792584	23	RAUL	DUQUE	1	8	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+21	\N	V-6940552	23	NIDIA	GUERRERO	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+22	\N	V-7228261	23	LESBIA	PERNIA	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+23	\N	V-7302789	23	WOLFGANG	CRESPO	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+24	\N	V-7778299	23	URANIA	PEREZ	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+25	\N	V-7959168	23	DENYS	NUÑEZ	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+26	\N	V-8091641	23	ANA	PEREZ	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+27	\N	V-8096010	23	MARIELA	RAMIREZ	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+28	\N	V-8097470	23	LUZMILA	ZAPATA	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+29	\N	V-8098551	23	ENEIDA	URDANETA	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+30	\N	V-8102634	23	ALIX	DIAZ	2	9	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+31	\N	V-8106976	23	NUBIA	GARCIA	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+32	\N	V-8107362	23	MARIA	ANDRADE	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+33	\N	V-8107783	23	LUISA	CHACON	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+34	\N	V-8108564	23	CARLOS	COLMENARES	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+35	\N	V-8712686	23	BELSA	ARELLANO	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+36	\N	V-8993449	23	IRIS	DAVILA	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+37	\N	V-8994208	23	YUSMELY	MALDONADO	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+38	\N	V-9128464	23	NELLY	RAMIREZ	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+39	\N	V-9137449	23	LUIS	GOMEZ	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+40	\N	V-9143975	23	NICOLASA	CARRILLO	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
 \.
 
 
 --
--- TOC entry 5711 (class 0 OID 0)
--- Dependencies: 278
+-- TOC entry 5722 (class 0 OID 0)
+-- Dependencies: 280
 -- Name: ejes_formativos_id_eje_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
@@ -5562,8 +6134,8 @@ SELECT pg_catalog.setval('academico.ejes_formativos_id_eje_seq', 6, true);
 
 
 --
--- TOC entry 5712 (class 0 OID 0)
--- Dependencies: 282
+-- TOC entry 5723 (class 0 OID 0)
+-- Dependencies: 284
 -- Name: malla_curricular_id_malla_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
@@ -5571,8 +6143,8 @@ SELECT pg_catalog.setval('academico.malla_curricular_id_malla_seq', 99, true);
 
 
 --
--- TOC entry 5713 (class 0 OID 0)
--- Dependencies: 280
+-- TOC entry 5724 (class 0 OID 0)
+-- Dependencies: 282
 -- Name: materias_id_mat_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
@@ -5580,26 +6152,26 @@ SELECT pg_catalog.setval('academico.materias_id_mat_seq', 99, true);
 
 
 --
--- TOC entry 5714 (class 0 OID 0)
--- Dependencies: 301
+-- TOC entry 5725 (class 0 OID 0)
+-- Dependencies: 303
 -- Name: notas_id_nota_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
-SELECT pg_catalog.setval('academico.notas_id_nota_seq', 223, true);
+SELECT pg_catalog.setval('academico.notas_id_nota_seq', 43, true);
 
 
 --
--- TOC entry 5715 (class 0 OID 0)
--- Dependencies: 284
+-- TOC entry 5726 (class 0 OID 0)
+-- Dependencies: 286
 -- Name: periodos_academicos_id_per_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
-SELECT pg_catalog.setval('academico.periodos_academicos_id_per_seq', 4, true);
+SELECT pg_catalog.setval('academico.periodos_academicos_id_per_seq', 8, true);
 
 
 --
--- TOC entry 5716 (class 0 OID 0)
--- Dependencies: 276
+-- TOC entry 5727 (class 0 OID 0)
+-- Dependencies: 278
 -- Name: programas_id_pro_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
@@ -5607,8 +6179,8 @@ SELECT pg_catalog.setval('academico.programas_id_pro_seq', 2, true);
 
 
 --
--- TOC entry 5717 (class 0 OID 0)
--- Dependencies: 286
+-- TOC entry 5728 (class 0 OID 0)
+-- Dependencies: 288
 -- Name: secciones_id_sec_seq; Type: SEQUENCE SET; Schema: academico; Owner: postgres
 --
 
@@ -5616,17 +6188,17 @@ SELECT pg_catalog.setval('academico.secciones_id_sec_seq', 10, true);
 
 
 --
--- TOC entry 5718 (class 0 OID 0)
--- Dependencies: 264
+-- TOC entry 5729 (class 0 OID 0)
+-- Dependencies: 266
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 936, true);
+SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 1565, true);
 
 
 --
--- TOC entry 5719 (class 0 OID 0)
--- Dependencies: 262
+-- TOC entry 5730 (class 0 OID 0)
+-- Dependencies: 264
 -- Name: credenciales_id_cre_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5634,8 +6206,8 @@ SELECT pg_catalog.setval('general.credenciales_id_cre_seq', 4, true);
 
 
 --
--- TOC entry 5720 (class 0 OID 0)
--- Dependencies: 258
+-- TOC entry 5731 (class 0 OID 0)
+-- Dependencies: 260
 -- Name: dias_laborales_id_dia_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5643,8 +6215,8 @@ SELECT pg_catalog.setval('general.dias_laborales_id_dia_seq', 7, true);
 
 
 --
--- TOC entry 5721 (class 0 OID 0)
--- Dependencies: 293
+-- TOC entry 5732 (class 0 OID 0)
+-- Dependencies: 295
 -- Name: modulos_id_mod_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5652,8 +6224,8 @@ SELECT pg_catalog.setval('general.modulos_id_mod_seq', 16, true);
 
 
 --
--- TOC entry 5722 (class 0 OID 0)
--- Dependencies: 256
+-- TOC entry 5733 (class 0 OID 0)
+-- Dependencies: 258
 -- Name: municipios_id_mun_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5661,8 +6233,8 @@ SELECT pg_catalog.setval('general.municipios_id_mun_seq', 29, true);
 
 
 --
--- TOC entry 5723 (class 0 OID 0)
--- Dependencies: 295
+-- TOC entry 5734 (class 0 OID 0)
+-- Dependencies: 297
 -- Name: permisos_id_perm_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5670,17 +6242,17 @@ SELECT pg_catalog.setval('general.permisos_id_perm_seq', 4, true);
 
 
 --
--- TOC entry 5724 (class 0 OID 0)
--- Dependencies: 297
+-- TOC entry 5735 (class 0 OID 0)
+-- Dependencies: 299
 -- Name: permisos_rol_id_pr_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.permisos_rol_id_pr_seq', 175, true);
+SELECT pg_catalog.setval('general.permisos_rol_id_pr_seq', 302, true);
 
 
 --
--- TOC entry 5725 (class 0 OID 0)
--- Dependencies: 299
+-- TOC entry 5736 (class 0 OID 0)
+-- Dependencies: 301
 -- Name: permisos_usuario_id_pu_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5688,8 +6260,8 @@ SELECT pg_catalog.setval('general.permisos_usuario_id_pu_seq', 28, true);
 
 
 --
--- TOC entry 5726 (class 0 OID 0)
--- Dependencies: 254
+-- TOC entry 5737 (class 0 OID 0)
+-- Dependencies: 256
 -- Name: roles_id_rol_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5697,8 +6269,8 @@ SELECT pg_catalog.setval('general.roles_id_rol_seq', 5, true);
 
 
 --
--- TOC entry 5727 (class 0 OID 0)
--- Dependencies: 260
+-- TOC entry 5738 (class 0 OID 0)
+-- Dependencies: 262
 -- Name: usuarios_id_usu_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
@@ -5706,17 +6278,17 @@ SELECT pg_catalog.setval('general.usuarios_id_usu_seq', 4, true);
 
 
 --
--- TOC entry 5728 (class 0 OID 0)
--- Dependencies: 274
+-- TOC entry 5739 (class 0 OID 0)
+-- Dependencies: 276
 -- Name: asig_carga_horarias_id_asig_seq; Type: SEQUENCE SET; Schema: horarios; Owner: postgres
 --
 
-SELECT pg_catalog.setval('horarios.asig_carga_horarias_id_asig_seq', 14, true);
+SELECT pg_catalog.setval('horarios.asig_carga_horarias_id_asig_seq', 19, false);
 
 
 --
--- TOC entry 5729 (class 0 OID 0)
--- Dependencies: 272
+-- TOC entry 5740 (class 0 OID 0)
+-- Dependencies: 274
 -- Name: espacios_fis_id_esp_seq; Type: SEQUENCE SET; Schema: infraestructura; Owner: postgres
 --
 
@@ -5724,8 +6296,8 @@ SELECT pg_catalog.setval('infraestructura.espacios_fis_id_esp_seq', 16, true);
 
 
 --
--- TOC entry 5730 (class 0 OID 0)
--- Dependencies: 270
+-- TOC entry 5741 (class 0 OID 0)
+-- Dependencies: 272
 -- Name: disponibilidad_docente_id_disp_seq; Type: SEQUENCE SET; Schema: personas; Owner: postgres
 --
 
@@ -5733,8 +6305,8 @@ SELECT pg_catalog.setval('personas.disponibilidad_docente_id_disp_seq', 1, false
 
 
 --
--- TOC entry 5731 (class 0 OID 0)
--- Dependencies: 266
+-- TOC entry 5742 (class 0 OID 0)
+-- Dependencies: 268
 -- Name: docentes_id_doc_seq; Type: SEQUENCE SET; Schema: personas; Owner: postgres
 --
 
@@ -5742,8 +6314,8 @@ SELECT pg_catalog.setval('personas.docentes_id_doc_seq', 19, true);
 
 
 --
--- TOC entry 5732 (class 0 OID 0)
--- Dependencies: 268
+-- TOC entry 5743 (class 0 OID 0)
+-- Dependencies: 270
 -- Name: estudiantes_id_est_seq; Type: SEQUENCE SET; Schema: personas; Owner: postgres
 --
 
@@ -5751,7 +6323,7 @@ SELECT pg_catalog.setval('personas.estudiantes_id_est_seq', 53, true);
 
 
 --
--- TOC entry 5123 (class 2606 OID 65927)
+-- TOC entry 5130 (class 2606 OID 65927)
 -- Name: ejes_formativos pk_ejes; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5760,8 +6332,8 @@ ALTER TABLE ONLY academico.ejes_formativos
 
 
 --
--- TOC entry 5733 (class 0 OID 0)
--- Dependencies: 5123
+-- TOC entry 5744 (class 0 OID 0)
+-- Dependencies: 5130
 -- Name: CONSTRAINT pk_ejes ON ejes_formativos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5769,7 +6341,7 @@ COMMENT ON CONSTRAINT pk_ejes ON academico.ejes_formativos IS 'Llave primaria pa
 
 
 --
--- TOC entry 5136 (class 2606 OID 65975)
+-- TOC entry 5143 (class 2606 OID 65975)
 -- Name: malla_curricular pk_malla; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5778,8 +6350,8 @@ ALTER TABLE ONLY academico.malla_curricular
 
 
 --
--- TOC entry 5734 (class 0 OID 0)
--- Dependencies: 5136
+-- TOC entry 5745 (class 0 OID 0)
+-- Dependencies: 5143
 -- Name: CONSTRAINT pk_malla ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5787,7 +6359,7 @@ COMMENT ON CONSTRAINT pk_malla ON academico.malla_curricular IS 'Llave primaria 
 
 
 --
--- TOC entry 5129 (class 2606 OID 65950)
+-- TOC entry 5136 (class 2606 OID 65950)
 -- Name: materias pk_materias; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5796,8 +6368,8 @@ ALTER TABLE ONLY academico.materias
 
 
 --
--- TOC entry 5735 (class 0 OID 0)
--- Dependencies: 5129
+-- TOC entry 5746 (class 0 OID 0)
+-- Dependencies: 5136
 -- Name: CONSTRAINT pk_materias ON materias; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5805,7 +6377,7 @@ COMMENT ON CONSTRAINT pk_materias ON academico.materias IS 'Llave primaria para 
 
 
 --
--- TOC entry 5173 (class 2606 OID 114966)
+-- TOC entry 5181 (class 2606 OID 114966)
 -- Name: notas pk_notas; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5814,8 +6386,8 @@ ALTER TABLE ONLY academico.notas
 
 
 --
--- TOC entry 5736 (class 0 OID 0)
--- Dependencies: 5173
+-- TOC entry 5747 (class 0 OID 0)
+-- Dependencies: 5181
 -- Name: CONSTRAINT pk_notas ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5823,7 +6395,7 @@ COMMENT ON CONSTRAINT pk_notas ON academico.notas IS 'Llave primaria de la tabla
 
 
 --
--- TOC entry 5140 (class 2606 OID 66001)
+-- TOC entry 5147 (class 2606 OID 66001)
 -- Name: periodos_academicos pk_periodos; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5832,8 +6404,8 @@ ALTER TABLE ONLY academico.periodos_academicos
 
 
 --
--- TOC entry 5737 (class 0 OID 0)
--- Dependencies: 5140
+-- TOC entry 5748 (class 0 OID 0)
+-- Dependencies: 5147
 -- Name: CONSTRAINT pk_periodos ON periodos_academicos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5841,7 +6413,7 @@ COMMENT ON CONSTRAINT pk_periodos ON academico.periodos_academicos IS 'Llave pri
 
 
 --
--- TOC entry 5119 (class 2606 OID 65911)
+-- TOC entry 5126 (class 2606 OID 65911)
 -- Name: programas pk_programas; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5850,8 +6422,8 @@ ALTER TABLE ONLY academico.programas
 
 
 --
--- TOC entry 5738 (class 0 OID 0)
--- Dependencies: 5119
+-- TOC entry 5749 (class 0 OID 0)
+-- Dependencies: 5126
 -- Name: CONSTRAINT pk_programas ON programas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5859,7 +6431,7 @@ COMMENT ON CONSTRAINT pk_programas ON academico.programas IS 'Llave primaria del
 
 
 --
--- TOC entry 5143 (class 2606 OID 66025)
+-- TOC entry 5150 (class 2606 OID 66025)
 -- Name: secciones pk_secciones; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5868,8 +6440,8 @@ ALTER TABLE ONLY academico.secciones
 
 
 --
--- TOC entry 5739 (class 0 OID 0)
--- Dependencies: 5143
+-- TOC entry 5750 (class 0 OID 0)
+-- Dependencies: 5150
 -- Name: CONSTRAINT pk_secciones ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5877,7 +6449,7 @@ COMMENT ON CONSTRAINT pk_secciones ON academico.secciones IS 'Llave primaria de 
 
 
 --
--- TOC entry 5125 (class 2606 OID 65929)
+-- TOC entry 5132 (class 2606 OID 65929)
 -- Name: ejes_formativos unq_ejes_codigo; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5886,8 +6458,8 @@ ALTER TABLE ONLY academico.ejes_formativos
 
 
 --
--- TOC entry 5740 (class 0 OID 0)
--- Dependencies: 5125
+-- TOC entry 5751 (class 0 OID 0)
+-- Dependencies: 5132
 -- Name: CONSTRAINT unq_ejes_codigo ON ejes_formativos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5895,7 +6467,7 @@ COMMENT ON CONSTRAINT unq_ejes_codigo ON academico.ejes_formativos IS 'Regla de 
 
 
 --
--- TOC entry 5131 (class 2606 OID 65952)
+-- TOC entry 5138 (class 2606 OID 65952)
 -- Name: materias unq_materias_codigo; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5904,8 +6476,8 @@ ALTER TABLE ONLY academico.materias
 
 
 --
--- TOC entry 5741 (class 0 OID 0)
--- Dependencies: 5131
+-- TOC entry 5752 (class 0 OID 0)
+-- Dependencies: 5138
 -- Name: CONSTRAINT unq_materias_codigo ON materias; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5913,7 +6485,7 @@ COMMENT ON CONSTRAINT unq_materias_codigo ON academico.materias IS 'Regla que im
 
 
 --
--- TOC entry 5175 (class 2606 OID 114968)
+-- TOC entry 5183 (class 2606 OID 114968)
 -- Name: notas unq_nota_estudiante_materia_periodo; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5922,8 +6494,8 @@ ALTER TABLE ONLY academico.notas
 
 
 --
--- TOC entry 5742 (class 0 OID 0)
--- Dependencies: 5175
+-- TOC entry 5753 (class 0 OID 0)
+-- Dependencies: 5183
 -- Name: CONSTRAINT unq_nota_estudiante_materia_periodo ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5931,7 +6503,7 @@ COMMENT ON CONSTRAINT unq_nota_estudiante_materia_periodo ON academico.notas IS 
 
 
 --
--- TOC entry 5121 (class 2606 OID 65913)
+-- TOC entry 5128 (class 2606 OID 65913)
 -- Name: programas unq_programas_codigo; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5940,8 +6512,8 @@ ALTER TABLE ONLY academico.programas
 
 
 --
--- TOC entry 5743 (class 0 OID 0)
--- Dependencies: 5121
+-- TOC entry 5754 (class 0 OID 0)
+-- Dependencies: 5128
 -- Name: CONSTRAINT unq_programas_codigo ON programas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5949,7 +6521,7 @@ COMMENT ON CONSTRAINT unq_programas_codigo ON academico.programas IS 'Regla de b
 
 
 --
--- TOC entry 5145 (class 2606 OID 66027)
+-- TOC entry 5152 (class 2606 OID 66027)
 -- Name: secciones unq_secciones_codigo; Type: CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -5958,8 +6530,8 @@ ALTER TABLE ONLY academico.secciones
 
 
 --
--- TOC entry 5744 (class 0 OID 0)
--- Dependencies: 5145
+-- TOC entry 5755 (class 0 OID 0)
+-- Dependencies: 5152
 -- Name: CONSTRAINT unq_secciones_codigo ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -5967,7 +6539,7 @@ COMMENT ON CONSTRAINT unq_secciones_codigo ON academico.secciones IS 'Evita la c
 
 
 --
--- TOC entry 5061 (class 2606 OID 65679)
+-- TOC entry 5068 (class 2606 OID 65679)
 -- Name: dias_laborales dia_lab_unq; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -5976,8 +6548,8 @@ ALTER TABLE ONLY general.dias_laborales
 
 
 --
--- TOC entry 5745 (class 0 OID 0)
--- Dependencies: 5061
+-- TOC entry 5756 (class 0 OID 0)
+-- Dependencies: 5068
 -- Name: CONSTRAINT dia_lab_unq ON dias_laborales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -5985,7 +6557,7 @@ COMMENT ON CONSTRAINT dia_lab_unq ON general.dias_laborales IS 'Comprobación ú
 
 
 --
--- TOC entry 5072 (class 2606 OID 65709)
+-- TOC entry 5079 (class 2606 OID 65709)
 -- Name: credenciales id_usu_unq; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -5994,8 +6566,8 @@ ALTER TABLE ONLY general.credenciales
 
 
 --
--- TOC entry 5746 (class 0 OID 0)
--- Dependencies: 5072
+-- TOC entry 5757 (class 0 OID 0)
+-- Dependencies: 5079
 -- Name: CONSTRAINT id_usu_unq ON credenciales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6003,7 +6575,7 @@ COMMENT ON CONSTRAINT id_usu_unq ON general.credenciales IS 'Regla para que el i
 
 
 --
--- TOC entry 5057 (class 2606 OID 65664)
+-- TOC entry 5064 (class 2606 OID 65664)
 -- Name: municipios mun_nom; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6012,8 +6584,8 @@ ALTER TABLE ONLY general.municipios
 
 
 --
--- TOC entry 5747 (class 0 OID 0)
--- Dependencies: 5057
+-- TOC entry 5758 (class 0 OID 0)
+-- Dependencies: 5064
 -- Name: CONSTRAINT mun_nom ON municipios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6021,7 +6593,7 @@ COMMENT ON CONSTRAINT mun_nom ON general.municipios IS 'Regla que hace unico cad
 
 
 --
--- TOC entry 5063 (class 2606 OID 65677)
+-- TOC entry 5070 (class 2606 OID 65677)
 -- Name: dias_laborales pk_id; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6030,8 +6602,8 @@ ALTER TABLE ONLY general.dias_laborales
 
 
 --
--- TOC entry 5748 (class 0 OID 0)
--- Dependencies: 5063
+-- TOC entry 5759 (class 0 OID 0)
+-- Dependencies: 5070
 -- Name: CONSTRAINT pk_id ON dias_laborales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6039,7 +6611,7 @@ COMMENT ON CONSTRAINT pk_id ON general.dias_laborales IS 'Llave primaria del Ide
 
 
 --
--- TOC entry 5080 (class 2606 OID 65726)
+-- TOC entry 5087 (class 2606 OID 65726)
 -- Name: aud_mov pk_id_aud; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6048,8 +6620,8 @@ ALTER TABLE ONLY general.aud_mov
 
 
 --
--- TOC entry 5749 (class 0 OID 0)
--- Dependencies: 5080
+-- TOC entry 5760 (class 0 OID 0)
+-- Dependencies: 5087
 -- Name: CONSTRAINT pk_id_aud ON aud_mov; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6057,7 +6629,7 @@ COMMENT ON CONSTRAINT pk_id_aud ON general.aud_mov IS 'Llave primaria del id ser
 
 
 --
--- TOC entry 5074 (class 2606 OID 65707)
+-- TOC entry 5081 (class 2606 OID 65707)
 -- Name: credenciales pk_id_cre; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6066,8 +6638,8 @@ ALTER TABLE ONLY general.credenciales
 
 
 --
--- TOC entry 5750 (class 0 OID 0)
--- Dependencies: 5074
+-- TOC entry 5761 (class 0 OID 0)
+-- Dependencies: 5081
 -- Name: CONSTRAINT pk_id_cre ON credenciales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6075,7 +6647,7 @@ COMMENT ON CONSTRAINT pk_id_cre ON general.credenciales IS 'Llave primaria de lo
 
 
 --
--- TOC entry 5055 (class 2606 OID 65650)
+-- TOC entry 5062 (class 2606 OID 65650)
 -- Name: roles pk_id_rol; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6084,8 +6656,8 @@ ALTER TABLE ONLY general.roles
 
 
 --
--- TOC entry 5751 (class 0 OID 0)
--- Dependencies: 5055
+-- TOC entry 5762 (class 0 OID 0)
+-- Dependencies: 5062
 -- Name: CONSTRAINT pk_id_rol ON roles; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6093,7 +6665,7 @@ COMMENT ON CONSTRAINT pk_id_rol ON general.roles IS 'Llave primaria para el iden
 
 
 --
--- TOC entry 5068 (class 2606 OID 65696)
+-- TOC entry 5075 (class 2606 OID 65696)
 -- Name: usuarios pk_id_usu; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6102,8 +6674,8 @@ ALTER TABLE ONLY general.usuarios
 
 
 --
--- TOC entry 5752 (class 0 OID 0)
--- Dependencies: 5068
+-- TOC entry 5763 (class 0 OID 0)
+-- Dependencies: 5075
 -- Name: CONSTRAINT pk_id_usu ON usuarios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6111,7 +6683,7 @@ COMMENT ON CONSTRAINT pk_id_usu ON general.usuarios IS 'Llave primaria del ident
 
 
 --
--- TOC entry 5147 (class 2606 OID 114854)
+-- TOC entry 5154 (class 2606 OID 114854)
 -- Name: modulos pk_modulos; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6120,8 +6692,8 @@ ALTER TABLE ONLY general.modulos
 
 
 --
--- TOC entry 5753 (class 0 OID 0)
--- Dependencies: 5147
+-- TOC entry 5764 (class 0 OID 0)
+-- Dependencies: 5154
 -- Name: CONSTRAINT pk_modulos ON modulos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6129,7 +6701,7 @@ COMMENT ON CONSTRAINT pk_modulos ON general.modulos IS 'Llave primaria del catá
 
 
 --
--- TOC entry 5059 (class 2606 OID 65662)
+-- TOC entry 5066 (class 2606 OID 65662)
 -- Name: municipios pk_mun; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6138,8 +6710,8 @@ ALTER TABLE ONLY general.municipios
 
 
 --
--- TOC entry 5754 (class 0 OID 0)
--- Dependencies: 5059
+-- TOC entry 5765 (class 0 OID 0)
+-- Dependencies: 5066
 -- Name: CONSTRAINT pk_mun ON municipios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6147,7 +6719,7 @@ COMMENT ON CONSTRAINT pk_mun ON general.municipios IS 'Llave primaria del munici
 
 
 --
--- TOC entry 5151 (class 2606 OID 114868)
+-- TOC entry 5158 (class 2606 OID 114868)
 -- Name: permisos pk_permisos; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6156,8 +6728,8 @@ ALTER TABLE ONLY general.permisos
 
 
 --
--- TOC entry 5755 (class 0 OID 0)
--- Dependencies: 5151
+-- TOC entry 5766 (class 0 OID 0)
+-- Dependencies: 5158
 -- Name: CONSTRAINT pk_permisos ON permisos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6165,7 +6737,7 @@ COMMENT ON CONSTRAINT pk_permisos ON general.permisos IS 'Llave primaria del cat
 
 
 --
--- TOC entry 5158 (class 2606 OID 114887)
+-- TOC entry 5165 (class 2606 OID 114887)
 -- Name: permisos_rol pk_permisos_rol; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6174,8 +6746,8 @@ ALTER TABLE ONLY general.permisos_rol
 
 
 --
--- TOC entry 5756 (class 0 OID 0)
--- Dependencies: 5158
+-- TOC entry 5767 (class 0 OID 0)
+-- Dependencies: 5165
 -- Name: CONSTRAINT pk_permisos_rol ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6183,7 +6755,7 @@ COMMENT ON CONSTRAINT pk_permisos_rol ON general.permisos_rol IS 'Llave primaria
 
 
 --
--- TOC entry 5164 (class 2606 OID 114921)
+-- TOC entry 5171 (class 2606 OID 114921)
 -- Name: permisos_usuario pk_permisos_usuario; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6192,8 +6764,8 @@ ALTER TABLE ONLY general.permisos_usuario
 
 
 --
--- TOC entry 5757 (class 0 OID 0)
--- Dependencies: 5164
+-- TOC entry 5768 (class 0 OID 0)
+-- Dependencies: 5171
 -- Name: CONSTRAINT pk_permisos_usuario ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6201,7 +6773,7 @@ COMMENT ON CONSTRAINT pk_permisos_usuario ON general.permisos_usuario IS 'Llave 
 
 
 --
--- TOC entry 5149 (class 2606 OID 114856)
+-- TOC entry 5156 (class 2606 OID 114856)
 -- Name: modulos unq_modulos_codigo; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6210,8 +6782,8 @@ ALTER TABLE ONLY general.modulos
 
 
 --
--- TOC entry 5758 (class 0 OID 0)
--- Dependencies: 5149
+-- TOC entry 5769 (class 0 OID 0)
+-- Dependencies: 5156
 -- Name: CONSTRAINT unq_modulos_codigo ON modulos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6219,7 +6791,7 @@ COMMENT ON CONSTRAINT unq_modulos_codigo ON general.modulos IS 'Garantiza que no
 
 
 --
--- TOC entry 5153 (class 2606 OID 114870)
+-- TOC entry 5160 (class 2606 OID 114870)
 -- Name: permisos unq_permisos_codigo; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6228,8 +6800,8 @@ ALTER TABLE ONLY general.permisos
 
 
 --
--- TOC entry 5759 (class 0 OID 0)
--- Dependencies: 5153
+-- TOC entry 5770 (class 0 OID 0)
+-- Dependencies: 5160
 -- Name: CONSTRAINT unq_permisos_codigo ON permisos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6237,7 +6809,7 @@ COMMENT ON CONSTRAINT unq_permisos_codigo ON general.permisos IS 'Garantiza que 
 
 
 --
--- TOC entry 5160 (class 2606 OID 114889)
+-- TOC entry 5167 (class 2606 OID 114889)
 -- Name: permisos_rol unq_permisos_rol; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6246,8 +6818,8 @@ ALTER TABLE ONLY general.permisos_rol
 
 
 --
--- TOC entry 5760 (class 0 OID 0)
--- Dependencies: 5160
+-- TOC entry 5771 (class 0 OID 0)
+-- Dependencies: 5167
 -- Name: CONSTRAINT unq_permisos_rol ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6255,7 +6827,7 @@ COMMENT ON CONSTRAINT unq_permisos_rol ON general.permisos_rol IS 'Evita duplica
 
 
 --
--- TOC entry 5166 (class 2606 OID 114923)
+-- TOC entry 5173 (class 2606 OID 114923)
 -- Name: permisos_usuario unq_permisos_usuario; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6264,8 +6836,8 @@ ALTER TABLE ONLY general.permisos_usuario
 
 
 --
--- TOC entry 5761 (class 0 OID 0)
--- Dependencies: 5166
+-- TOC entry 5772 (class 0 OID 0)
+-- Dependencies: 5173
 -- Name: CONSTRAINT unq_permisos_usuario ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6273,7 +6845,7 @@ COMMENT ON CONSTRAINT unq_permisos_usuario ON general.permisos_usuario IS 'Evita
 
 
 --
--- TOC entry 5070 (class 2606 OID 114795)
+-- TOC entry 5077 (class 2606 OID 114795)
 -- Name: usuarios unq_usuarios_email; Type: CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -6282,8 +6854,8 @@ ALTER TABLE ONLY general.usuarios
 
 
 --
--- TOC entry 5762 (class 0 OID 0)
--- Dependencies: 5070
+-- TOC entry 5773 (class 0 OID 0)
+-- Dependencies: 5077
 -- Name: CONSTRAINT unq_usuarios_email ON usuarios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6291,7 +6863,7 @@ COMMENT ON CONSTRAINT unq_usuarios_email ON general.usuarios IS 'Garantiza que n
 
 
 --
--- TOC entry 5116 (class 2606 OID 65876)
+-- TOC entry 5123 (class 2606 OID 65876)
 -- Name: asig_carga_horarias pk_asig; Type: CONSTRAINT; Schema: horarios; Owner: postgres
 --
 
@@ -6300,8 +6872,8 @@ ALTER TABLE ONLY horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5763 (class 0 OID 0)
--- Dependencies: 5116
+-- TOC entry 5774 (class 0 OID 0)
+-- Dependencies: 5123
 -- Name: CONSTRAINT pk_asig ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -6309,7 +6881,7 @@ COMMENT ON CONSTRAINT pk_asig ON horarios.asig_carga_horarias IS 'Clave primaria
 
 
 --
--- TOC entry 5106 (class 2606 OID 65834)
+-- TOC entry 5113 (class 2606 OID 65834)
 -- Name: espacios_fis pk_espacios; Type: CONSTRAINT; Schema: infraestructura; Owner: postgres
 --
 
@@ -6318,8 +6890,8 @@ ALTER TABLE ONLY infraestructura.espacios_fis
 
 
 --
--- TOC entry 5764 (class 0 OID 0)
--- Dependencies: 5106
+-- TOC entry 5775 (class 0 OID 0)
+-- Dependencies: 5113
 -- Name: CONSTRAINT pk_espacios ON espacios_fis; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -6327,7 +6899,7 @@ COMMENT ON CONSTRAINT pk_espacios ON infraestructura.espacios_fis IS 'Llave prim
 
 
 --
--- TOC entry 5102 (class 2606 OID 65802)
+-- TOC entry 5109 (class 2606 OID 65802)
 -- Name: disponibilidad_docente pk_disponibilidad; Type: CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -6336,8 +6908,8 @@ ALTER TABLE ONLY personas.disponibilidad_docente
 
 
 --
--- TOC entry 5765 (class 0 OID 0)
--- Dependencies: 5102
+-- TOC entry 5776 (class 0 OID 0)
+-- Dependencies: 5109
 -- Name: CONSTRAINT pk_disponibilidad ON disponibilidad_docente; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6345,7 +6917,7 @@ COMMENT ON CONSTRAINT pk_disponibilidad ON personas.disponibilidad_docente IS 'L
 
 
 --
--- TOC entry 5095 (class 2606 OID 65782)
+-- TOC entry 5102 (class 2606 OID 65782)
 -- Name: estudiantes pk_estudiantes; Type: CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -6354,8 +6926,8 @@ ALTER TABLE ONLY personas.estudiantes
 
 
 --
--- TOC entry 5766 (class 0 OID 0)
--- Dependencies: 5095
+-- TOC entry 5777 (class 0 OID 0)
+-- Dependencies: 5102
 -- Name: CONSTRAINT pk_estudiantes ON estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6363,7 +6935,7 @@ COMMENT ON CONSTRAINT pk_estudiantes ON personas.estudiantes IS 'Llave primaria 
 
 
 --
--- TOC entry 5086 (class 2606 OID 65758)
+-- TOC entry 5093 (class 2606 OID 65758)
 -- Name: docentes pk_id_docentes; Type: CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -6372,8 +6944,8 @@ ALTER TABLE ONLY personas.docentes
 
 
 --
--- TOC entry 5767 (class 0 OID 0)
--- Dependencies: 5086
+-- TOC entry 5778 (class 0 OID 0)
+-- Dependencies: 5093
 -- Name: CONSTRAINT pk_id_docentes ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6381,7 +6953,7 @@ COMMENT ON CONSTRAINT pk_id_docentes ON personas.docentes IS 'Llave primaria del
 
 
 --
--- TOC entry 5088 (class 2606 OID 65760)
+-- TOC entry 5095 (class 2606 OID 65760)
 -- Name: docentes unq_docentes_cedula; Type: CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -6390,8 +6962,8 @@ ALTER TABLE ONLY personas.docentes
 
 
 --
--- TOC entry 5768 (class 0 OID 0)
--- Dependencies: 5088
+-- TOC entry 5779 (class 0 OID 0)
+-- Dependencies: 5095
 -- Name: CONSTRAINT unq_docentes_cedula ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6399,7 +6971,7 @@ COMMENT ON CONSTRAINT unq_docentes_cedula ON personas.docentes IS 'Identificar q
 
 
 --
--- TOC entry 5090 (class 2606 OID 65762)
+-- TOC entry 5097 (class 2606 OID 65762)
 -- Name: docentes unq_docentes_usuario; Type: CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -6408,8 +6980,8 @@ ALTER TABLE ONLY personas.docentes
 
 
 --
--- TOC entry 5769 (class 0 OID 0)
--- Dependencies: 5090
+-- TOC entry 5780 (class 0 OID 0)
+-- Dependencies: 5097
 -- Name: CONSTRAINT unq_docentes_usuario ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6417,7 +6989,7 @@ COMMENT ON CONSTRAINT unq_docentes_usuario ON personas.docentes IS 'Identificcar
 
 
 --
--- TOC entry 5097 (class 2606 OID 65784)
+-- TOC entry 5104 (class 2606 OID 65784)
 -- Name: estudiantes unq_estudiantes_cedula; Type: CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -6426,8 +6998,8 @@ ALTER TABLE ONLY personas.estudiantes
 
 
 --
--- TOC entry 5770 (class 0 OID 0)
--- Dependencies: 5097
+-- TOC entry 5781 (class 0 OID 0)
+-- Dependencies: 5104
 -- Name: CONSTRAINT unq_estudiantes_cedula ON estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6435,7 +7007,7 @@ COMMENT ON CONSTRAINT unq_estudiantes_cedula ON personas.estudiantes IS 'Las ced
 
 
 --
--- TOC entry 5099 (class 2606 OID 65786)
+-- TOC entry 5106 (class 2606 OID 65786)
 -- Name: estudiantes unq_estudiantes_usuario; Type: CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -6444,8 +7016,8 @@ ALTER TABLE ONLY personas.estudiantes
 
 
 --
--- TOC entry 5771 (class 0 OID 0)
--- Dependencies: 5099
+-- TOC entry 5782 (class 0 OID 0)
+-- Dependencies: 5106
 -- Name: CONSTRAINT unq_estudiantes_usuario ON estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6453,7 +7025,7 @@ COMMENT ON CONSTRAINT unq_estudiantes_usuario ON personas.estudiantes IS 'llave 
 
 
 --
--- TOC entry 5132 (class 1259 OID 66032)
+-- TOC entry 5139 (class 1259 OID 66032)
 -- Name: idx_malla_materia; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6461,7 +7033,7 @@ CREATE INDEX idx_malla_materia ON academico.malla_curricular USING btree (id_mat
 
 
 --
--- TOC entry 5133 (class 1259 OID 66031)
+-- TOC entry 5140 (class 1259 OID 66031)
 -- Name: idx_malla_programa; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6469,7 +7041,7 @@ CREATE INDEX idx_malla_programa ON academico.malla_curricular USING btree (id_pr
 
 
 --
--- TOC entry 5134 (class 1259 OID 66033)
+-- TOC entry 5141 (class 1259 OID 66033)
 -- Name: idx_malla_trayecto_periodo; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6477,7 +7049,7 @@ CREATE INDEX idx_malla_trayecto_periodo ON academico.malla_curricular USING btre
 
 
 --
--- TOC entry 5126 (class 1259 OID 66029)
+-- TOC entry 5133 (class 1259 OID 66029)
 -- Name: idx_materias_codigo; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6485,7 +7057,7 @@ CREATE INDEX idx_materias_codigo ON academico.materias USING btree (codigo);
 
 
 --
--- TOC entry 5127 (class 1259 OID 66030)
+-- TOC entry 5134 (class 1259 OID 66030)
 -- Name: idx_materias_eje; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6493,7 +7065,7 @@ CREATE INDEX idx_materias_eje ON academico.materias USING btree (id_eje);
 
 
 --
--- TOC entry 5167 (class 1259 OID 131406)
+-- TOC entry 5174 (class 1259 OID 131406)
 -- Name: idx_notas_compuesto; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6501,8 +7073,8 @@ CREATE INDEX idx_notas_compuesto ON academico.notas USING btree (id_est, id_mall
 
 
 --
--- TOC entry 5772 (class 0 OID 0)
--- Dependencies: 5167
+-- TOC entry 5783 (class 0 OID 0)
+-- Dependencies: 5174
 -- Name: INDEX idx_notas_compuesto; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -6510,7 +7082,7 @@ COMMENT ON INDEX academico.idx_notas_compuesto IS 'Índice compuesto para aceler
 
 
 --
--- TOC entry 5168 (class 1259 OID 114984)
+-- TOC entry 5175 (class 1259 OID 114984)
 -- Name: idx_notas_estudiante; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6518,8 +7090,8 @@ CREATE INDEX idx_notas_estudiante ON academico.notas USING btree (id_est);
 
 
 --
--- TOC entry 5773 (class 0 OID 0)
--- Dependencies: 5168
+-- TOC entry 5784 (class 0 OID 0)
+-- Dependencies: 5175
 -- Name: INDEX idx_notas_estudiante; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -6527,7 +7099,7 @@ COMMENT ON INDEX academico.idx_notas_estudiante IS 'Índice para buscar notas po
 
 
 --
--- TOC entry 5169 (class 1259 OID 114985)
+-- TOC entry 5176 (class 1259 OID 114985)
 -- Name: idx_notas_malla; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6535,8 +7107,8 @@ CREATE INDEX idx_notas_malla ON academico.notas USING btree (id_malla);
 
 
 --
--- TOC entry 5774 (class 0 OID 0)
--- Dependencies: 5169
+-- TOC entry 5785 (class 0 OID 0)
+-- Dependencies: 5176
 -- Name: INDEX idx_notas_malla; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -6544,7 +7116,7 @@ COMMENT ON INDEX academico.idx_notas_malla IS 'Índice para buscar notas por mat
 
 
 --
--- TOC entry 5170 (class 1259 OID 114987)
+-- TOC entry 5177 (class 1259 OID 114987)
 -- Name: idx_notas_nota; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6552,8 +7124,8 @@ CREATE INDEX idx_notas_nota ON academico.notas USING btree (nota);
 
 
 --
--- TOC entry 5775 (class 0 OID 0)
--- Dependencies: 5170
+-- TOC entry 5786 (class 0 OID 0)
+-- Dependencies: 5177
 -- Name: INDEX idx_notas_nota; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -6561,7 +7133,7 @@ COMMENT ON INDEX academico.idx_notas_nota IS 'Índice para análisis estadístic
 
 
 --
--- TOC entry 5171 (class 1259 OID 114986)
+-- TOC entry 5178 (class 1259 OID 114986)
 -- Name: idx_notas_periodo; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6569,8 +7141,8 @@ CREATE INDEX idx_notas_periodo ON academico.notas USING btree (id_per);
 
 
 --
--- TOC entry 5776 (class 0 OID 0)
--- Dependencies: 5171
+-- TOC entry 5787 (class 0 OID 0)
+-- Dependencies: 5178
 -- Name: INDEX idx_notas_periodo; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -6578,7 +7150,7 @@ COMMENT ON INDEX academico.idx_notas_periodo IS 'Índice para buscar notas por p
 
 
 --
--- TOC entry 5137 (class 1259 OID 66034)
+-- TOC entry 5144 (class 1259 OID 66034)
 -- Name: idx_periodos_activo; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6586,7 +7158,7 @@ CREATE INDEX idx_periodos_activo ON academico.periodos_academicos USING btree (a
 
 
 --
--- TOC entry 5117 (class 1259 OID 66028)
+-- TOC entry 5124 (class 1259 OID 66028)
 -- Name: idx_programas_codigo; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6594,7 +7166,7 @@ CREATE INDEX idx_programas_codigo ON academico.programas USING btree (codigo);
 
 
 --
--- TOC entry 5141 (class 1259 OID 66035)
+-- TOC entry 5148 (class 1259 OID 66035)
 -- Name: idx_secciones_programa; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6602,7 +7174,7 @@ CREATE INDEX idx_secciones_programa ON academico.secciones USING btree (id_pro);
 
 
 --
--- TOC entry 5138 (class 1259 OID 180561)
+-- TOC entry 5145 (class 1259 OID 180561)
 -- Name: idx_unq_periodo_vigente_por_tipo; Type: INDEX; Schema: academico; Owner: postgres
 --
 
@@ -6610,7 +7182,15 @@ CREATE UNIQUE INDEX idx_unq_periodo_vigente_por_tipo ON academico.periodos_acade
 
 
 --
--- TOC entry 5075 (class 1259 OID 65884)
+-- TOC entry 5179 (class 1259 OID 237903)
+-- Name: ix_notas_revision_pendiente; Type: INDEX; Schema: academico; Owner: postgres
+--
+
+CREATE INDEX ix_notas_revision_pendiente ON academico.notas USING btree (estado_revision, estatus);
+
+
+--
+-- TOC entry 5082 (class 1259 OID 65884)
 -- Name: idx_aud_mov_fecha; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6618,8 +7198,8 @@ CREATE INDEX idx_aud_mov_fecha ON general.aud_mov USING btree (fec_hor);
 
 
 --
--- TOC entry 5777 (class 0 OID 0)
--- Dependencies: 5075
+-- TOC entry 5788 (class 0 OID 0)
+-- Dependencies: 5082
 -- Name: INDEX idx_aud_mov_fecha; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6627,7 +7207,7 @@ COMMENT ON INDEX general.idx_aud_mov_fecha IS 'Índice para consultar por rango 
 
 
 --
--- TOC entry 5076 (class 1259 OID 65883)
+-- TOC entry 5083 (class 1259 OID 65883)
 -- Name: idx_aud_mov_tabla; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6635,8 +7215,8 @@ CREATE INDEX idx_aud_mov_tabla ON general.aud_mov USING btree (tabla_mod);
 
 
 --
--- TOC entry 5778 (class 0 OID 0)
--- Dependencies: 5076
+-- TOC entry 5789 (class 0 OID 0)
+-- Dependencies: 5083
 -- Name: INDEX idx_aud_mov_tabla; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6644,7 +7224,7 @@ COMMENT ON INDEX general.idx_aud_mov_tabla IS 'Índice para filtrar por tabla mo
 
 
 --
--- TOC entry 5077 (class 1259 OID 65882)
+-- TOC entry 5084 (class 1259 OID 65882)
 -- Name: idx_aud_mov_usu; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6652,8 +7232,8 @@ CREATE INDEX idx_aud_mov_usu ON general.aud_mov USING btree (id_usu);
 
 
 --
--- TOC entry 5779 (class 0 OID 0)
--- Dependencies: 5077
+-- TOC entry 5790 (class 0 OID 0)
+-- Dependencies: 5084
 -- Name: INDEX idx_aud_mov_usu; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6661,7 +7241,7 @@ COMMENT ON INDEX general.idx_aud_mov_usu IS 'Índice para buscar auditoría por 
 
 
 --
--- TOC entry 5078 (class 1259 OID 131414)
+-- TOC entry 5085 (class 1259 OID 131414)
 -- Name: idx_auditoria_compuesto; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6669,8 +7249,8 @@ CREATE INDEX idx_auditoria_compuesto ON general.aud_mov USING btree (tabla_mod, 
 
 
 --
--- TOC entry 5780 (class 0 OID 0)
--- Dependencies: 5078
+-- TOC entry 5791 (class 0 OID 0)
+-- Dependencies: 5085
 -- Name: INDEX idx_auditoria_compuesto; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6678,7 +7258,7 @@ COMMENT ON INDEX general.idx_auditoria_compuesto IS 'Índice compuesto para acel
 
 
 --
--- TOC entry 5154 (class 1259 OID 131404)
+-- TOC entry 5161 (class 1259 OID 131404)
 -- Name: idx_permisos_rol_compuesto; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6686,8 +7266,8 @@ CREATE INDEX idx_permisos_rol_compuesto ON general.permisos_rol USING btree (id_
 
 
 --
--- TOC entry 5781 (class 0 OID 0)
--- Dependencies: 5154
+-- TOC entry 5792 (class 0 OID 0)
+-- Dependencies: 5161
 -- Name: INDEX idx_permisos_rol_compuesto; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6695,7 +7275,7 @@ COMMENT ON INDEX general.idx_permisos_rol_compuesto IS 'Índice compuesto para a
 
 
 --
--- TOC entry 5155 (class 1259 OID 114906)
+-- TOC entry 5162 (class 1259 OID 114906)
 -- Name: idx_permisos_rol_mod; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6703,8 +7283,8 @@ CREATE INDEX idx_permisos_rol_mod ON general.permisos_rol USING btree (id_mod);
 
 
 --
--- TOC entry 5782 (class 0 OID 0)
--- Dependencies: 5155
+-- TOC entry 5793 (class 0 OID 0)
+-- Dependencies: 5162
 -- Name: INDEX idx_permisos_rol_mod; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6712,7 +7292,7 @@ COMMENT ON INDEX general.idx_permisos_rol_mod IS 'Índice para buscar permisos p
 
 
 --
--- TOC entry 5156 (class 1259 OID 114905)
+-- TOC entry 5163 (class 1259 OID 114905)
 -- Name: idx_permisos_rol_rol; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6720,8 +7300,8 @@ CREATE INDEX idx_permisos_rol_rol ON general.permisos_rol USING btree (id_rol);
 
 
 --
--- TOC entry 5783 (class 0 OID 0)
--- Dependencies: 5156
+-- TOC entry 5794 (class 0 OID 0)
+-- Dependencies: 5163
 -- Name: INDEX idx_permisos_rol_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6729,7 +7309,7 @@ COMMENT ON INDEX general.idx_permisos_rol_rol IS 'Índice para buscar permisos p
 
 
 --
--- TOC entry 5161 (class 1259 OID 131405)
+-- TOC entry 5168 (class 1259 OID 131405)
 -- Name: idx_permisos_usuario_compuesto; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6737,8 +7317,8 @@ CREATE INDEX idx_permisos_usuario_compuesto ON general.permisos_usuario USING bt
 
 
 --
--- TOC entry 5784 (class 0 OID 0)
--- Dependencies: 5161
+-- TOC entry 5795 (class 0 OID 0)
+-- Dependencies: 5168
 -- Name: INDEX idx_permisos_usuario_compuesto; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6746,7 +7326,7 @@ COMMENT ON INDEX general.idx_permisos_usuario_compuesto IS 'Índice compuesto pa
 
 
 --
--- TOC entry 5162 (class 1259 OID 114939)
+-- TOC entry 5169 (class 1259 OID 114939)
 -- Name: idx_permisos_usuario_usu; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6754,8 +7334,8 @@ CREATE INDEX idx_permisos_usuario_usu ON general.permisos_usuario USING btree (i
 
 
 --
--- TOC entry 5785 (class 0 OID 0)
--- Dependencies: 5162
+-- TOC entry 5796 (class 0 OID 0)
+-- Dependencies: 5169
 -- Name: INDEX idx_permisos_usuario_usu; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6763,7 +7343,7 @@ COMMENT ON INDEX general.idx_permisos_usuario_usu IS 'Índice para buscar permis
 
 
 --
--- TOC entry 5064 (class 1259 OID 114797)
+-- TOC entry 5071 (class 1259 OID 114797)
 -- Name: idx_usuarios_email; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6771,8 +7351,8 @@ CREATE INDEX idx_usuarios_email ON general.usuarios USING btree (email);
 
 
 --
--- TOC entry 5786 (class 0 OID 0)
--- Dependencies: 5064
+-- TOC entry 5797 (class 0 OID 0)
+-- Dependencies: 5071
 -- Name: INDEX idx_usuarios_email; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6780,7 +7360,7 @@ COMMENT ON INDEX general.idx_usuarios_email IS 'Índice para acelerar búsquedas
 
 
 --
--- TOC entry 5065 (class 1259 OID 131413)
+-- TOC entry 5072 (class 1259 OID 131413)
 -- Name: idx_usuarios_rol; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6788,8 +7368,8 @@ CREATE INDEX idx_usuarios_rol ON general.usuarios USING btree (id_rol);
 
 
 --
--- TOC entry 5787 (class 0 OID 0)
--- Dependencies: 5065
+-- TOC entry 5798 (class 0 OID 0)
+-- Dependencies: 5072
 -- Name: INDEX idx_usuarios_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6797,7 +7377,7 @@ COMMENT ON INDEX general.idx_usuarios_rol IS 'Índice para acelerar consultas de
 
 
 --
--- TOC entry 5066 (class 1259 OID 131412)
+-- TOC entry 5073 (class 1259 OID 131412)
 -- Name: idx_usuarios_username; Type: INDEX; Schema: general; Owner: postgres
 --
 
@@ -6805,8 +7385,8 @@ CREATE INDEX idx_usuarios_username ON general.usuarios USING btree (username);
 
 
 --
--- TOC entry 5788 (class 0 OID 0)
--- Dependencies: 5066
+-- TOC entry 5799 (class 0 OID 0)
+-- Dependencies: 5073
 -- Name: INDEX idx_usuarios_username; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -6814,7 +7394,7 @@ COMMENT ON INDEX general.idx_usuarios_username IS 'Índice para acelerar búsque
 
 
 --
--- TOC entry 5107 (class 1259 OID 65879)
+-- TOC entry 5114 (class 1259 OID 65879)
 -- Name: idx_asig_dia; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6822,7 +7402,7 @@ CREATE INDEX idx_asig_dia ON horarios.asig_carga_horarias USING btree (id_dia);
 
 
 --
--- TOC entry 5108 (class 1259 OID 65877)
+-- TOC entry 5115 (class 1259 OID 65877)
 -- Name: idx_asig_docente; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6830,7 +7410,7 @@ CREATE INDEX idx_asig_docente ON horarios.asig_carga_horarias USING btree (id_do
 
 
 --
--- TOC entry 5109 (class 1259 OID 65878)
+-- TOC entry 5116 (class 1259 OID 65878)
 -- Name: idx_asig_espacio; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6838,7 +7418,7 @@ CREATE INDEX idx_asig_espacio ON horarios.asig_carga_horarias USING btree (id_es
 
 
 --
--- TOC entry 5110 (class 1259 OID 131407)
+-- TOC entry 5117 (class 1259 OID 131407)
 -- Name: idx_asig_malla; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6846,8 +7426,8 @@ CREATE INDEX idx_asig_malla ON horarios.asig_carga_horarias USING btree (id_mall
 
 
 --
--- TOC entry 5789 (class 0 OID 0)
--- Dependencies: 5110
+-- TOC entry 5800 (class 0 OID 0)
+-- Dependencies: 5117
 -- Name: INDEX idx_asig_malla; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -6855,7 +7435,7 @@ COMMENT ON INDEX horarios.idx_asig_malla IS 'Índice para acelerar JOINs entre a
 
 
 --
--- TOC entry 5111 (class 1259 OID 131408)
+-- TOC entry 5118 (class 1259 OID 131408)
 -- Name: idx_asig_periodo; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6863,8 +7443,8 @@ CREATE INDEX idx_asig_periodo ON horarios.asig_carga_horarias USING btree (id_pe
 
 
 --
--- TOC entry 5790 (class 0 OID 0)
--- Dependencies: 5111
+-- TOC entry 5801 (class 0 OID 0)
+-- Dependencies: 5118
 -- Name: INDEX idx_asig_periodo; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -6872,7 +7452,7 @@ COMMENT ON INDEX horarios.idx_asig_periodo IS 'Índice para acelerar JOINs entre
 
 
 --
--- TOC entry 5112 (class 1259 OID 139598)
+-- TOC entry 5119 (class 1259 OID 139598)
 -- Name: idx_asig_seccion; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6880,7 +7460,7 @@ CREATE INDEX idx_asig_seccion ON horarios.asig_carga_horarias USING btree (id_se
 
 
 --
--- TOC entry 5113 (class 1259 OID 65880)
+-- TOC entry 5120 (class 1259 OID 65880)
 -- Name: idx_unq_doc_dia_hora; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6888,7 +7468,7 @@ CREATE UNIQUE INDEX idx_unq_doc_dia_hora ON horarios.asig_carga_horarias USING b
 
 
 --
--- TOC entry 5114 (class 1259 OID 65881)
+-- TOC entry 5121 (class 1259 OID 65881)
 -- Name: idx_unq_esp_dia_hora; Type: INDEX; Schema: horarios; Owner: postgres
 --
 
@@ -6896,7 +7476,7 @@ CREATE UNIQUE INDEX idx_unq_esp_dia_hora ON horarios.asig_carga_horarias USING b
 
 
 --
--- TOC entry 5103 (class 1259 OID 65836)
+-- TOC entry 5110 (class 1259 OID 65836)
 -- Name: idx_espacios_centro; Type: INDEX; Schema: infraestructura; Owner: postgres
 --
 
@@ -6904,7 +7484,7 @@ CREATE INDEX idx_espacios_centro ON infraestructura.espacios_fis USING btree (no
 
 
 --
--- TOC entry 5104 (class 1259 OID 65835)
+-- TOC entry 5111 (class 1259 OID 65835)
 -- Name: idx_espacios_municipio; Type: INDEX; Schema: infraestructura; Owner: postgres
 --
 
@@ -6912,7 +7492,7 @@ CREATE INDEX idx_espacios_municipio ON infraestructura.espacios_fis USING btree 
 
 
 --
--- TOC entry 5100 (class 1259 OID 65807)
+-- TOC entry 5107 (class 1259 OID 65807)
 -- Name: idx_disp_docente_dia; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6920,7 +7500,7 @@ CREATE INDEX idx_disp_docente_dia ON personas.disponibilidad_docente USING btree
 
 
 --
--- TOC entry 5081 (class 1259 OID 65803)
+-- TOC entry 5088 (class 1259 OID 65803)
 -- Name: idx_docentes_cedulas; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6928,7 +7508,7 @@ CREATE INDEX idx_docentes_cedulas ON personas.docentes USING btree (cedula);
 
 
 --
--- TOC entry 5082 (class 1259 OID 65805)
+-- TOC entry 5089 (class 1259 OID 65805)
 -- Name: idx_docentes_contrato; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6936,7 +7516,7 @@ CREATE INDEX idx_docentes_contrato ON personas.docentes USING btree (tipo_contra
 
 
 --
--- TOC entry 5083 (class 1259 OID 65804)
+-- TOC entry 5090 (class 1259 OID 65804)
 -- Name: idx_docentes_municipio; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6944,7 +7524,7 @@ CREATE INDEX idx_docentes_municipio ON personas.docentes USING btree (id_mun);
 
 
 --
--- TOC entry 5084 (class 1259 OID 131411)
+-- TOC entry 5091 (class 1259 OID 131411)
 -- Name: idx_docentes_usuario; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6952,8 +7532,8 @@ CREATE INDEX idx_docentes_usuario ON personas.docentes USING btree (id_usu);
 
 
 --
--- TOC entry 5791 (class 0 OID 0)
--- Dependencies: 5084
+-- TOC entry 5802 (class 0 OID 0)
+-- Dependencies: 5091
 -- Name: INDEX idx_docentes_usuario; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6961,7 +7541,7 @@ COMMENT ON INDEX personas.idx_docentes_usuario IS 'Índice para acelerar JOINs e
 
 
 --
--- TOC entry 5091 (class 1259 OID 65806)
+-- TOC entry 5098 (class 1259 OID 65806)
 -- Name: idx_estudiantes_cedula; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6969,7 +7549,7 @@ CREATE INDEX idx_estudiantes_cedula ON personas.estudiantes USING btree (cedula)
 
 
 --
--- TOC entry 5092 (class 1259 OID 131409)
+-- TOC entry 5099 (class 1259 OID 131409)
 -- Name: idx_estudiantes_programa; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6977,8 +7557,8 @@ CREATE INDEX idx_estudiantes_programa ON personas.estudiantes USING btree (id_pr
 
 
 --
--- TOC entry 5792 (class 0 OID 0)
--- Dependencies: 5092
+-- TOC entry 5803 (class 0 OID 0)
+-- Dependencies: 5099
 -- Name: INDEX idx_estudiantes_programa; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -6986,7 +7566,7 @@ COMMENT ON INDEX personas.idx_estudiantes_programa IS 'Índice para acelerar con
 
 
 --
--- TOC entry 5093 (class 1259 OID 131410)
+-- TOC entry 5100 (class 1259 OID 131410)
 -- Name: idx_estudiantes_seccion; Type: INDEX; Schema: personas; Owner: postgres
 --
 
@@ -6994,8 +7574,8 @@ CREATE INDEX idx_estudiantes_seccion ON personas.estudiantes USING btree (id_sec
 
 
 --
--- TOC entry 5793 (class 0 OID 0)
--- Dependencies: 5093
+-- TOC entry 5804 (class 0 OID 0)
+-- Dependencies: 5100
 -- Name: INDEX idx_estudiantes_seccion; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -7003,7 +7583,7 @@ COMMENT ON INDEX personas.idx_estudiantes_seccion IS 'Índice para acelerar cons
 
 
 --
--- TOC entry 5225 (class 2620 OID 131401)
+-- TOC entry 5235 (class 2620 OID 131401)
 -- Name: ejes_formativos trg_aud_ejes_formativos; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7011,8 +7591,8 @@ CREATE TRIGGER trg_aud_ejes_formativos AFTER INSERT OR DELETE OR UPDATE ON acade
 
 
 --
--- TOC entry 5794 (class 0 OID 0)
--- Dependencies: 5225
+-- TOC entry 5805 (class 0 OID 0)
+-- Dependencies: 5235
 -- Name: TRIGGER trg_aud_ejes_formativos ON ejes_formativos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7020,7 +7600,7 @@ COMMENT ON TRIGGER trg_aud_ejes_formativos ON academico.ejes_formativos IS 'Trig
 
 
 --
--- TOC entry 5228 (class 2620 OID 131396)
+-- TOC entry 5238 (class 2620 OID 131396)
 -- Name: malla_curricular trg_aud_malla_curricular; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7028,8 +7608,8 @@ CREATE TRIGGER trg_aud_malla_curricular AFTER INSERT OR DELETE OR UPDATE ON acad
 
 
 --
--- TOC entry 5795 (class 0 OID 0)
--- Dependencies: 5228
+-- TOC entry 5806 (class 0 OID 0)
+-- Dependencies: 5238
 -- Name: TRIGGER trg_aud_malla_curricular ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7037,7 +7617,7 @@ COMMENT ON TRIGGER trg_aud_malla_curricular ON academico.malla_curricular IS 'Tr
 
 
 --
--- TOC entry 5226 (class 2620 OID 131397)
+-- TOC entry 5236 (class 2620 OID 131397)
 -- Name: materias trg_aud_materias; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7045,8 +7625,8 @@ CREATE TRIGGER trg_aud_materias AFTER INSERT OR DELETE OR UPDATE ON academico.ma
 
 
 --
--- TOC entry 5796 (class 0 OID 0)
--- Dependencies: 5226
+-- TOC entry 5807 (class 0 OID 0)
+-- Dependencies: 5236
 -- Name: TRIGGER trg_aud_materias ON materias; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7054,7 +7634,7 @@ COMMENT ON TRIGGER trg_aud_materias ON academico.materias IS 'Trigger de auditor
 
 
 --
--- TOC entry 5238 (class 2620 OID 114989)
+-- TOC entry 5249 (class 2620 OID 114989)
 -- Name: notas trg_aud_notas; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7062,8 +7642,8 @@ CREATE TRIGGER trg_aud_notas AFTER INSERT OR DELETE OR UPDATE ON academico.notas
 
 
 --
--- TOC entry 5797 (class 0 OID 0)
--- Dependencies: 5238
+-- TOC entry 5808 (class 0 OID 0)
+-- Dependencies: 5249
 -- Name: TRIGGER trg_aud_notas ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7071,7 +7651,7 @@ COMMENT ON TRIGGER trg_aud_notas ON academico.notas IS 'Trigger de auditoría pa
 
 
 --
--- TOC entry 5230 (class 2620 OID 131399)
+-- TOC entry 5240 (class 2620 OID 131399)
 -- Name: periodos_academicos trg_aud_periodos_academicos; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7079,8 +7659,8 @@ CREATE TRIGGER trg_aud_periodos_academicos AFTER INSERT OR DELETE OR UPDATE ON a
 
 
 --
--- TOC entry 5798 (class 0 OID 0)
--- Dependencies: 5230
+-- TOC entry 5809 (class 0 OID 0)
+-- Dependencies: 5240
 -- Name: TRIGGER trg_aud_periodos_academicos ON periodos_academicos; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7088,7 +7668,7 @@ COMMENT ON TRIGGER trg_aud_periodos_academicos ON academico.periodos_academicos 
 
 
 --
--- TOC entry 5223 (class 2620 OID 131398)
+-- TOC entry 5233 (class 2620 OID 131398)
 -- Name: programas trg_aud_programas; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7096,8 +7676,8 @@ CREATE TRIGGER trg_aud_programas AFTER INSERT OR DELETE OR UPDATE ON academico.p
 
 
 --
--- TOC entry 5799 (class 0 OID 0)
--- Dependencies: 5223
+-- TOC entry 5810 (class 0 OID 0)
+-- Dependencies: 5233
 -- Name: TRIGGER trg_aud_programas ON programas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7105,7 +7685,7 @@ COMMENT ON TRIGGER trg_aud_programas ON academico.programas IS 'Trigger de audit
 
 
 --
--- TOC entry 5232 (class 2620 OID 131400)
+-- TOC entry 5242 (class 2620 OID 131400)
 -- Name: secciones trg_aud_secciones; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7113,8 +7693,8 @@ CREATE TRIGGER trg_aud_secciones AFTER INSERT OR DELETE OR UPDATE ON academico.s
 
 
 --
--- TOC entry 5800 (class 0 OID 0)
--- Dependencies: 5232
+-- TOC entry 5811 (class 0 OID 0)
+-- Dependencies: 5242
 -- Name: TRIGGER trg_aud_secciones ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7122,7 +7702,7 @@ COMMENT ON TRIGGER trg_aud_secciones ON academico.secciones IS 'Trigger de audit
 
 
 --
--- TOC entry 5229 (class 2620 OID 66046)
+-- TOC entry 5239 (class 2620 OID 66046)
 -- Name: malla_curricular trg_malla_curricular; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7130,7 +7710,7 @@ CREATE TRIGGER trg_malla_curricular BEFORE UPDATE ON academico.malla_curricular 
 
 
 --
--- TOC entry 5227 (class 2620 OID 66045)
+-- TOC entry 5237 (class 2620 OID 66045)
 -- Name: materias trg_materias_actualizar; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7138,7 +7718,7 @@ CREATE TRIGGER trg_materias_actualizar BEFORE UPDATE ON academico.materias FOR E
 
 
 --
--- TOC entry 5239 (class 2620 OID 114988)
+-- TOC entry 5250 (class 2620 OID 114988)
 -- Name: notas trg_notas_actualizar; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7146,8 +7726,8 @@ CREATE TRIGGER trg_notas_actualizar BEFORE UPDATE ON academico.notas FOR EACH RO
 
 
 --
--- TOC entry 5801 (class 0 OID 0)
--- Dependencies: 5239
+-- TOC entry 5812 (class 0 OID 0)
+-- Dependencies: 5250
 -- Name: TRIGGER trg_notas_actualizar ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7155,7 +7735,7 @@ COMMENT ON TRIGGER trg_notas_actualizar ON academico.notas IS 'Trigger para actu
 
 
 --
--- TOC entry 5231 (class 2620 OID 66047)
+-- TOC entry 5241 (class 2620 OID 66047)
 -- Name: periodos_academicos trg_periodos_actualizar; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7163,7 +7743,7 @@ CREATE TRIGGER trg_periodos_actualizar BEFORE UPDATE ON academico.periodos_acade
 
 
 --
--- TOC entry 5224 (class 2620 OID 66044)
+-- TOC entry 5234 (class 2620 OID 66044)
 -- Name: programas trg_programas_actualizar; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7171,7 +7751,7 @@ CREATE TRIGGER trg_programas_actualizar BEFORE UPDATE ON academico.programas FOR
 
 
 --
--- TOC entry 5233 (class 2620 OID 66048)
+-- TOC entry 5243 (class 2620 OID 66048)
 -- Name: secciones trg_secciones_actualizar; Type: TRIGGER; Schema: academico; Owner: postgres
 --
 
@@ -7179,7 +7759,7 @@ CREATE TRIGGER trg_secciones_actualizar BEFORE UPDATE ON academico.secciones FOR
 
 
 --
--- TOC entry 5212 (class 2620 OID 115002)
+-- TOC entry 5222 (class 2620 OID 115002)
 -- Name: credenciales trg_aud_credenciales; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7187,8 +7767,8 @@ CREATE TRIGGER trg_aud_credenciales AFTER INSERT OR DELETE OR UPDATE ON general.
 
 
 --
--- TOC entry 5802 (class 0 OID 0)
--- Dependencies: 5212
+-- TOC entry 5813 (class 0 OID 0)
+-- Dependencies: 5222
 -- Name: TRIGGER trg_aud_credenciales ON credenciales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7196,7 +7776,7 @@ COMMENT ON TRIGGER trg_aud_credenciales ON general.credenciales IS 'Trigger de a
 
 
 --
--- TOC entry 5210 (class 2620 OID 131402)
+-- TOC entry 5220 (class 2620 OID 131402)
 -- Name: dias_laborales trg_aud_dias_laborales; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7204,8 +7784,8 @@ CREATE TRIGGER trg_aud_dias_laborales AFTER INSERT OR DELETE OR UPDATE ON genera
 
 
 --
--- TOC entry 5803 (class 0 OID 0)
--- Dependencies: 5210
+-- TOC entry 5814 (class 0 OID 0)
+-- Dependencies: 5220
 -- Name: TRIGGER trg_aud_dias_laborales ON dias_laborales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7213,7 +7793,7 @@ COMMENT ON TRIGGER trg_aud_dias_laborales ON general.dias_laborales IS 'Trigger 
 
 
 --
--- TOC entry 5234 (class 2620 OID 115006)
+-- TOC entry 5244 (class 2620 OID 115006)
 -- Name: modulos trg_aud_modulos; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7221,8 +7801,8 @@ CREATE TRIGGER trg_aud_modulos AFTER INSERT OR DELETE OR UPDATE ON general.modul
 
 
 --
--- TOC entry 5804 (class 0 OID 0)
--- Dependencies: 5234
+-- TOC entry 5815 (class 0 OID 0)
+-- Dependencies: 5244
 -- Name: TRIGGER trg_aud_modulos ON modulos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7230,7 +7810,7 @@ COMMENT ON TRIGGER trg_aud_modulos ON general.modulos IS 'Trigger de auditoría 
 
 
 --
--- TOC entry 5209 (class 2620 OID 131403)
+-- TOC entry 5219 (class 2620 OID 131403)
 -- Name: municipios trg_aud_municipios; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7238,8 +7818,8 @@ CREATE TRIGGER trg_aud_municipios AFTER INSERT OR DELETE OR UPDATE ON general.mu
 
 
 --
--- TOC entry 5805 (class 0 OID 0)
--- Dependencies: 5209
+-- TOC entry 5816 (class 0 OID 0)
+-- Dependencies: 5219
 -- Name: TRIGGER trg_aud_municipios ON municipios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7247,7 +7827,7 @@ COMMENT ON TRIGGER trg_aud_municipios ON general.municipios IS 'Trigger de audit
 
 
 --
--- TOC entry 5235 (class 2620 OID 115007)
+-- TOC entry 5245 (class 2620 OID 115007)
 -- Name: permisos trg_aud_permisos; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7255,8 +7835,8 @@ CREATE TRIGGER trg_aud_permisos AFTER INSERT OR DELETE OR UPDATE ON general.perm
 
 
 --
--- TOC entry 5806 (class 0 OID 0)
--- Dependencies: 5235
+-- TOC entry 5817 (class 0 OID 0)
+-- Dependencies: 5245
 -- Name: TRIGGER trg_aud_permisos ON permisos; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7264,7 +7844,7 @@ COMMENT ON TRIGGER trg_aud_permisos ON general.permisos IS 'Trigger de auditorí
 
 
 --
--- TOC entry 5236 (class 2620 OID 115004)
+-- TOC entry 5246 (class 2620 OID 115004)
 -- Name: permisos_rol trg_aud_permisos_rol; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7272,8 +7852,8 @@ CREATE TRIGGER trg_aud_permisos_rol AFTER INSERT OR DELETE OR UPDATE ON general.
 
 
 --
--- TOC entry 5807 (class 0 OID 0)
--- Dependencies: 5236
+-- TOC entry 5818 (class 0 OID 0)
+-- Dependencies: 5246
 -- Name: TRIGGER trg_aud_permisos_rol ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7281,7 +7861,7 @@ COMMENT ON TRIGGER trg_aud_permisos_rol ON general.permisos_rol IS 'Trigger de a
 
 
 --
--- TOC entry 5237 (class 2620 OID 115005)
+-- TOC entry 5247 (class 2620 OID 115005)
 -- Name: permisos_usuario trg_aud_permisos_usuario; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7289,8 +7869,8 @@ CREATE TRIGGER trg_aud_permisos_usuario AFTER INSERT OR DELETE OR UPDATE ON gene
 
 
 --
--- TOC entry 5808 (class 0 OID 0)
--- Dependencies: 5237
+-- TOC entry 5819 (class 0 OID 0)
+-- Dependencies: 5247
 -- Name: TRIGGER trg_aud_permisos_usuario ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7298,7 +7878,7 @@ COMMENT ON TRIGGER trg_aud_permisos_usuario ON general.permisos_usuario IS 'Trig
 
 
 --
--- TOC entry 5208 (class 2620 OID 115003)
+-- TOC entry 5218 (class 2620 OID 115003)
 -- Name: roles trg_aud_roles; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7306,8 +7886,8 @@ CREATE TRIGGER trg_aud_roles AFTER INSERT OR DELETE OR UPDATE ON general.roles F
 
 
 --
--- TOC entry 5809 (class 0 OID 0)
--- Dependencies: 5208
+-- TOC entry 5820 (class 0 OID 0)
+-- Dependencies: 5218
 -- Name: TRIGGER trg_aud_roles ON roles; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7315,7 +7895,7 @@ COMMENT ON TRIGGER trg_aud_roles ON general.roles IS 'Trigger de auditoría para
 
 
 --
--- TOC entry 5211 (class 2620 OID 115001)
+-- TOC entry 5221 (class 2620 OID 115001)
 -- Name: usuarios trg_aud_usuarios; Type: TRIGGER; Schema: general; Owner: postgres
 --
 
@@ -7323,8 +7903,8 @@ CREATE TRIGGER trg_aud_usuarios AFTER INSERT OR DELETE OR UPDATE ON general.usua
 
 
 --
--- TOC entry 5810 (class 0 OID 0)
--- Dependencies: 5211
+-- TOC entry 5821 (class 0 OID 0)
+-- Dependencies: 5221
 -- Name: TRIGGER trg_aud_usuarios ON usuarios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7332,7 +7912,15 @@ COMMENT ON TRIGGER trg_aud_usuarios ON general.usuarios IS 'Trigger de auditorí
 
 
 --
--- TOC entry 5220 (class 2620 OID 66041)
+-- TOC entry 5248 (class 2620 OID 246088)
+-- Name: permisos_usuario trg_maximo_permiso_usuario; Type: TRIGGER; Schema: general; Owner: postgres
+--
+
+CREATE TRIGGER trg_maximo_permiso_usuario BEFORE INSERT OR UPDATE OF id_usu, id_mod, id_perm, alcance, estatus ON general.permisos_usuario FOR EACH ROW EXECUTE FUNCTION general.validar_maximo_permiso_usuario();
+
+
+--
+-- TOC entry 5230 (class 2620 OID 66041)
 -- Name: asig_carga_horarias trg_asig_actualizar; Type: TRIGGER; Schema: horarios; Owner: postgres
 --
 
@@ -7340,7 +7928,7 @@ CREATE TRIGGER trg_asig_actualizar BEFORE UPDATE ON horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5221 (class 2620 OID 66037)
+-- TOC entry 5231 (class 2620 OID 66037)
 -- Name: asig_carga_horarias trg_aud_asig; Type: TRIGGER; Schema: horarios; Owner: postgres
 --
 
@@ -7348,7 +7936,7 @@ CREATE TRIGGER trg_aud_asig AFTER INSERT OR DELETE OR UPDATE ON horarios.asig_ca
 
 
 --
--- TOC entry 5222 (class 2620 OID 66157)
+-- TOC entry 5232 (class 2620 OID 66157)
 -- Name: asig_carga_horarias trg_calcular_horas_docente; Type: TRIGGER; Schema: horarios; Owner: postgres
 --
 
@@ -7356,7 +7944,7 @@ CREATE TRIGGER trg_calcular_horas_docente AFTER INSERT OR DELETE OR UPDATE OF id
 
 
 --
--- TOC entry 5218 (class 2620 OID 66038)
+-- TOC entry 5228 (class 2620 OID 66038)
 -- Name: espacios_fis trg_aud_espacios; Type: TRIGGER; Schema: infraestructura; Owner: postgres
 --
 
@@ -7364,7 +7952,7 @@ CREATE TRIGGER trg_aud_espacios AFTER INSERT OR DELETE OR UPDATE ON infraestruct
 
 
 --
--- TOC entry 5219 (class 2620 OID 66042)
+-- TOC entry 5229 (class 2620 OID 66042)
 -- Name: espacios_fis trg_espacios_actualizar; Type: TRIGGER; Schema: infraestructura; Owner: postgres
 --
 
@@ -7372,7 +7960,7 @@ CREATE TRIGGER trg_espacios_actualizar BEFORE UPDATE ON infraestructura.espacios
 
 
 --
--- TOC entry 5217 (class 2620 OID 66039)
+-- TOC entry 5227 (class 2620 OID 66039)
 -- Name: disponibilidad_docente trg_aud_disponibilidad; Type: TRIGGER; Schema: personas; Owner: postgres
 --
 
@@ -7380,7 +7968,7 @@ CREATE TRIGGER trg_aud_disponibilidad AFTER INSERT OR DELETE OR UPDATE ON person
 
 
 --
--- TOC entry 5213 (class 2620 OID 65887)
+-- TOC entry 5223 (class 2620 OID 65887)
 -- Name: docentes trg_aud_docentes; Type: TRIGGER; Schema: personas; Owner: postgres
 --
 
@@ -7388,8 +7976,8 @@ CREATE TRIGGER trg_aud_docentes AFTER INSERT OR DELETE OR UPDATE ON personas.doc
 
 
 --
--- TOC entry 5811 (class 0 OID 0)
--- Dependencies: 5213
+-- TOC entry 5822 (class 0 OID 0)
+-- Dependencies: 5223
 -- Name: TRIGGER trg_aud_docentes ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -7397,7 +7985,7 @@ COMMENT ON TRIGGER trg_aud_docentes ON personas.docentes IS 'Trigger de auditor�
 
 
 --
--- TOC entry 5215 (class 2620 OID 66036)
+-- TOC entry 5225 (class 2620 OID 66036)
 -- Name: estudiantes trg_aud_estudiantes; Type: TRIGGER; Schema: personas; Owner: postgres
 --
 
@@ -7405,7 +7993,7 @@ CREATE TRIGGER trg_aud_estudiantes AFTER INSERT OR DELETE OR UPDATE ON personas.
 
 
 --
--- TOC entry 5214 (class 2620 OID 65888)
+-- TOC entry 5224 (class 2620 OID 65888)
 -- Name: docentes trg_docentes_actualizar; Type: TRIGGER; Schema: personas; Owner: postgres
 --
 
@@ -7413,7 +8001,7 @@ CREATE TRIGGER trg_docentes_actualizar BEFORE UPDATE ON personas.docentes FOR EA
 
 
 --
--- TOC entry 5216 (class 2620 OID 66040)
+-- TOC entry 5226 (class 2620 OID 66040)
 -- Name: estudiantes trg_estudiantes_actualizar; Type: TRIGGER; Schema: personas; Owner: postgres
 --
 
@@ -7421,7 +8009,7 @@ CREATE TRIGGER trg_estudiantes_actualizar BEFORE UPDATE ON personas.estudiantes 
 
 
 --
--- TOC entry 5195 (class 2606 OID 66139)
+-- TOC entry 5203 (class 2606 OID 66139)
 -- Name: malla_curricular fk_malla_materia; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7430,8 +8018,8 @@ ALTER TABLE ONLY academico.malla_curricular
 
 
 --
--- TOC entry 5812 (class 0 OID 0)
--- Dependencies: 5195
+-- TOC entry 5823 (class 0 OID 0)
+-- Dependencies: 5203
 -- Name: CONSTRAINT fk_malla_materia ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7439,7 +8027,7 @@ COMMENT ON CONSTRAINT fk_malla_materia ON academico.malla_curricular IS 'Llave f
 
 
 --
--- TOC entry 5196 (class 2606 OID 66144)
+-- TOC entry 5204 (class 2606 OID 66144)
 -- Name: malla_curricular fk_malla_prerequisito; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7448,8 +8036,8 @@ ALTER TABLE ONLY academico.malla_curricular
 
 
 --
--- TOC entry 5813 (class 0 OID 0)
--- Dependencies: 5196
+-- TOC entry 5824 (class 0 OID 0)
+-- Dependencies: 5204
 -- Name: CONSTRAINT fk_malla_prerequisito ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7457,7 +8045,7 @@ COMMENT ON CONSTRAINT fk_malla_prerequisito ON academico.malla_curricular IS 'Ll
 
 
 --
--- TOC entry 5197 (class 2606 OID 66134)
+-- TOC entry 5205 (class 2606 OID 66134)
 -- Name: malla_curricular fk_malla_programa; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7466,8 +8054,8 @@ ALTER TABLE ONLY academico.malla_curricular
 
 
 --
--- TOC entry 5814 (class 0 OID 0)
--- Dependencies: 5197
+-- TOC entry 5825 (class 0 OID 0)
+-- Dependencies: 5205
 -- Name: CONSTRAINT fk_malla_programa ON malla_curricular; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7475,7 +8063,7 @@ COMMENT ON CONSTRAINT fk_malla_programa ON academico.malla_curricular IS 'Llave 
 
 
 --
--- TOC entry 5194 (class 2606 OID 66129)
+-- TOC entry 5202 (class 2606 OID 66129)
 -- Name: materias fk_materias_eje; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7484,8 +8072,8 @@ ALTER TABLE ONLY academico.materias
 
 
 --
--- TOC entry 5815 (class 0 OID 0)
--- Dependencies: 5194
+-- TOC entry 5826 (class 0 OID 0)
+-- Dependencies: 5202
 -- Name: CONSTRAINT fk_materias_eje ON materias; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7493,7 +8081,7 @@ COMMENT ON CONSTRAINT fk_materias_eje ON academico.materias IS 'Llave foránea q
 
 
 --
--- TOC entry 5205 (class 2606 OID 114969)
+-- TOC entry 5214 (class 2606 OID 114969)
 -- Name: notas fk_nota_estudiante; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7502,8 +8090,8 @@ ALTER TABLE ONLY academico.notas
 
 
 --
--- TOC entry 5816 (class 0 OID 0)
--- Dependencies: 5205
+-- TOC entry 5827 (class 0 OID 0)
+-- Dependencies: 5214
 -- Name: CONSTRAINT fk_nota_estudiante ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7511,7 +8099,7 @@ COMMENT ON CONSTRAINT fk_nota_estudiante ON academico.notas IS 'Relación con la
 
 
 --
--- TOC entry 5206 (class 2606 OID 114974)
+-- TOC entry 5215 (class 2606 OID 114974)
 -- Name: notas fk_nota_malla; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7520,8 +8108,8 @@ ALTER TABLE ONLY academico.notas
 
 
 --
--- TOC entry 5817 (class 0 OID 0)
--- Dependencies: 5206
+-- TOC entry 5828 (class 0 OID 0)
+-- Dependencies: 5215
 -- Name: CONSTRAINT fk_nota_malla ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7529,7 +8117,7 @@ COMMENT ON CONSTRAINT fk_nota_malla ON academico.notas IS 'Relación con la mall
 
 
 --
--- TOC entry 5207 (class 2606 OID 114979)
+-- TOC entry 5216 (class 2606 OID 114979)
 -- Name: notas fk_nota_periodo; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7538,8 +8126,8 @@ ALTER TABLE ONLY academico.notas
 
 
 --
--- TOC entry 5818 (class 0 OID 0)
--- Dependencies: 5207
+-- TOC entry 5829 (class 0 OID 0)
+-- Dependencies: 5216
 -- Name: CONSTRAINT fk_nota_periodo ON notas; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7547,15 +8135,7 @@ COMMENT ON CONSTRAINT fk_nota_periodo ON academico.notas IS 'Relación con perí
 
 
 --
--- TOC entry 5198 (class 2606 OID 66149)
--- Name: secciones fk_secciones_programa; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
---
-
-ALTER TABLE ONLY academico.secciones
-    ADD CONSTRAINT fk_secciones_programa FOREIGN KEY (id_pro) REFERENCES academico.programas(id_pro) ON UPDATE CASCADE ON DELETE RESTRICT;
-
---
--- TOC entry 5199 (class 2606 OID 66150)
+-- TOC entry 5206 (class 2606 OID 205151)
 -- Name: secciones fk_secciones_periodo; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
 --
 
@@ -7564,8 +8144,17 @@ ALTER TABLE ONLY academico.secciones
 
 
 --
--- TOC entry 5819 (class 0 OID 0)
--- Dependencies: 5198
+-- TOC entry 5207 (class 2606 OID 66149)
+-- Name: secciones fk_secciones_programa; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
+--
+
+ALTER TABLE ONLY academico.secciones
+    ADD CONSTRAINT fk_secciones_programa FOREIGN KEY (id_pro) REFERENCES academico.programas(id_pro) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+
+--
+-- TOC entry 5830 (class 0 OID 0)
+-- Dependencies: 5207
 -- Name: CONSTRAINT fk_secciones_programa ON secciones; Type: COMMENT; Schema: academico; Owner: postgres
 --
 
@@ -7573,7 +8162,16 @@ COMMENT ON CONSTRAINT fk_secciones_programa ON academico.secciones IS 'Llave for
 
 
 --
--- TOC entry 5178 (class 2606 OID 66059)
+-- TOC entry 5217 (class 2606 OID 237896)
+-- Name: notas notas_revisado_por_fkey; Type: FK CONSTRAINT; Schema: academico; Owner: postgres
+--
+
+ALTER TABLE ONLY academico.notas
+    ADD CONSTRAINT notas_revisado_por_fkey FOREIGN KEY (revisado_por) REFERENCES general.usuarios(id_usu);
+
+
+--
+-- TOC entry 5186 (class 2606 OID 66059)
 -- Name: aud_mov fk_aud_mov_usuario; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7582,8 +8180,8 @@ ALTER TABLE ONLY general.aud_mov
 
 
 --
--- TOC entry 5820 (class 0 OID 0)
--- Dependencies: 5178
+-- TOC entry 5831 (class 0 OID 0)
+-- Dependencies: 5186
 -- Name: CONSTRAINT fk_aud_mov_usuario ON aud_mov; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7591,7 +8189,7 @@ COMMENT ON CONSTRAINT fk_aud_mov_usuario ON general.aud_mov IS 'Llave foranea qu
 
 
 --
--- TOC entry 5177 (class 2606 OID 66054)
+-- TOC entry 5185 (class 2606 OID 66054)
 -- Name: credenciales fk_credendiales_usuario; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7600,8 +8198,8 @@ ALTER TABLE ONLY general.credenciales
 
 
 --
--- TOC entry 5821 (class 0 OID 0)
--- Dependencies: 5177
+-- TOC entry 5832 (class 0 OID 0)
+-- Dependencies: 5185
 -- Name: CONSTRAINT fk_credendiales_usuario ON credenciales; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7609,7 +8207,7 @@ COMMENT ON CONSTRAINT fk_credendiales_usuario ON general.credenciales IS 'Llave 
 
 
 --
--- TOC entry 5199 (class 2606 OID 114895)
+-- TOC entry 5208 (class 2606 OID 114895)
 -- Name: permisos_rol fk_pr_mod; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7618,8 +8216,8 @@ ALTER TABLE ONLY general.permisos_rol
 
 
 --
--- TOC entry 5822 (class 0 OID 0)
--- Dependencies: 5199
+-- TOC entry 5833 (class 0 OID 0)
+-- Dependencies: 5208
 -- Name: CONSTRAINT fk_pr_mod ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7627,7 +8225,7 @@ COMMENT ON CONSTRAINT fk_pr_mod ON general.permisos_rol IS 'Relación con la tab
 
 
 --
--- TOC entry 5200 (class 2606 OID 114900)
+-- TOC entry 5209 (class 2606 OID 114900)
 -- Name: permisos_rol fk_pr_perm; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7636,8 +8234,8 @@ ALTER TABLE ONLY general.permisos_rol
 
 
 --
--- TOC entry 5823 (class 0 OID 0)
--- Dependencies: 5200
+-- TOC entry 5834 (class 0 OID 0)
+-- Dependencies: 5209
 -- Name: CONSTRAINT fk_pr_perm ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7645,7 +8243,7 @@ COMMENT ON CONSTRAINT fk_pr_perm ON general.permisos_rol IS 'Relación con la ta
 
 
 --
--- TOC entry 5201 (class 2606 OID 114890)
+-- TOC entry 5210 (class 2606 OID 114890)
 -- Name: permisos_rol fk_pr_rol; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7654,8 +8252,8 @@ ALTER TABLE ONLY general.permisos_rol
 
 
 --
--- TOC entry 5824 (class 0 OID 0)
--- Dependencies: 5201
+-- TOC entry 5835 (class 0 OID 0)
+-- Dependencies: 5210
 -- Name: CONSTRAINT fk_pr_rol ON permisos_rol; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7663,7 +8261,7 @@ COMMENT ON CONSTRAINT fk_pr_rol ON general.permisos_rol IS 'Relación con la tab
 
 
 --
--- TOC entry 5202 (class 2606 OID 114929)
+-- TOC entry 5211 (class 2606 OID 114929)
 -- Name: permisos_usuario fk_pu_mod; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7672,8 +8270,8 @@ ALTER TABLE ONLY general.permisos_usuario
 
 
 --
--- TOC entry 5825 (class 0 OID 0)
--- Dependencies: 5202
+-- TOC entry 5836 (class 0 OID 0)
+-- Dependencies: 5211
 -- Name: CONSTRAINT fk_pu_mod ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7681,7 +8279,7 @@ COMMENT ON CONSTRAINT fk_pu_mod ON general.permisos_usuario IS 'Relación con la
 
 
 --
--- TOC entry 5203 (class 2606 OID 114934)
+-- TOC entry 5212 (class 2606 OID 114934)
 -- Name: permisos_usuario fk_pu_perm; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7690,8 +8288,8 @@ ALTER TABLE ONLY general.permisos_usuario
 
 
 --
--- TOC entry 5826 (class 0 OID 0)
--- Dependencies: 5203
+-- TOC entry 5837 (class 0 OID 0)
+-- Dependencies: 5212
 -- Name: CONSTRAINT fk_pu_perm ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7699,7 +8297,7 @@ COMMENT ON CONSTRAINT fk_pu_perm ON general.permisos_usuario IS 'Relación con l
 
 
 --
--- TOC entry 5204 (class 2606 OID 114924)
+-- TOC entry 5213 (class 2606 OID 114924)
 -- Name: permisos_usuario fk_pu_usuario; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7708,8 +8306,8 @@ ALTER TABLE ONLY general.permisos_usuario
 
 
 --
--- TOC entry 5827 (class 0 OID 0)
--- Dependencies: 5204
+-- TOC entry 5838 (class 0 OID 0)
+-- Dependencies: 5213
 -- Name: CONSTRAINT fk_pu_usuario ON permisos_usuario; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7717,7 +8315,7 @@ COMMENT ON CONSTRAINT fk_pu_usuario ON general.permisos_usuario IS 'Relación co
 
 
 --
--- TOC entry 5176 (class 2606 OID 66049)
+-- TOC entry 5184 (class 2606 OID 66049)
 -- Name: usuarios fk_rol_id; Type: FK CONSTRAINT; Schema: general; Owner: postgres
 --
 
@@ -7726,8 +8324,8 @@ ALTER TABLE ONLY general.usuarios
 
 
 --
--- TOC entry 5828 (class 0 OID 0)
--- Dependencies: 5176
+-- TOC entry 5839 (class 0 OID 0)
+-- Dependencies: 5184
 -- Name: CONSTRAINT fk_rol_id ON usuarios; Type: COMMENT; Schema: general; Owner: postgres
 --
 
@@ -7735,7 +8333,7 @@ COMMENT ON CONSTRAINT fk_rol_id ON general.usuarios IS 'Llave foranea del identi
 
 
 --
--- TOC entry 5188 (class 2606 OID 66109)
+-- TOC entry 5196 (class 2606 OID 66109)
 -- Name: asig_carga_horarias fk_asig_dia; Type: FK CONSTRAINT; Schema: horarios; Owner: postgres
 --
 
@@ -7744,8 +8342,8 @@ ALTER TABLE ONLY horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5829 (class 0 OID 0)
--- Dependencies: 5188
+-- TOC entry 5840 (class 0 OID 0)
+-- Dependencies: 5196
 -- Name: CONSTRAINT fk_asig_dia ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -7753,7 +8351,7 @@ COMMENT ON CONSTRAINT fk_asig_dia ON horarios.asig_carga_horarias IS 'Clave for�
 
 
 --
--- TOC entry 5189 (class 2606 OID 66099)
+-- TOC entry 5197 (class 2606 OID 66099)
 -- Name: asig_carga_horarias fk_asig_docente; Type: FK CONSTRAINT; Schema: horarios; Owner: postgres
 --
 
@@ -7762,8 +8360,8 @@ ALTER TABLE ONLY horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5830 (class 0 OID 0)
--- Dependencies: 5189
+-- TOC entry 5841 (class 0 OID 0)
+-- Dependencies: 5197
 -- Name: CONSTRAINT fk_asig_docente ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -7771,7 +8369,7 @@ COMMENT ON CONSTRAINT fk_asig_docente ON horarios.asig_carga_horarias IS 'Clave 
 
 
 --
--- TOC entry 5190 (class 2606 OID 66104)
+-- TOC entry 5198 (class 2606 OID 66104)
 -- Name: asig_carga_horarias fk_asig_espacio; Type: FK CONSTRAINT; Schema: horarios; Owner: postgres
 --
 
@@ -7780,8 +8378,8 @@ ALTER TABLE ONLY horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5831 (class 0 OID 0)
--- Dependencies: 5190
+-- TOC entry 5842 (class 0 OID 0)
+-- Dependencies: 5198
 -- Name: CONSTRAINT fk_asig_espacio ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -7789,7 +8387,7 @@ COMMENT ON CONSTRAINT fk_asig_espacio ON horarios.asig_carga_horarias IS 'Clave 
 
 
 --
--- TOC entry 5191 (class 2606 OID 66119)
+-- TOC entry 5199 (class 2606 OID 66119)
 -- Name: asig_carga_horarias fk_asig_malla; Type: FK CONSTRAINT; Schema: horarios; Owner: postgres
 --
 
@@ -7798,8 +8396,8 @@ ALTER TABLE ONLY horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5832 (class 0 OID 0)
--- Dependencies: 5191
+-- TOC entry 5843 (class 0 OID 0)
+-- Dependencies: 5199
 -- Name: CONSTRAINT fk_asig_malla ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -7807,7 +8405,7 @@ COMMENT ON CONSTRAINT fk_asig_malla ON horarios.asig_carga_horarias IS 'Clave fo
 
 
 --
--- TOC entry 5192 (class 2606 OID 114832)
+-- TOC entry 5200 (class 2606 OID 114832)
 -- Name: asig_carga_horarias fk_asig_periodo; Type: FK CONSTRAINT; Schema: horarios; Owner: postgres
 --
 
@@ -7816,7 +8414,7 @@ ALTER TABLE ONLY horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5193 (class 2606 OID 139593)
+-- TOC entry 5201 (class 2606 OID 139593)
 -- Name: asig_carga_horarias fk_asig_seccion; Type: FK CONSTRAINT; Schema: horarios; Owner: postgres
 --
 
@@ -7825,8 +8423,8 @@ ALTER TABLE ONLY horarios.asig_carga_horarias
 
 
 --
--- TOC entry 5833 (class 0 OID 0)
--- Dependencies: 5193
+-- TOC entry 5844 (class 0 OID 0)
+-- Dependencies: 5201
 -- Name: CONSTRAINT fk_asig_seccion ON asig_carga_horarias; Type: COMMENT; Schema: horarios; Owner: postgres
 --
 
@@ -7834,7 +8432,7 @@ COMMENT ON CONSTRAINT fk_asig_seccion ON horarios.asig_carga_horarias IS 'Relaci
 
 
 --
--- TOC entry 5187 (class 2606 OID 66094)
+-- TOC entry 5195 (class 2606 OID 66094)
 -- Name: espacios_fis fk_espacios_municipio; Type: FK CONSTRAINT; Schema: infraestructura; Owner: postgres
 --
 
@@ -7843,8 +8441,8 @@ ALTER TABLE ONLY infraestructura.espacios_fis
 
 
 --
--- TOC entry 5834 (class 0 OID 0)
--- Dependencies: 5187
+-- TOC entry 5845 (class 0 OID 0)
+-- Dependencies: 5195
 -- Name: CONSTRAINT fk_espacios_municipio ON espacios_fis; Type: COMMENT; Schema: infraestructura; Owner: postgres
 --
 
@@ -7852,7 +8450,7 @@ COMMENT ON CONSTRAINT fk_espacios_municipio ON infraestructura.espacios_fis IS '
 
 
 --
--- TOC entry 5185 (class 2606 OID 114801)
+-- TOC entry 5193 (class 2606 OID 114801)
 -- Name: disponibilidad_docente fk_dip_docente; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7861,8 +8459,8 @@ ALTER TABLE ONLY personas.disponibilidad_docente
 
 
 --
--- TOC entry 5835 (class 0 OID 0)
--- Dependencies: 5185
+-- TOC entry 5846 (class 0 OID 0)
+-- Dependencies: 5193
 -- Name: CONSTRAINT fk_dip_docente ON disponibilidad_docente; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -7870,7 +8468,7 @@ COMMENT ON CONSTRAINT fk_dip_docente ON personas.disponibilidad_docente IS 'Llav
 
 
 --
--- TOC entry 5186 (class 2606 OID 66089)
+-- TOC entry 5194 (class 2606 OID 66089)
 -- Name: disponibilidad_docente fk_disp_dia; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7879,7 +8477,7 @@ ALTER TABLE ONLY personas.disponibilidad_docente
 
 
 --
--- TOC entry 5179 (class 2606 OID 66064)
+-- TOC entry 5187 (class 2606 OID 66064)
 -- Name: docentes fk_docentes_usuario; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7888,8 +8486,8 @@ ALTER TABLE ONLY personas.docentes
 
 
 --
--- TOC entry 5836 (class 0 OID 0)
--- Dependencies: 5179
+-- TOC entry 5847 (class 0 OID 0)
+-- Dependencies: 5187
 -- Name: CONSTRAINT fk_docentes_usuario ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -7897,7 +8495,7 @@ COMMENT ON CONSTRAINT fk_docentes_usuario ON personas.docentes IS 'Llave foranea
 
 
 --
--- TOC entry 5181 (class 2606 OID 66074)
+-- TOC entry 5189 (class 2606 OID 66074)
 -- Name: estudiantes fk_estudiante_usuario; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7906,8 +8504,8 @@ ALTER TABLE ONLY personas.estudiantes
 
 
 --
--- TOC entry 5837 (class 0 OID 0)
--- Dependencies: 5181
+-- TOC entry 5848 (class 0 OID 0)
+-- Dependencies: 5189
 -- Name: CONSTRAINT fk_estudiante_usuario ON estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -7915,7 +8513,7 @@ COMMENT ON CONSTRAINT fk_estudiante_usuario ON personas.estudiantes IS 'Llave fo
 
 
 --
--- TOC entry 5182 (class 2606 OID 172355)
+-- TOC entry 5190 (class 2606 OID 172355)
 -- Name: estudiantes fk_estudiantes_municipio; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7924,8 +8522,8 @@ ALTER TABLE ONLY personas.estudiantes
 
 
 --
--- TOC entry 5838 (class 0 OID 0)
--- Dependencies: 5182
+-- TOC entry 5849 (class 0 OID 0)
+-- Dependencies: 5190
 -- Name: CONSTRAINT fk_estudiantes_municipio ON estudiantes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
@@ -7933,7 +8531,7 @@ COMMENT ON CONSTRAINT fk_estudiantes_municipio ON personas.estudiantes IS 'Llave
 
 
 --
--- TOC entry 5183 (class 2606 OID 114822)
+-- TOC entry 5191 (class 2606 OID 114822)
 -- Name: estudiantes fk_estudiantes_programa; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7942,7 +8540,7 @@ ALTER TABLE ONLY personas.estudiantes
 
 
 --
--- TOC entry 5184 (class 2606 OID 114827)
+-- TOC entry 5192 (class 2606 OID 114827)
 -- Name: estudiantes fk_estudiantes_seccion; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7951,7 +8549,7 @@ ALTER TABLE ONLY personas.estudiantes
 
 
 --
--- TOC entry 5180 (class 2606 OID 66069)
+-- TOC entry 5188 (class 2606 OID 66069)
 -- Name: docentes fk_id_mun; Type: FK CONSTRAINT; Schema: personas; Owner: postgres
 --
 
@@ -7960,19 +8558,19 @@ ALTER TABLE ONLY personas.docentes
 
 
 --
--- TOC entry 5839 (class 0 OID 0)
--- Dependencies: 5180
+-- TOC entry 5850 (class 0 OID 0)
+-- Dependencies: 5188
 -- Name: CONSTRAINT fk_id_mun ON docentes; Type: COMMENT; Schema: personas; Owner: postgres
 --
 
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-21 21:51:36
+-- Completed on 2026-11-22 22:36:47
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Eu1tvUGSMZ5mAlwQvBKmsvuH3sbkySLqY8sk3U53i3gAdgUxUgNsMEU3PCT4w3K
+\unrestrict nxZlCskazbo5RGdbdSwgm56TRw1HEB3F3SVjzo8jBDcAOvxk0mgjW7QdLUfQ1Pc
 

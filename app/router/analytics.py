@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status,Query
 from sqlmodel import Session, text
 from typing import Optional
 from datetime import date
-from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual
+from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual, requerir_rol
 from app.config.db_conection import get_session 
 from app.models.model_read_only import VwResumenEstadisticoRead,VwPermisosEfectivosRead,VwMovimientosRead,VwHorarioCompletoDocenteRead, VwDocentesPorContratoRead, VwDocentesPorProgramaMunicipioRead, VwAnalisisNotas
 from app.service.notas_reglas import SQL_NOTA_MINIMA_APROBATORIA
@@ -33,7 +33,11 @@ def obtner_analisis_notas(
     return notas_service.analisis_notas(session, cod_programa, id_per)
 
 @router.get("/permisos", response_model=list[VwPermisosEfectivosRead])
-def obtener_permiso_usuarios(usuario_id: int, session: Session = Depends(get_session)):
+def obtener_permiso_usuarios(
+    usuario_id: int,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1])),
+):
     
     statement = text("""
         SELECT *

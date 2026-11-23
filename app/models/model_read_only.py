@@ -42,6 +42,7 @@ class VwPermisosEfectivosRead(SQLModel, table=False):
     permiso_nombre: str
     alcance_efectivo: str | None
     origen: str
+    alcance_maximo: str | None = None
 
 class VwDocentesPorProgramaMunicipioRead(SQLModel, table=False):
     municipio: str

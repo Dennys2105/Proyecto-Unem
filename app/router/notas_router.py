@@ -83,7 +83,8 @@ def analisis(
 
 
 # --- APROBAR / RECHAZAR: decisión del Coordinador (rol 3) ---
-@router.post("/{nota_id}/aprobar", response_model=NotasResponcive)
+@router.post("/{nota_id}/aprobar", response_model=NotasResponcive,
+             dependencies=[Depends(verificar_permiso("notas", "ACT", "SP"))])
 def aprobar_nota(
     nota_id: int,
     session: Session = Depends(get_session),
@@ -92,7 +93,8 @@ def aprobar_nota(
     return service.revisar_nota(session, nota_id, usuario_actual["id"], aprobar=True)
 
 
-@router.post("/{nota_id}/rechazar", response_model=NotasResponcive)
+@router.post("/{nota_id}/rechazar", response_model=NotasResponcive,
+             dependencies=[Depends(verificar_permiso("notas", "ACT", "SP"))])
 def rechazar_nota(
     nota_id: int,
     rechazo: RechazoNota,

@@ -14,6 +14,9 @@ const ALCANCE_CONFIG = {
   NAD: { color: 'bg-red-100 text-red-700 border-red-300', label: 'Sin acceso' },
 };
 
+const JERARQUIA: Record<string, number> = { NAD: 0, SP: 1, LIM: 2, TODO: 3 };
+const ALCANCES = ['NAD', 'SP', 'LIM', 'TODO'] as const;
+
 const ROLES_NOMBRES: Record<number, string> = {
   1: 'Administrador',
   2: 'Vicerrector',
@@ -220,6 +223,7 @@ export const Roles = () => {
     setMatriz(prev => prev.map(m => {
       if (m.modulo.id_mod !== moduloId) return m;
       const celda = m.permisos[permisoCodigo];
+      if (celda.alcanceMaximo === 'NAD') return m;
       const nuevoActivo = !celda.activo;
       return {
         ...m,
@@ -228,8 +232,8 @@ export const Roles = () => {
           [permisoCodigo]: {
             ...celda,
             activo: nuevoActivo,
-            // Al activar una celda sin acceso se otorga Total; al desactivar queda NAD (denegado)
-            alcance: nuevoActivo ? (celda.alcance === 'NAD' ? 'TODO' : celda.alcance) : 'NAD',
+            // Restaurar como máximo el alcance del rol, nunca elevarlo.
+            alcance: nuevoActivo ? celda.alcanceMaximo : 'NAD',
             esPersonalizado: true,
           },
         },
@@ -240,6 +244,7 @@ export const Roles = () => {
   const cambiarAlcance = (moduloId: number, permisoCodigo: 'CRE' | 'ACT' | 'LEC' | 'BOR', alcance: 'TODO' | 'SP' | 'LIM' | 'NAD') => {
     setMatriz(prev => prev.map(m => {
       if (m.modulo.id_mod !== moduloId) return m;
+      if (JERARQUIA[alcance] > JERARQUIA[m.permisos[permisoCodigo].alcanceMaximo]) return m;
       return {
         ...m,
         permisos: {
@@ -247,6 +252,7 @@ export const Roles = () => {
           [permisoCodigo]: {
             ...m.permisos[permisoCodigo],
             alcance,
+            activo: alcance !== 'NAD',
             esPersonalizado: true,
           },
         },
@@ -650,8 +656,8 @@ export const Roles = () => {
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
                   Rol base: {ROLES_NOMBRES[usuarioSeleccionado.id_rol]} |
-                  Lo que edites queda <b>Personalizado</b> para este usuario (puede superar al rol).
-                  Aplica cuando vuelva a iniciar sesión.
+                  Puedes restringir permisos o restaurarlos hasta el máximo del rol.
+                  Los accesos prohibidos aparecen bloqueados. Aplica al volver a iniciar sesión.
                 </p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
@@ -686,6 +692,7 @@ export const Roles = () => {
                                   <input
                                     type="checkbox"
                                     checked={p.activo}
+                                    disabled={p.alcanceMaximo === 'NAD'}
                                     onChange={() => togglePermiso(modulo.id_mod, codigo)}
                                     className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
                                   />
@@ -695,16 +702,18 @@ export const Roles = () => {
                                   <span className="text-xs text-indigo-600 font-medium">Personalizado</span>
                                 )}
                               </div>
+                              {p.alcanceMaximo === 'NAD' && (
+                                <span className="text-xs text-gray-400">Bloqueado por rol</span>
+                              )}
                               {p.activo && (
                                 <select
                                   value={p.alcance}
                                   onChange={(e) => cambiarAlcance(modulo.id_mod, codigo, e.target.value as any)}
                                   className={`w-full text-xs px-2 py-1 rounded border ${config.color}`}
                                 >
-                                  <option value="TODO">Total</option>
-                                  <option value="SP">Solo Propio</option>
-                                  <option value="LIM">Limitado</option>
-                                  <option value="NAD">Sin acceso</option>
+                                  {ALCANCES.filter(a => JERARQUIA[a] <= JERARQUIA[p.alcanceMaximo]).reverse().map(a => (
+                                    <option key={a} value={a}>{ALCANCE_CONFIG[a].label}</option>
+                                  ))}
                                 </select>
                               )}
                             </div>

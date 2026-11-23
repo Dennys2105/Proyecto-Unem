@@ -2,13 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, text
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, Field
-from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual
+from app.dependencies.auth_deps import verificar_permiso, obtener_usuario_actual, requerir_rol
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
 from app.models.model_read_only import VwPermisosEfectivosRead
 from app.service.auth_service import get_password_hash
+from app.service.permisos_limites import consultar_matriz, JERARQUIA, maximo_politica_rol
 
-router = APIRouter(prefix="/permisos", tags=["Gestión de Permisos"])
+# Todas las operaciones de cuentas y permisos son exclusivas del Administrador.
+router = APIRouter(prefix="/permisos", tags=["Gestión de Permisos"],
+                   dependencies=[Depends(requerir_rol([1]))])
 
 
 # ==========================================
@@ -124,13 +127,7 @@ def permisos_efectivos_usuario(
     if not existe:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    query = text("""
-        SELECT *
-        FROM general.vw_permisos_efectivos_usuario
-        WHERE id_usu = :usuario_id
-    """).params(usuario_id=id_usu)
-    resultados = session.exec(query).mappings().all()
-    return [VwPermisosEfectivosRead(**dict(r)) for r in resultados]
+    return [VwPermisosEfectivosRead(**r) for r in consultar_matriz(session, id_usu)]
 
 
 @router.put("/usuarios/{id_usu}/permisos", summary="Actualizar permisos personalizados de un usuario",
@@ -145,7 +142,7 @@ def actualizar_permisos_usuario(
     """
     Guarda la matriz de permisos personalizados (overrides) de un usuario.
     - SOLO el Administrador (rol 1) puede modificar permisos personalizados.
-    - El Administrador PUEDE otorgar por encima del rol base (queda 'Personalizado').
+    - Los permisos personalizados pueden restringir, nunca ampliar el máximo del rol.
     - No se permiten overrides sobre otro Administrador (acceso total por diseño).
     - Idempotente: upsert sobre la UNIQUE (id_usu, id_mod, id_perm).
     """
@@ -171,24 +168,28 @@ def actualizar_permisos_usuario(
             detail="El Administrador tiene acceso total por diseño: no admite permisos personalizados."
         )
 
-    # 3. Validar alcances y catálogo (ya NO se limita contra el rol base)
-    ALCANCES_VALIDOS = {'NAD', 'SP', 'LIM', 'TODO'}
+    # 3. Validar el alcance contra el techo del rol de destino, antes de escribir.
+    if len({(p.id_mod, p.id_perm) for p in payload.permisos}) != len(payload.permisos):
+        raise HTTPException(status_code=400, detail="No se permiten permisos duplicados")
     for p in payload.permisos:
-        if p.alcance not in ALCANCES_VALIDOS:
+        if p.alcance not in JERARQUIA:
+            raise HTTPException(status_code=400, detail="Alcance inválido")
+        catalogo = session.exec(text("""
+            SELECT m.codigo, pe.codigo, COALESCE(pr.alcance, 'NAD')
+            FROM general.modulos m CROSS JOIN general.permisos pe
+            LEFT JOIN general.permisos_rol pr
+              ON pr.id_rol = :rol AND pr.id_mod = m.id_mod
+             AND pr.id_perm = pe.id_perm AND pr.estatus = 'A'
+            WHERE m.id_mod = :m AND pe.id_perm = :p AND m.estatus = 'A'
+        """).params(rol=usuario[0], m=p.id_mod, p=p.id_perm)).first()
+        if catalogo is None:
+            raise HTTPException(status_code=400, detail="Módulo o acción inexistente o inactivo")
+        modulo, accion, maximo_rol = catalogo
+        maximo = maximo_politica_rol(usuario[0], modulo, maximo_rol)
+        if JERARQUIA[p.alcance] > JERARQUIA[maximo]:
             raise HTTPException(
-                status_code=400,
-                detail=f"Alcance inválido: '{p.alcance}'. Use TODO, SP, LIM o NAD."
-            )
-        valido = session.exec(
-            text("""
-                SELECT 1 FROM general.modulos m, general.permisos pe
-                WHERE m.id_mod = :m AND pe.id_perm = :p AND m.estatus = 'A'
-            """).params(m=p.id_mod, p=p.id_perm)
-        ).first()
-        if not valido:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Módulo {p.id_mod} o permiso {p.id_perm} inexistente o inactivo."
+                status_code=403,
+                detail=f"{modulo}:{accion} no admite {p.alcance} para este rol (máximo {maximo})."
             )
 
     # 4. Desactivar los overrides actuales (histórico)
@@ -213,14 +214,8 @@ def actualizar_permisos_usuario(
 
     session.commit()
 
-    # 6. Retornar los permisos efectivos actualizados
-    query = text("""
-    SELECT * FROM general.vw_permisos_efectivos_usuario
-    WHERE id_usu = :usuario_id
-    """).params(usuario_id=id_usu)
-
-    resultados = session.exec(query).mappings().all()
-    return [VwPermisosEfectivosRead(**dict(r)) for r in resultados]
+    # 6. Retornar la matriz recortada por el máximo del rol.
+    return [VwPermisosEfectivosRead(**r) for r in consultar_matriz(session, id_usu)]
 
 @router.delete("/usuario/{id_usu}/reset")
 def resetear_permisos_usuario(
@@ -357,6 +352,12 @@ def editar_usuario(
             raise HTTPException(status_code=400, detail="El rol seleccionado no existe o está inactivo.")
         if nuevo_rol == 5:
             raise HTTPException(status_code=400, detail="El rol Estudiante está reservado.")
+        if nuevo_rol == 4:
+            tiene_docente = session.exec(text("""
+                SELECT 1 FROM personas.docentes WHERE id_usu = :u AND estatus = 'A'
+            """).params(u=id_usu)).first()
+            if not tiene_docente:
+                raise HTTPException(status_code=400, detail="Vincula una ficha docente activa antes de asignar el rol Docente.")
 
     if actual[2] == 1 and actual[3] == 'A' and (nuevo_rol != 1 or nuevo_estatus != 'A'):
         admins = session.exec(text("SELECT COUNT(*) FROM general.usuarios WHERE id_rol = 1 AND estatus = 'A'")).first()
@@ -364,6 +365,12 @@ def editar_usuario(
             raise HTTPException(status_code=400, detail="Debe quedar al menos un administrador activo.")
 
     session.exec(text("UPDATE general.usuarios SET id_rol = :r, estatus = :e WHERE id_usu = :i").params(r=nuevo_rol, e=nuevo_estatus, i=id_usu))
+    if nuevo_rol != actual[2]:
+        # Evita que permisos personalizados anteriores sobrevivan al nuevo rol.
+        session.exec(text("""
+            UPDATE general.permisos_usuario SET estatus = 'I'
+            WHERE id_usu = :u AND estatus = 'A'
+        """).params(u=id_usu))
     session.commit()
     fila = session.exec(text("""
         SELECT u.id_usu, u.username, u.id_rol, r.rol, u.estatus

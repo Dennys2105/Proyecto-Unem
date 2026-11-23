@@ -454,7 +454,7 @@ export const NotasPage = () => {
         const activa = (row.estatus ?? 'A') === 'A';
         const puedeEditar = puede('notas', 'ACT', 'LIM');
         const puedeAnular = puede('notas', 'BOR', 'TODO');
-        const puedeRevisar = (esCoordinador || esAdmin) && activa && row.estado_revision === 'P';
+        const puedeRevisar = (esCoordinador || esAdmin) && puede('notas', 'ACT', 'SP') && activa && row.estado_revision === 'P';
 
         if (!puedeEditar && !puedeAnular && !puedeRevisar) return <span className="text-xs text-gray-400">Sin permisos</span>;
 

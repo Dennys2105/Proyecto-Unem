@@ -7,8 +7,30 @@ from typing import Optional
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/usuario/login")
 
 def obtener_usuario_actual(token: str = Depends(oauth2_scheme)) -> dict:
+    """Verifica vigencia del usuario/rol y recalcula permisos contra la BD.
+
+    Un JWT anterior a una desactivación, cambio de rol o permiso elevado
+    NO debe seguir otorgando derechos hasta su expiración.
+    """
+    from sqlmodel import text
+    from app.config.db_conection import engine
+    from app.service.permisos_limites import scopes_del_usuario
 
     payload = verificar_token(token)
+    id_usuario = payload.get("id")
+    if not isinstance(id_usuario, int):
+        raise HTTPException(status_code=401, detail="Token sin identificador de usuario")
+    with Session(engine) as session:
+        fila = session.exec(text("""
+            SELECT u.id_rol, u.estatus, r.estatus
+            FROM general.usuarios u JOIN general.roles r ON r.id_rol = u.id_rol
+            WHERE u.id_usu = :id
+        """).params(id=id_usuario)).first()
+        if not fila or fila[1] != 'A' or fila[2] != 'A':
+            raise HTTPException(status_code=401, detail="Usuario o rol inactivo")
+        if fila[0] != payload.get('rol'):
+            raise HTTPException(status_code=401, detail="Tu rol cambió. Inicia sesión nuevamente")
+        payload['scopes'] = scopes_del_usuario(session, id_usuario)
     return payload
 
 ## CODIGO ANTIGUA DE DEPENDENCIA DE ROLES, SE REEMPLAZARA POR NUEVA DE MANERA PROGRESIVA

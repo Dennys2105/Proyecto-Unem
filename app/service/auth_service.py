@@ -32,19 +32,8 @@ def get_password_hash(password: str) -> str:
 
 ##CODIGO NUEVO EN TRABAJO PARA OBTENER LOS PERMISOS DE USUARIO ESTA EN FASES DE PRUEBAS
 def obtener_permisos(usuario_id: int, session: Session) -> dict:
-    # 1. Consultamos la vista pasando los parámetros con .params() en el text()
-    query = text("""
-        SELECT modulo, permiso, alcance_efectivo 
-        FROM general.vw_permisos_efectivos_usuario 
-        WHERE id_usu = :id_usu
-    """).params(id_usu=usuario_id)
-    
-    resultados = session.exec(query).all()
-    
-    # 2. Transformamos los permisos en un diccionario compacto tipo: {"notas:LEC": "SP", "docentes:CRE": "TODO"}
-    permisos_dict = {f"{row.modulo}:{row.permiso}": row.alcance_efectivo for row in resultados}
-
-    return permisos_dict
+    from app.service.permisos_limites import scopes_del_usuario
+    return scopes_del_usuario(session, usuario_id)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)

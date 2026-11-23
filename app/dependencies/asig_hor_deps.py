@@ -17,7 +17,7 @@ def validar_conflictos_horarios(session: Session, datos: AsigCargaHorariaCreate,
     if carga_id_excluir:
         query_docente = query_docente.where(AsigCargaHoraria.id_asig != carga_id_excluir)
         
-    conflicto_docente = session.exec(query_docente).first()
+    conflicto_docente = session.exec(query_docente).first() if datos.id_doc is not None else None
     if conflicto_docente:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -36,7 +36,7 @@ def validar_conflictos_horarios(session: Session, datos: AsigCargaHorariaCreate,
     if carga_id_excluir:
         query_espacio = query_espacio.where(AsigCargaHoraria.id_asig != carga_id_excluir)
 
-    conflicto_espacio = session.exec(query_espacio).first()
+    conflicto_espacio = session.exec(query_espacio).first() if datos.id_esp is not None else None
     if conflicto_espacio:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

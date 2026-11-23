@@ -130,7 +130,8 @@ def exportar_inventario(
     id_per: int,
     tipo_evaluacion: Optional[str] = Query(None, description="Tipo de evaluación del acta (ej: Final)"),
     id_sec: Optional[int] = Query(None, description="Sección del estudiante (id_sec)"),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('notas', 'LEC', 'SP')),
 ):
     sql = """
         SELECT
@@ -203,7 +204,7 @@ def exportar_inventario(
 def exportar_estudiantes_seccion_v2(
     id_sec: int = Query(..., description="ID de la sección"),
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(obtener_usuario_actual),
+    usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'LEC', 'SP')),
 ):
     """Excel con formato institucional (membrete, título, autofiltro, cebra)."""
     # 1) Datos de la sección y programa
@@ -340,7 +341,8 @@ HTML_TEMPLATE = """
 @router.get("/Horario_docente/pdf", summary="Descargar horario visual semanal en PDF")
 def descargar_horario_docente_pdf(
     cedula: str = Query(..., description="Cédula exacta del docente (ej: V-14567890)"),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('asig_carga', 'LEC', 'SP')),
 ):
     _validar_asignaciones_docente(session, cedula)
 
@@ -454,7 +456,11 @@ def _validar_asignaciones_docente(session: Session, cedula: str) -> None:
 
 
 @router.get("/ficha-docente-pdf/{cedula}", summary="Generar Ficha de Organización Académica en PDF")
-def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_session)):
+def generar_ficha_docente_pdf(
+    cedula: str,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('asig_carga', 'LEC', 'SP')),
+):
     _validar_asignaciones_docente(session, cedula)
 
     query = text("""
@@ -593,7 +599,7 @@ def generar_ficha_docente_pdf(cedula: str, session: Session = Depends(get_sessio
 def exportar_estudiantes_seccion(
     id_sec: int,
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(obtener_usuario_actual)
+    usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'LEC', 'SP')),
 ):
     sec = session.execute(text("""
         SELECT s.codigo, p.codigo AS prog, p.nombre AS prog_nombre

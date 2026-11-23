@@ -279,7 +279,7 @@ export const Estudiantes = () => {
         const esActivo = (est.estatus ?? 'A') === 'A';
         const puedeEditar = puede('estudiantes', 'ACT', 'LIM');
         // Retirar/reincorporar NO es eliminar; usa un endpoint de estatus limitado por rol.
-        const puedeRetirar = esCoordinador || esAdmin;
+        const puedeRetirar = (esCoordinador || esAdmin) && puede('estudiantes', 'ACT', 'SP');
 
         if (!puedeEditar && !puedeRetirar) return <span className="text-xs text-gray-400">Sin permisos</span>;
 

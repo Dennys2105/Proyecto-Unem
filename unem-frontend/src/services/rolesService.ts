@@ -10,6 +10,7 @@ interface BackendPermisoEfectivo {
   permiso: string;
   permiso_nombre: string;
   alcance_efectivo: string;
+  alcance_maximo: string;
   origen: string;
 }
 
@@ -40,7 +41,7 @@ const PERMISO_CODE_TO_ID: Record<string, number> = {
   'BOR': 4
 };
 
-const celdaVacia = () => ({ activo: false, alcance: 'NAD' as const, esPersonalizado: false });
+const celdaVacia = () => ({ activo: false, alcance: 'NAD' as const, alcanceMaximo: 'NAD' as const, esPersonalizado: false });
 
 export const rolesService = {
   getAll: async (): Promise<Rol[]> => {
@@ -125,6 +126,7 @@ export const rolesService = {
       moduloData.permisos[codigoPermiso] = {
         activo: alc !== 'NAD',
         alcance: alc,
+        alcanceMaximo: (d.alcance_maximo ?? 'NAD') as 'TODO' | 'SP' | 'LIM' | 'NAD',
         esPersonalizado: d.origen === 'Personalizado'
       };
     });
