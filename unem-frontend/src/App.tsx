@@ -1,10 +1,12 @@
 import { Suspense, lazy, Component } from 'react';
 import type { ComponentType, ReactNode, ErrorInfo } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AlertTriangle, RotateCcw, Loader2 } from 'lucide-react';
 import { Layout } from './components/Layout';
+import { useAuth } from './hooks/useAuth';
+import { DocentePortal } from './pages/DocentePortal';
 
 /* ══════════════════════════════════════════════════════════════
    RESOLUCIÓN TOLERANTE DE EXPORTS
@@ -154,30 +156,67 @@ const Protegido = ({ children }: { children: ReactNode }): ReactNode => {
   return <>{children}</>;
 };
 
+/* Vicerrector: Notas y Secciones son módulos completamente restringidos. */
+const BloquearVicerrector = ({ children }: { children: ReactNode }): ReactNode => {
+  const { idRol } = useAuth();
+  return idRol === 2 ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+};
+
+/* Coordinador: sin acceso directo a Carga Horaria ni Días Laborales. */
+const BloquearCoordinador = ({ children }: { children: ReactNode }): ReactNode => {
+  const { idRol } = useAuth();
+  return idRol === 3 ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+};
+
+/* Los docentes solo pueden navegar por el portal docente, incluso con URL manual. */
+const SoloGestion = ({ children }: { children: ReactNode }): ReactNode => {
+  const { idRol } = useAuth();
+  return idRol === 4 ? <Navigate to="/dashboard" replace /> : <>{children}</>;
+};
+const SoloDocente = ({ children }: { children: ReactNode }): ReactNode => {
+  const { idRol } = useAuth();
+  return idRol === 4 ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
+
 /* ══════════════ RUTAS ══════════════ */
+const InicioPorRol = (): ReactNode => {
+  const { idRol } = useAuth();
+  return idRol === 4 ? <DocentePortal vista="resumen" /> : <Dashboard />;
+};
+
 const Rutas = (): ReactNode => (
   <Routes>
     <Route path="/login" element={<Suspense fallback={<Cargando />}><Login /></Suspense>} />
 
     <Route element={<Protegido><Layout /></Protegido>}>
       <Route index element={<Navigate to="/dashboard" replace />} />
-      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/dashboard" element={<InicioPorRol />} />
+      <Route element={<SoloDocente><Outlet /></SoloDocente>}>
+        <Route path="/mis-materias" element={<DocentePortal vista="materias" />} />
+        <Route path="/mis-estudiantes" element={<DocentePortal vista="estudiantes" />} />
+        <Route path="/cargar-notas" element={<DocentePortal vista="notas" />} />
+        <Route path="/mi-asistencia" element={<DocentePortal vista="asistencia" />} />
+        <Route path="/mi-horario" element={<DocentePortal vista="horario" />} />
+      </Route>
+      <Route element={<SoloGestion><Outlet /></SoloGestion>}>
       <Route path="/programas" element={<Programas />} />
       <Route path="/ejes" element={<Ejes />} />
       <Route path="/materias" element={<Materias />} />
       <Route path="/malla" element={<Malla />} />
       <Route path="/periodos" element={<Periodos />} />
-      <Route path="/secciones" element={<Secciones />} />
+      <Route path="/secciones" element={<BloquearVicerrector><Secciones /></BloquearVicerrector>} />
       <Route path="/docentes" element={<Docentes />} />
       <Route path="/estudiantes" element={<Estudiantes />} />
-      <Route path="/asignaciones" element={<Asignaciones />} />
+      <Route path="/asignaciones" element={<BloquearCoordinador><Asignaciones /></BloquearCoordinador>} />
       <Route path="/espacios" element={<Espacios />} />
-      <Route path="/dias" element={<Dias />} />
-      <Route path="/notas" element={<Notas />} />
+      <Route path="/dias" element={<BloquearCoordinador><Dias /></BloquearCoordinador>} />
+      <Route path="/notas" element={<BloquearVicerrector><Notas /></BloquearVicerrector>} />
       <Route path="/municipios" element={<Municipios />} />
       <Route path="/roles" element={<Roles />} />
       <Route path="/auditoria" element={<Auditoria />} />
       <Route path="/analitica" element={<Analitica />} />
+
+      </Route>
 
       {/* Alias de rutas usadas en versiones anteriores */}
       <Route path="/ejes-formativos" element={<Navigate to="/ejes" replace />} />

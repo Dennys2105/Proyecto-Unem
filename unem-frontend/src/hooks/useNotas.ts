@@ -31,6 +31,12 @@ export const useNotas = () => {
     onSuccess: invalidar,
   });
 
+  const revisarMutation = useMutation({
+    mutationFn: ({ id, accion, motivo }: { id: number; accion: 'aprobar' | 'rechazar'; motivo?: string }) =>
+      accion === 'aprobar' ? notaService.aprobar(id) : notaService.rechazar(id, motivo ?? ''),
+    onSuccess: invalidar,
+  });
+
   const actaMutation = useMutation({
     mutationFn: (data: ActaCreate) => notaService.guardarActa(data),
     onSuccess: invalidar,
@@ -45,6 +51,8 @@ export const useNotas = () => {
     updateNota: updateMutation.mutateAsync,
     deleteNota: deleteMutation.mutateAsync,
     guardarActa: actaMutation.mutateAsync,
+    revisarNota: revisarMutation.mutateAsync,
+    isRevisando: revisarMutation.isPending,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

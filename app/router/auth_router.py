@@ -19,7 +19,11 @@ router= APIRouter(
 
 # --- CREATE ---
 @router.post("/register", response_model=UsuarioResposive, status_code=status.HTTP_201_CREATED)
-def registrar(auth_in: UserRegister, session: Session = Depends(get_session)):
+def registrar(
+    auth_in: UserRegister,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1])),
+):
     validar_unicidad(Usuario,["email","username"]) (auth_in,session)
     return service.registrar_usuario(session, datos=auth_in)
 

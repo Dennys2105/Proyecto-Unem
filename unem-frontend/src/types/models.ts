@@ -440,6 +440,10 @@ export interface Nota {
   observaciones?: string | null;
   fecha_registro?: string;
   estatus: string;
+  estado_revision?: 'P' | 'A' | 'R';
+  revisado_por?: number | null;
+  fecha_revision?: string | null;
+  motivo_rechazo?: string | null;
   creado?: string;
   actualizar?: string;
   // Enriquecidos por el backend

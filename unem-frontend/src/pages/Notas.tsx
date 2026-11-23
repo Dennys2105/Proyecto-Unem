@@ -38,17 +38,17 @@ type SortDir = 'asc' | 'desc';
 type Tab = 'acta' | 'listado';
 
 export const NotasPage = () => {
-  const { puede } = useAuth();
+  const { puede, esCoordinador, esAdmin } = useAuth();
   const {
-    notas, isLoading, updateNota, guardarActa,
-    isUpdating, isSavingActa, refetch
+    notas, isLoading, updateNota, guardarActa, revisarNota,
+    isUpdating, isSavingActa, isRevisando, refetch
   } = useNotas();
   const { mallas } = useMallas();
   const { periodos } = usePeriodos();
   const { programas } = useProgramas();
   const { secciones } = useSecciones();
 
-  const [tab, setTab] = useState<Tab>('acta');
+  const [tab, setTab] = useState<Tab>(esCoordinador ? 'listado' : 'acta');
 
   // ---------- Estado del ACTA ----------
   const [actaPrograma, setActaPrograma] = useState('');
@@ -64,9 +64,11 @@ export const NotasPage = () => {
 
   // ---------- Estado del LISTADO ----------
   const [filtroPrograma, setFiltroPrograma] = useState('');
+  const [filtroSeccion, setFiltroSeccion] = useState('');
   const [filtroPeriodo, setFiltroPeriodo] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('A');
+  const [filtroRevision, setFiltroRevision] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('id_nota');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -247,6 +249,24 @@ export const NotasPage = () => {
   };
 
   // ---------- Listado ----------
+  // La API de Notas ya entrega cod_seccion. El selector muestra únicamente las
+  // secciones que tienen notas, diferenciadas por programa para evitar confusiones.
+  const claveSeccion = (nota: Nota): string =>
+    JSON.stringify([nota.cod_programa ?? '', nota.cod_seccion ?? '']);
+
+  const opcionesSeccion = useMemo(() => {
+    const opciones = new Map<string, string>();
+    (notas ?? []).forEach((nota: Nota) => {
+      if (filtroPrograma && nota.cod_programa !== filtroPrograma) return;
+      const clave = claveSeccion(nota);
+      const seccion = nota.cod_seccion || 'Sin sección asignada';
+      const programa = nota.cod_programa || 'Sin programa';
+      opciones.set(clave, filtroPrograma ? seccion : `${seccion} · ${programa}`);
+    });
+    return Array.from(opciones, ([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es', { numeric: true }));
+  }, [notas, filtroPrograma]);
+
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((p) => (p === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('asc'); }
@@ -257,9 +277,11 @@ export const NotasPage = () => {
     const filtradas = notas.filter((n: Nota) => {
       const est = n.estatus ?? 'A';
       if (filtroPrograma && n.cod_programa !== filtroPrograma) return false;
+      if (filtroSeccion && claveSeccion(n) !== filtroSeccion) return false;
       if (filtroPeriodo && String(n.id_per) !== filtroPeriodo) return false;
       if (filtroTipo && n.tipo_evaluacion !== filtroTipo) return false;
       if (filtroEstado && est !== filtroEstado) return false;
+      if (filtroRevision && (n.estado_revision ?? 'A') !== filtroRevision) return false;
       if (busqueda) {
         const texto = `${n.cedula ?? ''} ${n.estudiante ?? ''} ${n.materia ?? ''}`.toLowerCase();
         if (!texto.includes(busqueda.toLowerCase())) return false;
@@ -273,7 +295,7 @@ export const NotasPage = () => {
       else cmp = (a.estudiante ?? '').localeCompare(b.estudiante ?? '');
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [notas, filtroPrograma, filtroPeriodo, filtroTipo, filtroEstado, busqueda, sortKey, sortDir]);
+  }, [notas, filtroPrograma, filtroSeccion, filtroPeriodo, filtroTipo, filtroEstado, filtroRevision, busqueda, sortKey, sortDir]);
 
   const abrirEdicion = (n: Nota) => {
     setEditingNota(n);
@@ -312,6 +334,29 @@ export const NotasPage = () => {
     } catch (error: any) {
       const msg = error?.response?.data?.detail ?? `No se pudo ${accion} la calificación`;
       toast.error(msg, { duration: 5000 });
+    }
+  };
+
+  const revisar = async (row: Nota, accion: 'aprobar' | 'rechazar') => {
+    if (row.estado_revision !== 'P' || row.estatus !== 'A') return;
+    let motivo: string | undefined;
+    if (accion === 'rechazar') {
+      const ingresado = window.prompt('Motivo del rechazo (mínimo 5 caracteres):');
+      if (ingresado === null) return;
+      motivo = ingresado.trim();
+      if (motivo.length < 5) {
+        toast.error('Debes especificar un motivo de al menos 5 caracteres');
+        return;
+      }
+    } else if (!window.confirm('¿Aprobar esta calificación enviada por el docente?')) {
+      return;
+    }
+    try {
+      await revisarNota({ id: row.id_nota, accion, motivo });
+      toast.success(accion === 'aprobar' ? 'Calificación aprobada' : 'Calificación rechazada');
+      await refetch();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'No fue posible revisar la nota');
     }
   };
 
@@ -355,6 +400,10 @@ export const NotasPage = () => {
         </div>
       ),
     },
+    {
+      key: 'cod_seccion', label: 'Sección',
+      render: (v: any) => <span className="text-xs font-medium text-gray-700">{v || 'Sin asignar'}</span>,
+    },
     { key: 'periodo_academico', label: 'Período', render: (v: any) => <span className="text-xs text-gray-600">{v ?? '—'}</span> },
     {
       key: 'tipo_evaluacion', label: 'Evaluación',
@@ -382,20 +431,51 @@ export const NotasPage = () => {
       },
     },
     {
+      key: 'estado_revision', label: 'Revisión',
+      render: (_: any, row: Nota) => {
+        const estado = row.estado_revision ?? 'A';
+        const etiquetas: Record<string, string> = { P: 'Pendiente', A: 'Validada', R: 'Rechazada' };
+        const estilos: Record<string, string> = {
+          P: 'bg-amber-50 text-amber-800 border-amber-200',
+          A: 'bg-green-50 text-green-800 border-green-200',
+          R: 'bg-red-50 text-red-800 border-red-200',
+        };
+        return (
+          <span title={row.motivo_rechazo || undefined}
+            className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border ${estilos[estado] ?? estilos.P}`}>
+            {etiquetas[estado] ?? 'Pendiente'}
+          </span>
+        );
+      },
+    },
+    {
       key: 'acciones', label: 'Acciones',
       render: (_: any, row: Nota) => {
         const activa = (row.estatus ?? 'A') === 'A';
         const puedeEditar = puede('notas', 'ACT', 'LIM');
         const puedeAnular = puede('notas', 'BOR', 'TODO');
+        const puedeRevisar = (esCoordinador || esAdmin) && activa && row.estado_revision === 'P';
 
-        if (!puedeEditar && !puedeAnular) return <span className="text-xs text-gray-400">Sin permisos</span>;
+        if (!puedeEditar && !puedeAnular && !puedeRevisar) return <span className="text-xs text-gray-400">Sin permisos</span>;
 
         return (
           <div className="flex gap-2">
-            {puedeEditar && (
+            {puedeEditar && (row.estado_revision !== 'A' || esAdmin) && (
               <button onClick={() => abrirEdicion(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
                 <Edit size={14} /> Editar
               </button>
+            )}
+            {puedeRevisar && (
+              <>
+                <button onClick={() => revisar(row, 'aprobar')} disabled={isRevisando}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 disabled:opacity-50">
+                  <CheckCircle2 size={14} /> Aprobar
+                </button>
+                <button onClick={() => revisar(row, 'rechazar')} disabled={isRevisando}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 disabled:opacity-50">
+                  <XCircle size={14} /> Rechazar
+                </button>
+              </>
             )}
             {puedeAnular && (
               <button onClick={() => toggleAnulacion(row)} disabled={isUpdating} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
@@ -416,7 +496,7 @@ export const NotasPage = () => {
       <PageHero
         icon={ClipboardList}
         titulo="Registro de Calificaciones"
-        descripcion={<>Carga masiva por acta (sección + materia + período) o gestión individual. Escala venezolana <b>0–20</b>; se aprueba con <b>10</b> o más. Las notas anuladas se conservan para auditoría.</>}
+        descripcion={<>Carga masiva por acta (sección + materia + período) o gestión individual. Escala <b>0–20</b>; el mínimo para aprobar depende del eje formativo. La revisión del Coordinador es distinta al resultado académico de la nota.</>}
       />
 
       {/* PESTAÑAS */}
@@ -708,9 +788,15 @@ export const NotasPage = () => {
                   onChange={(e) => setBusqueda(e.target.value)}
                 />
               </div>
-              <select className="unem-select" value={filtroPrograma} onChange={(e) => setFiltroPrograma(e.target.value)}>
+              <select className="unem-select" aria-label="Filtrar por programa" value={filtroPrograma}
+                onChange={(e) => { setFiltroPrograma(e.target.value); setFiltroSeccion(''); }}>
                 <option value="">Todos los programas</option>
                 {listaProgramas.map((p) => <option key={p.id_pro} value={p.codigo}>{p.codigo}</option>)}
+              </select>
+              <select className="unem-select" aria-label="Filtrar por sección" value={filtroSeccion}
+                onChange={(e) => setFiltroSeccion(e.target.value)}>
+                <option value="">Todas las secciones</option>
+                {opcionesSeccion.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
               <select className="unem-select" value={filtroPeriodo} onChange={(e) => setFiltroPeriodo(e.target.value)}>
                 <option value="">Todos los períodos</option>
@@ -725,6 +811,12 @@ export const NotasPage = () => {
                 <option value="I">Solo anuladas</option>
                 <option value="">Todos los estados</option>
               </select>
+              <select className="unem-select" value={filtroRevision} onChange={(e) => setFiltroRevision(e.target.value)}>
+                <option value="">Toda revisión</option>
+                <option value="P">Pendientes</option>
+                <option value="A">Validadas</option>
+                <option value="R">Rechazadas</option>
+              </select>
             </div>
           </section>
 
@@ -736,7 +828,7 @@ export const NotasPage = () => {
             <div className="unem-empty">
               <span className="unem-empty-i"><ClipboardList size={34} /></span>
               <p>No se encontraron calificaciones.</p>
-              <p style={{ fontSize: 12, color: 'var(--tx-3)' }}>Usa la pestaña «Acta de Calificaciones» para cargar notas.</p>
+              <p style={{ fontSize: 12, color: 'var(--tx-3)' }}>Revisa los filtros de programa, sección y período para encontrar las calificaciones.</p>
             </div>
           ) : (
             <div className="unem-table-wrap unem-scroll">

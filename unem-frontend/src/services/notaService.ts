@@ -17,6 +17,16 @@ export const notaService = {
     return response.data;
   },
 
+  aprobar: async (id: number): Promise<Nota> => {
+    const response = await api.post(`/notas/${id}/aprobar`);
+    return response.data;
+  },
+
+  rechazar: async (id: number, motivo: string): Promise<Nota> => {
+    const response = await api.post(`/notas/${id}/rechazar`, { motivo });
+    return response.data;
+  },
+
   delete: async (id: number): Promise<void> => {
     await api.delete(`/notas/${id}`);
   },

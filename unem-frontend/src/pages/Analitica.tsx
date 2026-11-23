@@ -1,12 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { analyticsService } from '../services/analyticsService';
 import type {
   PuntoTendencia, FilaTrayecto, FilaEje, FilaOcupacionDia, FilaGeografia, BinHistograma,
-  PrediccionesData, PuntoSerie, PuntoProyeccion, MateriaRiesgoPred, EstudianteRiesgo,
+  PrediccionesData, PuntoSerie, PuntoProyeccion, MateriaRiesgoPred, EstudianteRiesgo, CargaPorDia,
 } from '../services/analyticsService';
-import { useDias } from '../hooks/useDias';
 import {
   BarChart3, TrendingUp, Layers, CalendarRange, MapPin, RefreshCw, Info, Sparkles,
 } from 'lucide-react';
@@ -30,9 +29,20 @@ export const Analitica = (): ReactNode => {
   const [tab, setTab] = useState<Tab>('tendencia');
   const [idDia, setIdDia] = useState<number>(6); // 6 = Sábado por defecto
   const [idProPred, setIdProPred] = useState<number | undefined>(undefined);
-  const { dias } = useDias();
-  const diasActivos = (dias ?? []).filter((d) => d.estatus === 'A');
+  // Analítica utiliza el resumen de ocupación (solo lectura) y ya no
+  // depende del CRUD de Días Laborales, restringido al Coordinador.
+  const qDias = useQuery<CargaPorDia[]>({
+    queryKey: ['ana', 'dias-resumen'],
+    queryFn: analyticsService.getCargaPorDia,
+  });
+  const diasActivos = qDias.data ?? [];
   const diaNombre = diasActivos.find((d) => d.id_dia === idDia)?.dia ?? 'Día';
+
+  useEffect(() => {
+    if (diasActivos.length && !diasActivos.some((d) => d.id_dia === idDia)) {
+      setIdDia(diasActivos[0].id_dia);
+    }
+  }, [qDias.data, idDia]);
 
   const qTen = useQuery<PuntoTendencia[]>({ queryKey: ['ana', 'ten'], queryFn: analyticsService.getTendencia, enabled: tab === 'tendencia' });
   const qHis = useQuery<BinHistograma[]>({ queryKey: ['ana', 'his'], queryFn: analyticsService.getHistograma, enabled: tab === 'tendencia' });

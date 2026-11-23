@@ -142,7 +142,7 @@ def exportar_inventario(
             n.fecha_registro
         FROM academico.notas n
         INNER JOIN personas.estudiantes e ON n.id_est = e.id_est
-        WHERE n.id_malla = :id_malla AND n.id_per = :id_per AND n.estatus = 'A'
+        WHERE n.id_malla = :id_malla AND n.id_per = :id_per AND n.estatus = 'A' AND n.estado_revision = 'A'
     """
     params = {"id_malla": id_malla, "id_per": id_per}
     if tipo_evaluacion:

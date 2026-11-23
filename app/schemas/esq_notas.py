@@ -61,6 +61,10 @@ class NotasResponcive(BaseModel):
     observaciones: Optional[str] = None
     fecha_registro: Optional[datetime] = None
     estatus: str = "A"
+    estado_revision: str = "P"
+    revisado_por: Optional[int] = None
+    fecha_revision: Optional[datetime] = None
+    motivo_rechazo: Optional[str] = None
     creado: Optional[datetime] = None
     actualizar: Optional[datetime] = None
     # Campos enriquecidos por JOIN
@@ -103,3 +107,13 @@ class ResumenActa(BaseModel):
     omitidas: int = 0
     total_procesadas: int = 0
     mensaje: str = ""
+
+class RechazoNota(BaseModel):
+    motivo: str = Field(..., min_length=5, max_length=1000)
+
+    @field_validator('motivo')
+    @classmethod
+    def motivo_no_vacio(cls, v: str) -> str:
+        if len(v.strip()) < 5:
+            raise ValueError('Indica una razón de al menos 5 caracteres')
+        return v.strip()

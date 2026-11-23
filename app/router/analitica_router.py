@@ -24,7 +24,7 @@ _CTE = f"""
         JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
         JOIN academico.materias m ON m.id_mat = mc.id_mat
         JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
-        WHERE n.estatus = 'A'
+        WHERE n.estatus = 'A' AND n.estado_revision = 'A'
           AND n.tipo_evaluacion IN ('Final', 'Recuperación')
         ORDER BY n.id_est, n.id_malla, n.id_per,
                  CASE n.tipo_evaluacion WHEN 'Recuperación' THEN 1 ELSE 2 END

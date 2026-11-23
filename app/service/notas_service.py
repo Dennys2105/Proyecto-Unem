@@ -11,7 +11,9 @@ _SELECT_ENRIQUECIDO = """
     SELECT
         n.id_nota, n.id_est, n.id_malla, n.id_per,
         n.nota, n.tipo_evaluacion, n.observaciones,
-        n.fecha_registro, n.estatus, n.creado, n.actualizar,
+        n.fecha_registro, n.estatus, n.estado_revision,
+        n.revisado_por, n.fecha_revision, n.motivo_rechazo,
+        n.creado, n.actualizar,
         e.cedula,
         (e.nombre || ' ' || e.apellido) AS estudiante,
         m.codigo  AS cod_materia,
@@ -36,7 +38,7 @@ _SELECT_ENRIQUECIDO = """
 def _fila_a_dict(row) -> Dict[str, Any]:
     d = dict(row)
     d["nota"] = float(d["nota"])
-    for campo in ("fecha_registro", "creado", "actualizar"):
+    for campo in ("fecha_registro", "fecha_revision", "creado", "actualizar"):
         if d.get(campo) is not None:
             d[campo] = str(d[campo])
     return d
@@ -77,7 +79,7 @@ def analisis_notas_filtrado(
             SELECT DISTINCT ON (n.id_est, n.id_malla, n.id_per)
                 n.id_est, n.id_malla, n.id_per, n.nota, n.tipo_evaluacion
             FROM academico.notas n
-            WHERE n.estatus = 'A'
+            WHERE n.estatus = 'A' AND n.estado_revision = 'A'
               AND n.tipo_evaluacion IN ('Final', 'Recuperación')
             ORDER BY n.id_est, n.id_malla, n.id_per,
                 CASE n.tipo_evaluacion
@@ -180,7 +182,7 @@ def _nota_existente(session: Session, id_est: int, id_malla: int, id_per: int, t
     return session.exec(text("""
         SELECT id_nota, nota FROM academico.notas
         WHERE id_est = :e AND id_malla = :m AND id_per = :p
-          AND tipo_evaluacion = :t AND estatus = 'A'
+          AND tipo_evaluacion = :t AND estatus = 'A' AND estado_revision = 'A'
     """).params(e=id_est, m=id_malla, p=id_per, t=tipo)).first()
 
 
@@ -250,7 +252,8 @@ def crear(session: Session, datos_in: NotasCreate) -> Dict[str, Any]:
 
 
 def actualizar(
-    session: Session, db_dato: Nota, dato_in: NotasUpdate, parcial: bool = True
+    session: Session, db_dato: Nota, dato_in: NotasUpdate, parcial: bool = True,
+    reapertura_admin: bool = False,
 ) -> Dict[str, Any]:
     datos = dato_in.model_dump(exclude_unset=parcial)
 
@@ -263,8 +266,13 @@ def actualizar(
     id_malla = datos.get("id_malla", db_dato.id_malla)
     id_per = datos.get("id_per", db_dato.id_per)
 
-    # Anular/restaurar se permite incluso en períodos cerrados (corrección administrativa)
-    es_anulacion = set(datos.keys()) <= {"estatus", "observaciones"}
+    # No permitir que se alteren notas ya validadas sin un procedimiento de reapertura.
+    cambios_academicos = bool(set(datos.keys()) - {"estatus"})
+    if cambios_academicos and db_dato.estado_revision == 'A' and not reapertura_admin:
+        raise HTTPException(status_code=409, detail="Nota aprobada: solo administración puede reabrirla para corregir.")
+
+    # Anular/restaurar por estatus lógico sigue siendo una operación distinta a revisar.
+    es_anulacion = set(datos.keys()) <= {"estatus"}
 
     if not es_anulacion:
         validar_reglas_academicas(session, id_est, id_malla, id_per, tipo_nuevo)
@@ -274,6 +282,11 @@ def actualizar(
 
     for llave, valor in datos.items():
         setattr(db_dato, llave, valor.value if hasattr(valor, "value") else valor)
+    if cambios_academicos:
+        db_dato.estado_revision = 'P'
+        db_dato.revisado_por = None
+        db_dato.fecha_revision = None
+        db_dato.motivo_rechazo = None
 
     session.add(db_dato)
     session.commit()
@@ -309,7 +322,7 @@ def obtener_acta(
               SELECT 1 FROM academico.notas f
               WHERE f.id_est = e.id_est AND f.id_malla = :id_malla
                 AND f.id_per = :id_per AND f.tipo_evaluacion = 'Final'
-                AND f.estatus = 'A' AND f.nota < :nota_minima
+                AND f.estatus = 'A' AND f.estado_revision = 'A' AND f.nota < :nota_minima
           )
         """
 
@@ -317,6 +330,7 @@ def obtener_acta(
         SELECT
             e.id_est, e.cedula, e.nombre, e.apellido,
             n.id_nota, n.nota, n.observaciones,
+            n.estado_revision, n.motivo_rechazo,
             COALESCE(n.estatus, 'S') AS estado_nota
         FROM personas.estudiantes e
         LEFT JOIN academico.notas n
@@ -324,6 +338,7 @@ def obtener_acta(
             AND n.id_malla = :id_malla
             AND n.id_per = :id_per
             AND n.tipo_evaluacion = :tipo
+            AND n.estatus = 'A'
         WHERE e.id_sec = :id_sec AND e.estatus = 'A'
         {filtro_recuperacion}
         ORDER BY e.apellido, e.nombre
@@ -347,20 +362,30 @@ def obtener_acta(
             "id_nota": r["id_nota"],
             "nota": float(r["nota"]) if r["nota"] is not None else None,
             "observaciones": r["observaciones"], "estado_nota": r["estado_nota"],
+            "estado_revision": r["estado_revision"] or "P",
+            "motivo_rechazo": r["motivo_rechazo"],
         }
         for r in rows
     ]
 
 
-def guardar_acta(session: Session, acta: ActaCreate) -> Dict[str, Any]:
+def guardar_acta(session: Session, acta: ActaCreate, reapertura_admin: bool = False) -> Dict[str, Any]:
     tipo = acta.tipo_evaluacion.value
 
-    # ✅ Validar TODAS las filas antes de escribir (atomicidad)
+    # No dejar que el guardado de un acta sustituya una nota ya aprobada.
+    # El SQL de UPSERT también comprueba esto para evitar condiciones de carrera.
     errores: List[str] = []
     for fila in acta.filas:
         if fila.nota is None:
             continue
         try:
+            aprobada = session.exec(text("""
+                SELECT 1 FROM academico.notas
+                WHERE id_est = :e AND id_malla = :m AND id_per = :p
+                  AND tipo_evaluacion = :t AND estado_revision = 'A'
+            """).params(e=fila.id_est, m=acta.id_malla, p=acta.id_per, t=tipo)).first()
+            if aprobada and not reapertura_admin:
+                raise HTTPException(status_code=409, detail="La calificación ya está aprobada y no puede sobrescribirse.")
             validar_reglas_academicas(session, fila.id_est, acta.id_malla, acta.id_per, tipo)
         except HTTPException as exc:
             est = session.exec(text(
@@ -377,14 +402,17 @@ def guardar_acta(session: Session, acta: ActaCreate) -> Dict[str, Any]:
     creadas = actualizadas = omitidas = 0
     statement = text("""
         INSERT INTO academico.notas
-            (id_est, id_malla, id_per, nota, tipo_evaluacion, observaciones, estatus)
-        VALUES (:id_est, :id_malla, :id_per, :nota, :tipo, :obs, 'A')
+            (id_est, id_malla, id_per, nota, tipo_evaluacion, observaciones,
+             estatus, estado_revision)
+        VALUES (:id_est, :id_malla, :id_per, :nota, :tipo, :obs, 'A', 'P')
         ON CONFLICT (id_est, id_malla, id_per, tipo_evaluacion)
         DO UPDATE SET
             nota = EXCLUDED.nota,
             observaciones = COALESCE(EXCLUDED.observaciones, academico.notas.observaciones),
-            estatus = 'A',
+            estatus = 'A', estado_revision = 'P',
+            revisado_por = NULL, fecha_revision = NULL, motivo_rechazo = NULL,
             actualizar = CURRENT_TIMESTAMP
+        WHERE academico.notas.estado_revision <> 'A' OR :reapertura_admin
         RETURNING (xmax = 0) AS insertada
     """)
 
@@ -395,8 +423,12 @@ def guardar_acta(session: Session, acta: ActaCreate) -> Dict[str, Any]:
         resultado = session.exec(statement.params(
             id_est=fila.id_est, id_malla=acta.id_malla, id_per=acta.id_per,
             nota=round(fila.nota, 2), tipo=tipo, obs=fila.observaciones,
+            reapertura_admin=reapertura_admin,
         )).first()
-        if resultado and resultado[0]:
+        if resultado is None:
+            session.rollback()
+            raise HTTPException(status_code=409, detail="El acta contiene una nota aprobada por otro usuario; no se guardó ningún cambio.")
+        if resultado[0]:
             creadas += 1
         else:
             actualizadas += 1
@@ -443,3 +475,30 @@ def existe_llave_foranea_malla(session: Session, id: int) -> Optional[MallaCurri
 
 def existe_llave_foranea_per(session: Session, id: int) -> Optional[PeriodoAcademico]:
     return obtener_por_id(session, PeriodoAcademico, id)
+
+# ============================================================
+# VALIDACIÓN DE NOTAS POR COORDINACIÓN
+# ============================================================
+def revisar_nota(session: Session, nota_id: int, revisor_id: int,
+                 aprobar: bool, motivo: Optional[str] = None) -> Dict[str, Any]:
+    nuevo_estado = 'A' if aprobar else 'R'
+    actualizado = session.exec(text("""
+        UPDATE academico.notas
+        SET estado_revision = :estado,
+            revisado_por = :revisor,
+            fecha_revision = CURRENT_TIMESTAMP,
+            motivo_rechazo = :motivo,
+            actualizar = CURRENT_TIMESTAMP
+        WHERE id_nota = :id AND estatus = 'A' AND estado_revision = 'P'
+        RETURNING id_nota
+    """).params(id=nota_id, estado=nuevo_estado,
+                revisor=revisor_id, motivo=None if aprobar else motivo)).first()
+    if actualizado is None:
+        existente = session.exec(text("""
+            SELECT estatus, estado_revision FROM academico.notas WHERE id_nota = :id
+        """).params(id=nota_id)).first()
+        if existente is None:
+            raise HTTPException(status_code=404, detail="Calificación no encontrada")
+        raise HTTPException(status_code=409, detail="Solo pueden revisarse calificaciones vigentes y pendientes.")
+    session.commit()
+    return obtener_enriquecida(session, nota_id)

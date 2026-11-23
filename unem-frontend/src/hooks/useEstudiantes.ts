@@ -28,6 +28,12 @@ export const useEstudiantes = () => {
     },
   });
 
+  const cambiarEstadoMutation = useMutation({
+    mutationFn: ({ id, estatus }: { id: number; estatus: 'A' | 'I' }) =>
+      estudianteService.cambiarEstado(id, estatus),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['estudiantes'] }),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => estudianteService.delete(id),
     onSuccess: () => {
@@ -45,6 +51,8 @@ export const useEstudiantes = () => {
     setBusqueda,
     createEstudiante: createMutation.mutate,
     updateEstudiante: updateMutation.mutate,
+    cambiarEstadoEstudiante: cambiarEstadoMutation.mutateAsync,
+    isCambiandoEstado: cambiarEstadoMutation.isPending,
     deleteEstudiante: deleteMutation.mutate,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,

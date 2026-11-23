@@ -54,9 +54,9 @@ export const useAuth = () => {
   const idUsuario = payload?.id ?? payload?.id_usu ?? null;
   const username = payload?.sub || payload?.username || null;
 
-  // Si no podemos leer el rol, mostrar todo (fallback seguro)
+  // Si el token no contiene un rol reconocido, denegar permisos por defecto.
   const rolDesconocido = idRol === null;
-  const esAdmin = rolDesconocido ? true : idRol === 1;
+  const esAdmin = idRol === 1;
   const scopes = payload?.scopes ?? {};
 
   /** ¿Tiene al menos el alcance mínimo sobre (modulo, accion)? ADMIN siempre sí. */

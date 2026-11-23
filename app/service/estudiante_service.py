@@ -70,10 +70,13 @@ def leer_por_secciones(
 def leer_todos_con_filtros(
     session: Session,
     id_sec: Optional[int] = None,
-    busqueda: Optional[str] = None
+    busqueda: Optional[str] = None,
+    incluir_retirados: bool = False,
 ) -> List[Estudiante]:
-    """Lee todos los estudiantes con filtros opcionales."""
-    query = select(Estudiante).where(Estudiante.estatus == 'A')
+    """Los retirados solo se incluyen si el router autorizó al responsable."""
+    query = select(Estudiante)
+    if not incluir_retirados:
+        query = query.where(Estudiante.estatus == 'A')
 
     if id_sec:
         query = query.where(Estudiante.id_sec == id_sec)

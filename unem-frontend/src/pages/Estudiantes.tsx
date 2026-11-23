@@ -66,8 +66,11 @@ type SortKey = 'id_est' | 'cedula';
 type SortDir = 'asc' | 'desc';
 
 export const Estudiantes = () => {
-  const { puede } = useAuth();
-  const { estudiantes, isLoading, createEstudiante, updateEstudiante, isCreating, isUpdating } = useEstudiantes();
+  const { puede, esCoordinador, esAdmin } = useAuth();
+  const {
+    estudiantes, isLoading, createEstudiante, updateEstudiante,
+    cambiarEstadoEstudiante, isCambiandoEstado, isCreating, isUpdating,
+  } = useEstudiantes();
   const { municipios } = useMunicipios();
   const { secciones } = useSecciones();
 
@@ -164,18 +167,18 @@ export const Estudiantes = () => {
     const actual = est.estatus ?? 'A';
     const nuevoEstatus = actual === 'A' ? 'I' : 'A';
     const accion = nuevoEstatus === 'A' ? 'reincorporado' : 'retirado';
+    if (nuevoEstatus === 'I' && !window.confirm(
+      `¿Confirmas el retiro de ${est.nombre} ${est.apellido}? Dejará de aparecer en las listas académicas activas.`
+    )) return;
 
     try {
-      await updateEstudiante({
-        id: est.id_est,
-        data: { estatus: nuevoEstatus } as EstudianteUpdate,
-      });
+      await cambiarEstadoEstudiante({ id: est.id_est, estatus: nuevoEstatus });
       toast.success(`${est.nombre} ${est.apellido} ${accion} correctamente`, {
         icon: nuevoEstatus === 'A' ? '✅' : '📋',
         duration: 3000,
       });
-    } catch {
-      toast.error(`No se pudo ${accion} al estudiante. Verifica el endpoint PATCH en el backend.`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || `No se pudo ${accion} al estudiante.`);
     }
   };
 
@@ -275,7 +278,8 @@ export const Estudiantes = () => {
       render: (_: any, est: Estudiante) => {
         const esActivo = (est.estatus ?? 'A') === 'A';
         const puedeEditar = puede('estudiantes', 'ACT', 'LIM');
-        const puedeRetirar = puede('estudiantes', 'BOR', 'TODO');
+        // Retirar/reincorporar NO es eliminar; usa un endpoint de estatus limitado por rol.
+        const puedeRetirar = esCoordinador || esAdmin;
 
         if (!puedeEditar && !puedeRetirar) return <span className="text-xs text-gray-400">Sin permisos</span>;
 
@@ -292,7 +296,7 @@ export const Estudiantes = () => {
             {puedeRetirar && (
               <button
                 onClick={() => toggleRetiro(est)}
-                disabled={isUpdating}
+                disabled={isCambiandoEstado}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
                   esActivo
                     ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'

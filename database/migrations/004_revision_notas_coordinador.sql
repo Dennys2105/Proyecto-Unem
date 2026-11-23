@@ -1,4 +1,28 @@
+-- Migración 004. Revisión académica de calificaciones por Coordinación.
+-- ¡Ejecutar antes de reiniciar la API modificada! Respaldar PostgreSQL.
+-- Calificaciones históricas se consideran validadas (A) para no cambiar históricos.
+-- Las NUEVAS calificaciones entran pendientes (P); rechazadas (R) requieren corrección.
 BEGIN;
+ALTER TABLE academico.notas
+    ADD COLUMN IF NOT EXISTS estado_revision varchar(1) NOT NULL DEFAULT 'A',
+    ADD COLUMN IF NOT EXISTS revisado_por integer REFERENCES general.usuarios(id_usu),
+    ADD COLUMN IF NOT EXISTS fecha_revision timestamptz,
+    ADD COLUMN IF NOT EXISTS motivo_rechazo varchar(1000);
+ALTER TABLE academico.notas ALTER COLUMN estado_revision SET DEFAULT 'P';
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='chk_notas_revision_estado'
+                   AND conrelid='academico.notas'::regclass) THEN
+        ALTER TABLE academico.notas ADD CONSTRAINT chk_notas_revision_estado
+            CHECK (estado_revision IN ('P','A','R'));
+    END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS ix_notas_revision_pendiente
+    ON academico.notas (estado_revision, estatus);
+COMMIT;
+
+-- A partir de aquí la vista estadística solo incorpora notas validadas.
+BEGIN;
+
 
 CREATE OR REPLACE VIEW academico.vw_analisis_notas AS
 WITH definitivas AS (
@@ -9,7 +33,7 @@ WITH definitivas AS (
         n.nota,
         n.tipo_evaluacion
     FROM academico.notas n
-    WHERE n.estatus = 'A'
+    WHERE n.estatus = 'A' AND n.estado_revision = 'A'
       AND n.tipo_evaluacion IN ('Final', 'Recuperación')
     ORDER BY n.id_est, n.id_malla, n.id_per,
         CASE n.tipo_evaluacion
@@ -65,5 +89,7 @@ WHERE e.estatus = 'A'
 GROUP BY
     p.codigo, p.nombre, mc.trayecto, mc.periodo, pa.nombre,
     m.codigo, m.nombre, eje.codigo, eje.nombre;
+
+
 
 COMMIT;

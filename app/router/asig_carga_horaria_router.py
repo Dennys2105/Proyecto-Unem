@@ -1,20 +1,70 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
-from sqlmodel import Session
+from typing import List, Optional
+from datetime import date
+from pydantic import BaseModel
+from sqlmodel import Session, select
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_asig_carga_horaria import AsigCargaHorariaCreate,AsigCargaHorariaReplace,AsigCargaHorariaResponse,AsigCargaHorariaUpdate
 import app.service.asig_carga_hor_service as service
-from app.dependencies.auth_deps import recurso_propietario, verificar_permiso, docente_del_usuario, es_docente_sp
+from app.dependencies.auth_deps import requerir_rol, verificar_permiso, docente_del_usuario, es_docente_sp, bloquear_rol
 from app.dependencies.asig_hor_deps import validar_conflictos_horarios, validar_disponibilidad_docente
 from app.dependencies.seccion_deps import validar_seccion_para_nueva_operacion
+from app.models.unem_db_models import Seccion, PeriodoAcademico
 
 router= APIRouter(
     prefix="/asig_carga_hor",
-    tags=["Carga Horaria"]
+    tags=["Carga Horaria"],
+    dependencies=[Depends(bloquear_rol(3))],  # Coordinador: módulo inaccesible
 )
 
-# --- CREATE ---
-@router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED)
+class PeriodoOpcion(BaseModel):
+    nombre: str
+
+
+class SeccionOpcionCarga(BaseModel):
+    # Solo los campos requeridos para el selector de horario.
+    id_sec: int
+    codigo: str
+    id_per: Optional[int]
+    trayecto: int
+    periodo: int
+    estatus: str
+    periodo_finalizado: bool
+    periodo_academico: Optional[PeriodoOpcion]
+
+
+# El Vicerrector no puede entrar al módulo Secciones ni usar /seccion.
+# Esta lectura MINIMA solo permite escoger una sección al planificar horarios.
+# Debe ir antes de GET /{carga_horaria_id} para evitar conflictos de ruta.
+@router.get('/opciones/secciones', response_model=List[SeccionOpcionCarga])
+def secciones_para_asignacion(
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(verificar_permiso('asig_carga', 'LEC', 'SP')),
+    _rol: dict = Depends(requerir_rol([2])),
+):
+    resultados = session.exec(
+        select(Seccion, PeriodoAcademico)
+        .outerjoin(PeriodoAcademico, Seccion.id_per == PeriodoAcademico.id_per)
+        .where(Seccion.estatus == 'A')
+        .order_by(Seccion.codigo)
+    ).all()
+    return [
+        SeccionOpcionCarga(
+            id_sec=seccion.id_sec,
+            codigo=seccion.codigo,
+            id_per=seccion.id_per,
+            trayecto=seccion.trayecto,
+            periodo=seccion.periodo,
+            estatus=seccion.estatus,
+            periodo_finalizado=bool(periodo and periodo.fecha_fin < date.today()),
+            periodo_academico=PeriodoOpcion(nombre=periodo.nombre) if periodo else None,
+        )
+        for seccion, periodo in resultados
+    ]
+
+
+# --- CREATE (exclusivo del Vicerrector) ---
+@router.post("/", response_model=AsigCargaHorariaResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(requerir_rol([2]))])
 def crear_carga_horaria(carga_in: AsigCargaHorariaCreate, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','CRE','TODO'))):
     validar_conflictos_horarios(session, carga_in)
 
@@ -67,13 +117,17 @@ def leer_carga_horaria(session: Session = Depends(get_session), usuario_actual: 
 @router.get("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse)
 def leer_carga_horaria_id(carga_horaria_id: int, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','LEC','SP'))):
     dato = service.obtener_dato_por_id(carga_horaria_id, session)
-    recurso_propietario(usuario_actual,dato.id_doc,roles_restringidos=2)
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campo no encontrado")
+    # El Vicerrector consulta toda la carga; el docente con alcance SP solo la suya.
+    if es_docente_sp(usuario_actual):
+        id_doc = docente_del_usuario(usuario_actual, session)
+        if dato.id_doc != id_doc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No puedes consultar este horario")
     return dato
 
 # --- UPDATE (PARCIAL - PATCH) ---
-@router.patch("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse)
+@router.patch("/{carga_horaria_id}", response_model=AsigCargaHorariaResponse, dependencies=[Depends(requerir_rol([2]))])
 def actualizar_parcial_carga(carga_horaria_id: int, dato_in: AsigCargaHorariaUpdate, session: Session = Depends(get_session),usuario_actual: dict = Depends(verificar_permiso('asig_carga','ACT','TODO'))):
     
     validar_conflictos_horarios(session,dato_in,carga_horaria_id)
@@ -127,7 +181,7 @@ def actualizar_parcial_carga(carga_horaria_id: int, dato_in: AsigCargaHorariaUpd
 
     return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
 
-@router.delete("/{id_asig}", status_code=status.HTTP_200_OK)
+@router.delete("/{id_asig}", status_code=status.HTTP_200_OK, dependencies=[Depends(requerir_rol([2]))])
 def eliminar_asignacion(id_asig: int, session: Session = Depends(get_session), usuario_actual: dict = Depends(verificar_permiso('asig_carga','BOR','TODO'))):
     db_dato = service.obtener_dato_por_id(id_asig, session)
     if not db_dato:

@@ -3,6 +3,7 @@ import type { ReactNode, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Award, BarChart3, BookOpen, Boxes, CalendarDays, CalendarRange, ChevronRight,
+  FileSpreadsheet,
   ClipboardList, CornerDownLeft, DoorOpen, Layers, LayoutDashboard,
   Library, LogOut, MapPin, Menu, Network, PanelLeftClose, PanelLeftOpen,
   Search, ShieldAlert, ShieldCheck, UserCheck, Users, X,
@@ -46,7 +47,22 @@ const NAV: NavGroup[] = [
   ]},
 ];
 
-const FLAT: NavItem[] = NAV.flatMap((g: NavGroup): NavItem[] => g.items);
+
+// Portal exclusivo para el Docente (rol 4): no se reutiliza el menú administrativo.
+const NAV_DOCENTE: NavGroup[] = [
+  { title: 'Panel', items: [
+    { to: '/dashboard', label: 'Mi Dashboard', icon: LayoutDashboard, hint: 'Mi actividad docente' },
+  ]},
+  { title: 'Gestión Académica', items: [
+    { to: '/mis-materias', label: 'Mis Materias y Secciones', icon: BookOpen, hint: 'Clases asignadas' },
+    { to: '/mis-estudiantes', label: 'Mis Estudiantes', icon: Users, hint: 'Alumnos de mis grupos' },
+    { to: '/cargar-notas', label: 'Cargar Notas', icon: Award, hint: 'Enviar notas y corregir rechazos' },
+    { to: '/mi-asistencia', label: 'Lista de Asistencia', icon: FileSpreadsheet, hint: 'Excel por sección' },
+    { to: '/mi-horario', label: 'Mi Horario', icon: CalendarDays, hint: 'Consultar y descargar PDF' },
+  ]},
+];
+
+const FLAT: NavItem[] = [...NAV, ...NAV_DOCENTE].flatMap((g: NavGroup): NavItem[] => g.items);
 
 const REQ_MODULO: Record<string, [string, string]> = {
   '/programas':    ['malla', 'SP'],
@@ -162,10 +178,14 @@ export const Layout = ({ children }: { children?: ReactNode }): ReactNode => {
   const nav = useNavigate();
   const { puede, username, idRol } = useAuth();
 
-  const navVisible: NavGroup[] = NAV
+  const navVisible: NavGroup[] = (idRol === 4 ? NAV_DOCENTE : NAV)
     .map((g: NavGroup): NavGroup => ({
       ...g,
       items: g.items.filter((i: NavItem): boolean => {
+        // El Vicerrector (rol 2) no tiene acceso a Notas ni Secciones.
+        if (idRol === 2 && (i.to === '/notas' || i.to === '/secciones')) return false;
+        // Coordinador (rol 3): no administra carga horaria ni días laborales.
+        if (idRol === 3 && (i.to === '/asignaciones' || i.to === '/dias')) return false;
         const req = REQ_MODULO[i.to];
         return !req || puede(req[0], 'LEC', req[1]);
       }),

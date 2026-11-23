@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { useAsignaciones } from '../hooks/useAsignaciones';
 import { useDocentes } from '../hooks/useDocentes';
@@ -6,7 +7,7 @@ import { useMallas } from '../hooks/useMallas';
 import { useEspaciosFisicos } from '../hooks/useEspaciosFisicos';
 import { useDias } from '../hooks/useDias';
 import { usePeriodos } from '../hooks/usePeriodos';
-import { useSecciones } from '../hooks/useSecciones';
+import { seccionService } from '../services/seccionService';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -48,9 +49,21 @@ export const AsignacionCargaPage = () => {
   const { espacios } = useEspaciosFisicos();
   const { dias } = useDias();
   const { periodos } = usePeriodos();
-  const { secciones } = useSecciones();
-  const { esAdmin, esCoordinador } = useAuth();
-  const puedeEditar = esAdmin || esCoordinador;
+  const { idRol, esVicerrector, puede } = useAuth();
+  // La asignación de docentes es responsabilidad exclusiva de Vicerrectoría.
+  // Se comprueba también en el backend: estos controles solo mejoran la UX.
+  const puedeCrear = esVicerrector && puede('asig_carga', 'CRE', 'TODO');
+  const puedeActualizar = esVicerrector && puede('asig_carga', 'ACT', 'TODO');
+  const puedeEliminar = esVicerrector && puede('asig_carga', 'BOR', 'TODO');
+
+  // La página Secciones está bloqueada al Vicerrector, pero aquí necesita
+  // un catálogo mínimo de secciones para poder asignar un horario docente.
+  const { data: secciones } = useQuery({
+    queryKey: ['secciones-para-carga', idRol],
+    queryFn: () => idRol === 2
+      ? seccionService.getParaAsignacion()
+      : seccionService.getAll(),
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -71,12 +84,14 @@ export const AsignacionCargaPage = () => {
   const docenteSeleccionado = docentes?.find(d => d.id_doc.toString() === docenteWatch);
 
   const openCreateModal = () => {
+    if (!puedeCrear) return;
     setEditingAsignacion(null);
     reset({ id_doc: '', id_malla: '', id_esp: '', id_sec: '', id_dia: '', id_per: '', hora_inicio: '07:00', hora_fin: '08:00' });
     setIsModalOpen(true);
   };
 
   const openEditModal = (asig: AsignacionCarga) => {
+    if (!puedeActualizar) return;
     setEditingAsignacion(asig);
     reset({
       id_doc: asig.id_doc?.toString() || '',
@@ -95,6 +110,10 @@ export const AsignacionCargaPage = () => {
   const closeReportModal = () => { setIsReportModalOpen(false); setReportType(null); setSelectedDocenteId(''); setSelectedPnf(''); };
 
   const onSubmit = async (data: z.infer<typeof asignacionSchema>) => {
+    if (editingAsignacion ? !puedeActualizar : !puedeCrear) {
+      toast.error('No tienes permiso para modificar la carga horaria');
+      return;
+    }
     const formatTime = (time: string) => time.length === 5 ? `${time}:00` : time;
     const nuevoInicio = formatTime(data.hora_inicio);
     const nuevoFin = formatTime(data.hora_fin);
@@ -157,8 +176,11 @@ export const AsignacionCargaPage = () => {
     }
   };
 
-  const handleDelete = (asig: AsignacionCarga) => setDeleteConfirm(asig);
+  const handleDelete = (asig: AsignacionCarga) => {
+    if (puedeEliminar) setDeleteConfirm(asig);
+  };
   const confirmDelete = async () => {
+    if (!puedeEliminar) return;
     if (deleteConfirm) {
       try {
         await deleteAsignacion(deleteConfirm.id_asig);
@@ -249,7 +271,7 @@ export const AsignacionCargaPage = () => {
         descripcion="Docente · materia · aula · hora. El sistema bloquea solapamientos de docente y de espacio, y recalcula las horas automáticamente."
         acciones={
           <div className="flex flex-wrap gap-2">
-            {puedeEditar && (
+            {puedeCrear && (
               <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
                 <Calendar size={15} /> Nueva Asignación
               </button>
@@ -354,14 +376,18 @@ export const AsignacionCargaPage = () => {
                           )}
                         </div>
                       </div>
-                      {puedeEditar && (
+                      {(puedeActualizar || puedeEliminar) && (
                         <div className="flex gap-2">
-                          <button onClick={() => openEditModal(asig)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Editar">
-                            <Calendar size={16} />
-                          </button>
-                          <button onClick={() => handleDelete(asig)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar">
-                            <X size={16} />
-                          </button>
+                          {puedeActualizar && (
+                            <button onClick={() => openEditModal(asig)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Editar">
+                              <Calendar size={16} />
+                            </button>
+                          )}
+                          {puedeEliminar && (
+                            <button onClick={() => handleDelete(asig)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Eliminar">
+                              <X size={16} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

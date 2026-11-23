@@ -24,6 +24,18 @@ def requerir_rol(roles_permitidos: list[int]):
         return usuario
     return rol_checker
 
+def bloquear_rol(rol_bloqueado: int):
+    """Impide el acceso de un rol específico, incluso si conserva permisos en su token."""
+    def verificar(usuario: dict = Depends(obtener_usuario_actual)):
+        if usuario.get("rol") == rol_bloqueado:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tu rol no tiene acceso a este módulo."
+            )
+        return usuario
+    return verificar
+
+
 ##CODIGO ANTIGUO, AUNQUE PODRIA SEGUIR FUNCIONANDO CON LA NUEVA VERSION DE DEPENDECIA DE ROLES, SE NECESITA REVISAR Y VER SI ES NECESARIO CAMBIOS
 def recurso_propietario(usuario: dict , recurso_id: int = None, roles_restringidos: list[int] = None) -> bool:
     """Dependencia para verificar si el usuario es propietario del recurso."""
@@ -41,6 +53,10 @@ def verificar_permiso(modulo: str, accion: str, alcance_requerido: str = "SP"):
     jerarquia = {"NAD": 0, "SP": 1, "LIM": 2, "TODO": 3}
     
     def dependencia_verificadora(usuario = Depends(obtener_usuario_actual)):
+        # Los docentes utilizan solo endpoints específicos de /mi-docencia.
+        # Evita que tokens antiguos u overrides abran rutas administrativas.
+        if usuario.get("rol") == 4:
+            raise HTTPException(status_code=403, detail="El docente debe usar su portal de autogestión.")
         if usuario.get("rol") == 1:  # Si es administrador, se le permite todo
             return {"id_usu": usuario.get("id"), "alcance": "TODO", "rol": usuario.get("rol")}
         

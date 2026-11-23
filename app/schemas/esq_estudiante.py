@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Literal
 from app.dependencies.pruebas_optimizacion import validar_cedula_venezolana
 from app.schemas.esq_municipios import MunicipiosResposive
 from app.schemas.esq_auth import UsuarioResposive
@@ -55,3 +55,9 @@ class EstudianteResponse(EstudianteBase):
 
     class Config:
         from_attributes = True
+
+
+class EstudianteCambioEstado(BaseModel):
+    """El coordinador únicamente puede retirar/reincorporar, sin editar el perfil."""
+    model_config = ConfigDict(extra='forbid')
+    estatus: Literal['A', 'I']

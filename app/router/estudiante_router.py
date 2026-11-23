@@ -4,7 +4,7 @@ from sqlmodel import Session
 from app.models.unem_db_models import Estudiante, AsigCargaHoraria
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
-from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,EstudianteResponse,EstudianteUpdate
+from app.schemas.esq_estudiante import EstudianteCreate,EstudianteReplace,EstudianteResponse,EstudianteUpdate,EstudianteCambioEstado
 import app.service.estudiante_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
 from app.dependencies.auth_deps import requerir_rol,recurso_propietario,obtener_usuario_actual,verificar_permiso, docente_del_usuario, secciones_del_docente, es_docente_sp
@@ -47,9 +47,7 @@ def leer_estudiantes(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('estudiantes', 'LEC', 'SP'))
 ):
-    alcance = usuario_actual.get("alcance", "TODO")
-
-    if alcance == "SP":
+    if es_docente_sp(usuario_actual):
         id_doc = docente_del_usuario(usuario_actual, session)
         if id_doc is None:
             return []
@@ -66,7 +64,9 @@ def leer_estudiantes(
 
         return service.leer_por_secciones(session, list(secciones_docente), id_sec, busqueda)
 
-    return service.leer_todos_con_filtros(session, id_sec, busqueda)
+    return service.leer_todos_con_filtros(
+        session, id_sec, busqueda, incluir_retirados=usuario_actual.get('rol') in (1, 3)
+    )
 
 # --- READ ONE ---
 @router.get("/{estudiante_id}", response_model=EstudianteResponse)
@@ -76,6 +76,28 @@ def leer_estudiante_id(estudiante_id: int, session: Session = Depends(get_sessio
     if not dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estudiante no encontrado")
     return dato
+
+# --- RETIRO / REINCORPORACIÓN: acción específica del Coordinador (rol 3) ---
+@router.patch("/{estudiante_id}/estado", response_model=EstudianteResponse)
+def cambiar_estado_estudiante(
+    estudiante_id: int,
+    cambio: EstudianteCambioEstado,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1, 3])),
+):
+    # El administrador mantiene la capacidad de gestión previa; el Coordinador
+    # solo obtiene esta acción, NO permisos para editar el resto del perfil.
+    estudiante = service.obtener_dato_por_id(estudiante_id, session)
+    if estudiante is None:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    if estudiante.estatus == cambio.estatus:
+        return estudiante
+    estudiante.estatus = cambio.estatus
+    session.add(estudiante)
+    session.commit()
+    session.refresh(estudiante)
+    return estudiante
+
 
 # --- UPDATE (PARCIAL - PATCH) ---
 @router.patch("/{estudiante_id}", response_model=EstudianteResponse)

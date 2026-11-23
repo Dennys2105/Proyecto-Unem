@@ -296,6 +296,11 @@ class Nota(SQLModel, table=True):
     tipo_evaluacion: str = Field(max_length=40) #solo permite Parcial 1, Parcial 2, Parcial 3, Final, Recuperación, Trabajo.
     observaciones: str = Field(max_length=400)
     fecha_registro: datetime = Field(default_factory=datetime.utcnow)
+    # A = validada, P = pendiente, R = rechazada; distinto del estatus lógico A/I.
+    estado_revision: str = Field(default="P", max_length=1)
+    revisado_por: Optional[int] = Field(default=None, foreign_key="general.usuarios.id_usu")
+    fecha_revision: Optional[datetime] = Field(default=None)
+    motivo_rechazo: Optional[str] = Field(default=None, max_length=1000)
     estatus: str = Field(default="A", max_length=1)
     creado: datetime = Field(default_factory=datetime.utcnow)
     actualizar: datetime = Field(default_factory=datetime.utcnow)

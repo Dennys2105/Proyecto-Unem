@@ -408,9 +408,9 @@ def cobertura_notas(
     """
     statement = text("""
         SELECT
-            (SELECT COUNT(*) FROM academico.notas WHERE estatus = 'A') AS notas_registradas,
+            (SELECT COUNT(*) FROM academico.notas WHERE estatus = 'A' AND estado_revision = 'A') AS notas_registradas,
             (SELECT COUNT(*) FROM personas.estudiantes WHERE estatus = 'A') AS estudiantes_activos,
-            (SELECT COUNT(DISTINCT id_est) FROM academico.notas WHERE estatus = 'A') AS estudiantes_evaluados,
+            (SELECT COUNT(DISTINCT id_est) FROM academico.notas WHERE estatus = 'A' AND estado_revision = 'A') AS estudiantes_evaluados,
             (SELECT COUNT(*) FROM academico.malla_curricular WHERE estatus = 'A') AS materias_en_malla
     """)
     r = session.exec(statement).mappings().first()
@@ -451,7 +451,7 @@ def rendimiento_academico(
             JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
             JOIN academico.materias m ON m.id_mat = mc.id_mat
             JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
-            WHERE n.estatus = 'A'
+            WHERE n.estatus = 'A' AND n.estado_revision = 'A'
               AND n.tipo_evaluacion IN ('Final', 'Recuperación')
               {filtro}
             ORDER BY n.id_est, n.id_malla, n.id_per,
@@ -500,7 +500,7 @@ def rendimiento_academico(
     cob = session.exec(text("""
         SELECT
             (SELECT count(*) FROM personas.estudiantes WHERE estatus = 'A') AS activos,
-            (SELECT count(*) FROM academico.notas WHERE estatus = 'A')      AS notas_registradas
+            (SELECT count(*) FROM academico.notas WHERE estatus = 'A' AND estado_revision = 'A')      AS notas_registradas
     """)).mappings().first()
     activos = int(cob["activos"] or 0)
     evaluados = resumen["estudiantes_evaluados"]
@@ -739,7 +739,7 @@ _CTE_DEFINITIVAS = f"""
         JOIN academico.malla_curricular mc ON mc.id_malla = n.id_malla
         JOIN academico.materias m ON m.id_mat = mc.id_mat
         JOIN academico.ejes_formativos eje ON eje.id_eje = m.id_eje
-        WHERE n.estatus = 'A'
+        WHERE n.estatus = 'A' AND n.estado_revision = 'A'
           AND n.tipo_evaluacion IN ('Final', 'Recuperación')
         ORDER BY n.id_est, n.id_malla, n.id_per,
                  CASE n.tipo_evaluacion WHEN 'Recuperación' THEN 1 ELSE 2 END

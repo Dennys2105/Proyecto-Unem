@@ -6,11 +6,13 @@ from app.dependencies.session_auditable import get_session_auditable as get_sess
 from app.schemas.esq_seccion import SeccionCreate,SeccionReplace,SeccionResponse,SeccionUpdate
 import app.service.seccion_service as service
 from app.dependencies.pruebas_optimizacion import validar_unicidad
+from app.dependencies.auth_deps import bloquear_rol
 from app.dependencies.auth_deps import requerir_rol,obtener_usuario_actual,recurso_propietario, verificar_permiso, docente_del_usuario, secciones_del_docente, es_docente_sp
 
 router= APIRouter(
     prefix="/seccion",
-    tags=["Seccion"]
+    tags=["Seccion"],
+    dependencies=[Depends(bloquear_rol(2))]
 )
 
 # --- CREATE ---

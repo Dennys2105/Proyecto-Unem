@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +27,8 @@ from app.router.permisos_router import router as permisos_router
 from app.router.exels_pdfs_router import router as exportar
 from app.router.reportes_seguridad_router import router as reportes_seguridad_router
 from app.router.analitica_router import router as analitica_router
+from app.router.mi_docencia_router import router as mi_docencia_router
+from app.dependencies.auth_deps import bloquear_rol
 
 app = FastAPI(
     title="App Unem",
@@ -53,27 +55,30 @@ app.add_middleware(
 )
 # ==========================================
 
+# Portal docente: exclusivo rol 4. Rutas administrativas: niegan rol 4.
 app.include_router(auth_router)
-app.include_router(roles_router)
-app.include_router(programas_router)
-app.include_router(municipios_router)
-app.include_router(dias_router)
-app.include_router(ejes_router)
-app.include_router(period_aca_router)
-app.include_router(docente_router)
-app.include_router(disp_doc_router)
-app.include_router(esp_fisico_router)
-app.include_router(materia_router)
-app.include_router(seccion_router)
-app.include_router(estudiante_router)
-app.include_router(malla_router)
-app.include_router(asig_router)
-app.include_router(analytics_router)
-app.include_router(notas_router)
-app.include_router(permisos_router)
-app.include_router(exportar)
-app.include_router(reportes_seguridad_router)
-app.include_router(analitica_router)
+app.include_router(mi_docencia_router)
+no_docente = [Depends(bloquear_rol(4))]
+app.include_router(roles_router, dependencies=no_docente)
+app.include_router(programas_router, dependencies=no_docente)
+app.include_router(municipios_router, dependencies=no_docente)
+app.include_router(dias_router, dependencies=no_docente)
+app.include_router(ejes_router, dependencies=no_docente)
+app.include_router(period_aca_router, dependencies=no_docente)
+app.include_router(docente_router, dependencies=no_docente)
+app.include_router(disp_doc_router, dependencies=no_docente)
+app.include_router(esp_fisico_router, dependencies=no_docente)
+app.include_router(materia_router, dependencies=no_docente)
+app.include_router(seccion_router, dependencies=no_docente)
+app.include_router(estudiante_router, dependencies=no_docente)
+app.include_router(malla_router, dependencies=no_docente)
+app.include_router(asig_router, dependencies=no_docente)
+app.include_router(analytics_router, dependencies=no_docente)
+app.include_router(notas_router, dependencies=no_docente)
+app.include_router(permisos_router, dependencies=no_docente)
+app.include_router(exportar, dependencies=no_docente)
+app.include_router(reportes_seguridad_router, dependencies=no_docente)
+app.include_router(analitica_router, dependencies=no_docente)
 
 # ============================================================
 # SERVICIO DEL FRONTEND ESTÁTICO (para Opción A: .bat)

@@ -4,16 +4,16 @@ from typing import List, Optional, Any
 from app.models.unem_db_models import Nota
 from app.dependencies.auth_deps import (
     verificar_permiso, docente_del_usuario, materias_del_docente,
-    secciones_del_docente, es_docente_sp,
+    secciones_del_docente, es_docente_sp, bloquear_rol, requerir_rol,
 )
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_notas import (
     NotasCreate, NotasResponcive, NotasUpdate,
-    ActaCreate, ResumenActa, TiposEvaluacion,
+    ActaCreate, ResumenActa, TiposEvaluacion, RechazoNota,
 )
 import app.service.notas_service as service
 
-router = APIRouter(prefix="/notas", tags=["Notas"])
+router = APIRouter(prefix="/notas", tags=["Notas"], dependencies=[Depends(bloquear_rol(2))])
 
 
 # --- READ ALL (filtrado por alcance SP) ---
@@ -71,8 +71,7 @@ def analisis(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso('notas', 'LEC', 'SP')),
 ):
-    alcance = usuario_actual.get("alcance", "TODO")
-    if alcance == "SP":
+    if es_docente_sp(usuario_actual):
         id_doc = docente_del_usuario(usuario_actual, session)
         if id_doc is None:
             return []
@@ -81,6 +80,28 @@ def analisis(
             return []
         return service.analisis_notas_filtrado(session, mallas, cod_programa, id_per)
     return service.analisis_notas(session, cod_programa, id_per)
+
+
+# --- APROBAR / RECHAZAR: decisión del Coordinador (rol 3) ---
+@router.post("/{nota_id}/aprobar", response_model=NotasResponcive)
+def aprobar_nota(
+    nota_id: int,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1, 3])),
+):
+    return service.revisar_nota(session, nota_id, usuario_actual["id"], aprobar=True)
+
+
+@router.post("/{nota_id}/rechazar", response_model=NotasResponcive)
+def rechazar_nota(
+    nota_id: int,
+    rechazo: RechazoNota,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(requerir_rol([1, 3])),
+):
+    return service.revisar_nota(
+        session, nota_id, usuario_actual["id"], aprobar=False, motivo=rechazo.motivo
+    )
 
 
 # --- READ ONE (verificación de propiedad SP) ---
@@ -94,8 +115,7 @@ def leer_nota_id(
     if not dato:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
 
-    alcance = usuario_actual.get("alcance", "TODO")
-    if alcance == "SP":
+    if es_docente_sp(usuario_actual):
         id_doc = docente_del_usuario(usuario_actual, session)
         if id_doc is None:
             raise HTTPException(status_code=403, detail="Acceso denegado.")
@@ -135,7 +155,7 @@ def guardar_acta(
         raise HTTPException(status_code=404, detail="El período académico no existe")
     if not acta_in.filas:
         raise HTTPException(status_code=400, detail="El acta no contiene filas")
-    return service.guardar_acta(session, acta_in)
+    return service.guardar_acta(session, acta_in, reapertura_admin=usuario_actual.get('rol') == 1)
 
 
 # --- ✅ UPDATE PARCIAL (path y parámetro ahora coinciden) ---
@@ -149,7 +169,8 @@ def actualizar_parcial_nota(
     db_dato = service.obtener_dato_por_id(nota_id, session)
     if not db_dato:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
-    return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in, parcial=True)
+    return service.actualizar(session=session, db_dato=db_dato, dato_in=dato_in,
+                             parcial=True, reapertura_admin=usuario_actual.get('rol') == 1)
 
 
 # --- ✅ DELETE LÓGICO (path y parámetro ahora coinciden) ---

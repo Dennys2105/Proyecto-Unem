@@ -45,6 +45,11 @@ export const estudianteService = {
     return response.data;
   },
   
+  cambiarEstado: async (id: number, estatus: 'A' | 'I'): Promise<Estudiante> => {
+    const response = await api.patch(`/estudiantes/${id}/estado`, { estatus });
+    return response.data;
+  },
+
   delete: async (id: number): Promise<void> => {
     await api.delete(`/estudiantes/${id}`);
   }
