@@ -396,7 +396,7 @@ export interface AsignacionCarga {
   id_dia: number;
   hora_inicio: string;
   hora_fin: string;
-  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación'; // ✅ NUEVO
+  tipo_actividad?: 'Carga Académica' | 'Asesoría' | 'Preparación'; // NUEVO
   observaciones?: string;
   estatus: string;
   creado: string;

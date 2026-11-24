@@ -54,7 +54,7 @@ export const Municipios = () => {
 
   const nombreWatch = watch('nombre');
 
-  // ✅ Autocompletado en vivo: convierte a mayúsculas automáticamente
+  // Autocompletado en vivo: convierte a mayúsculas automáticamente
   useEffect(() => {
     if (nombreWatch) {
       setValue('nombre', nombreWatch.toUpperCase(), { shouldValidate: true });
@@ -90,7 +90,7 @@ export const Municipios = () => {
     }
   };
 
-  // ✅ Toggle Activar/Desactivar (lógica de borrado lógico)
+  // Toggle Activar/Desactivar (lógica de borrado lógico)
   const toggleActivacion = async (mun: Municipio) => {
     const actual = mun.estatus ?? 'A';
     const nuevoEstatus = actual === 'A' ? 'I' : 'A';

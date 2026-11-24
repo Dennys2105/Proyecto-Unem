@@ -83,7 +83,7 @@ def actualizar_parcial_docente(
     session: Session = Depends(get_session), 
     usuario_actual: dict = Depends(verificar_permiso('docentes', 'ACT', 'LIM'))
 ):
-    # ✅ Aquí se pasa 'docente_id', no 'id'
+    # Aquí se pasa 'docente_id', no 'id'
     db_dato = service.obtener_dato_por_id(docente_id, session)
     if not db_dato:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Docente no encontrado")

@@ -142,7 +142,7 @@ export const Programas = () => {
     }
   };
 
-  // ✅ Toggle Activar/Desactivar (lógica de borrado lógico)
+  // Toggle Activar/Desactivar (lógica de borrado lógico)
   const toggleActivacion = async (prog: Programa) => {
     const actual = prog.estatus ?? 'A';
     const nuevoEstatus = actual === 'A' ? 'I' : 'A';

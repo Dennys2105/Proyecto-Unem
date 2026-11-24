@@ -90,7 +90,7 @@ export const NotasPage = () => {
   const seccionSel = listaSecciones.find((s) => String(s.id_sec) === actaSeccion);
 
   const periodoSeccion = seccionSel?.periodo ?? null;
-  // ✅ El sistema del programa determina el tipo de período académico
+  // El sistema del programa determina el tipo de período académico
   const programaDeSeccion = listaProgramas.find((p) => p.id_pro === seccionSel?.id_pro);
   const tipoPeriodoRequerido = programaDeSeccion?.tipo_sistema === 'Semestral' ? 'Semestre' : 'Trimestre';
 
@@ -99,7 +99,7 @@ export const NotasPage = () => {
     [listaPeriodos, tipoPeriodoRequerido]
   );
 
-  // ✅ Autoselecciona el período vigente al elegir la sección
+  // Autoselecciona el período vigente al elegir la sección
   useEffect(() => {
     if (!seccionSel) { setActaPeriodo(''); return; }
     const vigente = periodosCompatibles.find((p) => p.activo === true);
@@ -199,7 +199,7 @@ export const NotasPage = () => {
       texto = `${entero}.${decimal.slice(0, 2)}`;
     }
 
-    // 4. ✅ Guardar el TEXTO tal cual: conserva "15." mientras escribes
+    // 4. Guardar el TEXTO tal cual: conserva "15." mientras escribes
     setNotasTexto((prev) => ({ ...prev, [id_est]: texto }));
 
     // 5. Guardar el NÚMERO para validar y enviar al backend
@@ -597,7 +597,7 @@ export const NotasPage = () => {
                   </p>
                 )}
 
-                {/* ✅ Indicadores de ámbito */}
+                {/* Indicadores de ámbito */}
                                 {seccionSel && ambitoMaterias === 'exacto' && (
                   <p className="text-xs text-green-600">
                     {mallasDisponibles.length} materia(s) de T{aRomano(seccionSel.trayecto)}·P{periodoSeccion}

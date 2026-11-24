@@ -5,7 +5,7 @@ from app.models.unem_db_models import PeriodoAcademico
 from app.dependencies.session_auditable import get_session_auditable as get_session
 from app.schemas.esq_periodos_aca import PeriodoCreate, PeriodoUpdate, PeriodoResponse
 import app.service.period_aca_service as service
-from app.dependencies.auth_deps import verificar_permiso
+from app.dependencies.auth_deps import obtener_usuario_actual, verificar_permiso
 
 router = APIRouter(prefix="/periodos", tags=["Periodos Académicos"])
 ROLES_AUTORIZADOS_CAMBIAR_VIGENCIA = {1, 2}
@@ -80,7 +80,7 @@ def eliminar_periodo(
 def activar_periodo_vigente(
     periodo_id: int,
     session: Session = Depends(get_session),
-    usuario_actual: dict = Depends(verificar_permiso('periodos', 'ACT', 'LIM'))
+    usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """Pone este período como el ÚNICO vigente (desactiva los demás)."""
     if usuario_actual.get("rol") not in ROLES_AUTORIZADOS_CAMBIAR_VIGENCIA:
@@ -102,13 +102,41 @@ def activar_periodo_vigente(
     session.exec(
         update(PeriodoAcademico)
         .where(PeriodoAcademico.id_per != periodo_id)
-        .where(PeriodoAcademico.tipo == db_dato.tipo)   # ✅ AGREGAR esta línea
+        .where(PeriodoAcademico.tipo == db_dato.tipo)   # AGREGAR esta línea
         .where(PeriodoAcademico.activo == True)
         .values(activo=False)
     )
     
     # 2. Activar el seleccionado
     db_dato.activo = True
+    session.add(db_dato)
+    session.commit()
+    session.refresh(db_dato)
+    return db_dato
+
+@router.post("/{periodo_id}/cerrar", response_model=PeriodoResponse)
+def cerrar_periodo_vigente(
+    periodo_id: int,
+    session: Session = Depends(get_session),
+    usuario_actual: dict = Depends(obtener_usuario_actual),
+):
+    """Permite al Administrador o al Vicerrector cerrar el período vigente."""
+    if usuario_actual.get("rol") not in ROLES_AUTORIZADOS_CAMBIAR_VIGENCIA:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo Administrador o Vicerrector pueden cerrar un período.",
+        )
+
+    db_dato = service.obtener_dato_por_id(periodo_id, session)
+    if not db_dato:
+        raise HTTPException(status_code=404, detail="Período no encontrado")
+    if not db_dato.activo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El período seleccionado ya está cerrado.",
+        )
+
+    db_dato.activo = False
     session.add(db_dato)
     session.commit()
     session.refresh(db_dato)

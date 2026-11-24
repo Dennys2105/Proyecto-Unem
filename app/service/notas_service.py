@@ -176,7 +176,7 @@ def validar_unicidad_compuesta(
 
 
 # ============================================================
-# ✅ REGLAS DE INTEGRIDAD ACADÉMICA
+# REGLAS DE INTEGRIDAD ACADÉMICA
 # ============================================================
 def _nota_existente(session: Session, id_est: int, id_malla: int, id_per: int, tipo: str):
     return session.exec(text("""
@@ -306,7 +306,7 @@ def eliminar(session: Session, db_dato: Nota) -> None:
 def obtener_acta(
     session: Session, id_sec: int, id_malla: int, id_per: int, tipo_evaluacion: str
 ) -> List[Dict[str, Any]]:
-    # ✅ En Recuperación solo aparecen quienes reprobaron la Final
+    # En Recuperación solo aparecen quienes reprobaron la Final
     filtro_recuperacion = ""
     if tipo_evaluacion == 'Recuperación':
         eje_nombre = session.exec(text("""

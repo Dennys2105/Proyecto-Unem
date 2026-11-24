@@ -75,7 +75,7 @@ export const Secciones = () => {
       trayecto: (sec.trayecto ?? 1).toString(),
       periodo: (sec.periodo ?? 1).toString(),
       id_per: sec.id_per?.toString() ?? '',
-      capacidad_maxima: (sec.capacidad_maxima ?? 30).toString(), // ✅ FIX: usa capacidad_maxima con fallback
+      capacidad_maxima: (sec.capacidad_maxima ?? 30).toString(), // FIX: usa capacidad_maxima con fallback
       id_pro: sec.id_pro?.toString() ?? '',
     });
     setIsModalOpen(true);
@@ -93,7 +93,7 @@ export const Secciones = () => {
       trayecto: parseInt(data.trayecto, 10),
       periodo: parseInt(data.periodo, 10),
       id_per: parseInt(data.id_per, 10),
-      capacidad_maxima: parseInt(data.capacidad_maxima, 10), // ✅ FIX: envía capacidad_maxima
+      capacidad_maxima: parseInt(data.capacidad_maxima, 10), // FIX: envía capacidad_maxima
       id_pro: parseInt(data.id_pro, 10),
     };
 
@@ -112,7 +112,7 @@ export const Secciones = () => {
   };
 
   const toggleStatus = async (sec: Seccion) => {
-    const actual = sec.estatus ?? 'A'; // ✅ FIX: fallback si estatus es undefined
+    const actual = sec.estatus ?? 'A'; // FIX: fallback si estatus es undefined
     const nuevoEstatus = actual === 'A' ? 'I' : 'A';
     const accion = nuevoEstatus === 'A' ? 'activada' : 'desactivada';
 
@@ -200,7 +200,7 @@ export const Secciones = () => {
       },
     },
     {
-      key: 'capacidad_maxima', // ✅ FIX: nombre correcto de la columna
+      key: 'capacidad_maxima', // FIX: nombre correcto de la columna
       label: 'Capacidad',
       render: (value: any) => <span className="text-sm text-gray-700">{value} est.</span>,
     },

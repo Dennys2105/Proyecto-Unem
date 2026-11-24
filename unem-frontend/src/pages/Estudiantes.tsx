@@ -28,13 +28,13 @@ interface ColumnDef {
   sortable?: boolean;
 }
 
-// ✅ Extrae el número de la cédula para ordenar numéricamente
+// Extrae el número de la cédula para ordenar numéricamente
 const numeroDeCedula = (cedula: string): number => {
   const match = (cedula ?? '').match(/(\d+)/);
   return match ? parseInt(match[1], 10) : 0;
 };
 
-// ✅ Extrae el tipo (V/E) para agrupar venezolanas antes que extranjeras
+// Extrae el tipo (V/E) para agrupar venezolanas antes que extranjeras
 const tipoDeCedula = (cedula: string): string => {
   const match = (cedula ?? '').match(/^([VE])/i);
   return match ? match[1].toUpperCase() : 'V';
@@ -86,7 +86,7 @@ export const Estudiantes = () => {
   const [filtroSeccion, setFiltroSeccion] = useState<number | ''>('');
   const [descargandoLista, setDescargandoLista] = useState(false);
 
-  // ✅ Estado de ordenamiento (por defecto: ID ascendente)
+  // Estado de ordenamiento (por defecto: ID ascendente)
   const [sortKey, setSortKey] = useState<SortKey>('id_est');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -182,7 +182,7 @@ export const Estudiantes = () => {
     }
   };
 
-  // ✅ Filtrado + ORDENAMIENTO determinista
+  // Filtrado + ORDENAMIENTO determinista
   const estudiantesFiltrados = useMemo(() => {
     if (!estudiantes) return [];
     const filtrados = estudiantes.filter(e => {
@@ -313,7 +313,7 @@ export const Estudiantes = () => {
     },
   ];
 
-  // ✅ Ícono dinámico de ordenamiento
+  // Ícono dinámico de ordenamiento
   const SortIcon = ({ colKey }: { colKey: SortKey }) => {
     if (sortKey !== colKey) return <ArrowUpDown size={12} className="text-gray-400" />;
     return sortDir === 'asc'

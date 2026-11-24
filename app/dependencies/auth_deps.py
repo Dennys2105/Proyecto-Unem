@@ -33,7 +33,7 @@ def obtener_usuario_actual(token: str = Depends(oauth2_scheme)) -> dict:
         payload['scopes'] = scopes_del_usuario(session, id_usuario)
     return payload
 
-## CODIGO ANTIGUA DE DEPENDENCIA DE ROLES, SE REEMPLAZARA POR NUEVA DE MANERA PROGRESIVA
+## Esto lo que hace es ver el rol y restringirle el flujo mediante su ID rol 
 def requerir_rol(roles_permitidos: list[int]):
     """Dependencia flexible para restringir acceso por ID de Rol."""
     def rol_checker(usuario: dict = Depends(obtener_usuario_actual)):
@@ -58,7 +58,6 @@ def bloquear_rol(rol_bloqueado: int):
     return verificar
 
 
-##CODIGO ANTIGUO, AUNQUE PODRIA SEGUIR FUNCIONANDO CON LA NUEVA VERSION DE DEPENDECIA DE ROLES, SE NECESITA REVISAR Y VER SI ES NECESARIO CAMBIOS
 def recurso_propietario(usuario: dict , recurso_id: int = None, roles_restringidos: list[int] = None) -> bool:
     """Dependencia para verificar si el usuario es propietario del recurso."""
     rol = usuario.get("rol")
@@ -96,9 +95,9 @@ def verificar_permiso(modulo: str, accion: str, alcance_requerido: str = "SP"):
         
     return dependencia_verificadora
 
-# ============================================================
-# HELPER: Filtrado por propiedad del recurso (Fase 3)
-# ============================================================
+
+# Este bloque hace que revisen las materias del docente y verifica su sección.
+
 def materias_del_docente(session, id_doc: int) -> list[int]:
     """Retorna los id_malla de las materias asignadas al docente."""
     from sqlmodel import text

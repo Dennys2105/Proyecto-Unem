@@ -616,9 +616,9 @@ body.unem-locked { overflow: hidden; }
 .unem-btn-primary {
   background: linear-gradient(96deg, var(--indigo), var(--violet));
   border-color: transparent; color: #fff;
-  box-shadow: 0 8px 20px -10px rgba(79, 70, 229, 1);
+  box-shadow: 0 8px 20px -10px hsl(122, 87%, 50%);
 }
-.unem-btn-primary:hover { background: linear-gradient(96deg, #4338ca, #6d28d9); color: #fff; border-color: transparent; }
+.unem-btn-primary:hover { background: linear-gradient(96deg, #00f82d, #6d28d9); color: #fff; border-color: transparent; }
 .unem-btn-ghost { background: transparent; border-color: transparent; }
 .unem-btn-sm { height: 30px; padding: 0 10px; font-size: 11.5px; border-radius: 8px; }
 

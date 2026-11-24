@@ -578,7 +578,7 @@ export const AsignacionCargaPage = () => {
                       <FileText size={18} /> Descargar Ficha Académica (PDF)
                     </button>
 
-                    {/* ✅ CORREGIDO: Se agregaron '?? []' para evitar el error de TypeScript */}
+                    {/* CORREGIDO: Se agregaron '?? []' para evitar el error de TypeScript */}
                     <button
                       onClick={() => {
                         const docente = docentes?.find(d => d.id_doc.toString() === selectedDocenteId);

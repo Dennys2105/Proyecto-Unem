@@ -36,9 +36,9 @@ export const useMunicipios = () => {
     municipios,
     isLoading,
     refetch,
-    createMunicipio: createMutation.mutateAsync,   // ✅ mutateAsync
-    updateMunicipio: updateMutation.mutateAsync,   // ✅ mutateAsync
-    deleteMunicipio: deleteMutation.mutateAsync,   // ✅ mutateAsync
+    createMunicipio: createMutation.mutateAsync,   // mutateAsync
+    updateMunicipio: updateMutation.mutateAsync,   // mutateAsync
+    deleteMunicipio: deleteMutation.mutateAsync,   // mutateAsync
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

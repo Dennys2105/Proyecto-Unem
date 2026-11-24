@@ -5,7 +5,7 @@ import type { DocenteCreate, DocenteUpdate } from '../types/models';
 export const useDocentes = () => {
   const queryClient = useQueryClient();
 
-  // ✅ 1. Extraemos 'refetch' aquí para poder forzar la actualización si es necesario
+  // 1. Extraemos 'refetch' aquí para poder forzar la actualización si es necesario
   const { 
     data: docentes, 
     isLoading, 
@@ -37,7 +37,7 @@ export const useDocentes = () => {
     },
   });
 
-  // ✅ 2. Devolvemos 'refetch' y usamos 'mutateAsync' para que el 'await' funcione
+  // 2. Devolvemos 'refetch' y usamos 'mutateAsync' para que el 'await' funcione
   return {
     docentes,
     isLoading,

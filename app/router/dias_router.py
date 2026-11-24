@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from sqlmodel import Session, select  # ✅ Aquí se agrega 'select'
+from sqlmodel import Session, select  # Aquí se agrega 'select'
 from app.dependencies.session_auditable import get_session_auditable as get_session
 
 from app.models.unem_db_models import DiaLaboral

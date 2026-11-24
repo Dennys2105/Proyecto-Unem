@@ -29,9 +29,9 @@ export const useEjes = () => {
     ejes,
     isLoading,
     refetch,
-    createEje: createMutation.mutateAsync,   // ✅ mutateAsync para reactividad
-    updateEje: updateMutation.mutateAsync,   // ✅ mutateAsync para reactividad
-    deleteEje: deleteMutation.mutateAsync,   // ✅ mutateAsync para reactividad
+    createEje: createMutation.mutateAsync,   // mutateAsync para reactividad
+    updateEje: updateMutation.mutateAsync,   // mutateAsync para reactividad
+    deleteEje: deleteMutation.mutateAsync,   // mutateAsync para reactividad
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

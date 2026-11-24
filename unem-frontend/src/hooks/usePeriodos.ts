@@ -30,6 +30,11 @@ export const usePeriodos = () => {
     onSuccess: invalidarConsultasPeriodos,
   });
 
+  const cerrarMutation = useMutation({
+    mutationFn: (id: number) => periodoService.cerrar(id),
+    onSuccess: invalidarConsultasPeriodos,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => periodoService.delete(id),
     onSuccess: invalidarConsultasPeriodos,
@@ -42,10 +47,12 @@ export const usePeriodos = () => {
     createPeriodo: createMutation.mutateAsync,
     updatePeriodo: updateMutation.mutateAsync,
     activarPeriodo: activarMutation.mutateAsync,
+    cerrarPeriodo: cerrarMutation.mutateAsync,
     deletePeriodo: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isActivating: activarMutation.isPending,
+    isClosing: cerrarMutation.isPending,
     isDeleting: deleteMutation.isPending,
   };
 };

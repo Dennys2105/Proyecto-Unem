@@ -25,9 +25,14 @@ export const periodoService = {
     await api.delete(`/periodos/${id}`);
   },
   
-  // ✅ Activamos como período vigente (desactiva los demás automáticamente)
+  // Activamos como período vigente (desactiva los demás automáticamente)
   activar: async (id: number): Promise<PeriodoAcademico> => {
     const response = await api.post(`/periodos/${id}/activar`);
+    return response.data;
+  },
+
+  cerrar: async (id: number): Promise<PeriodoAcademico> => {
+    const response = await api.post(`/periodos/${id}/cerrar`);
     return response.data;
   },
 };

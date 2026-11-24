@@ -17,7 +17,7 @@ class BaseNotas(BaseModel):
     id_est: int
     id_malla: int
     id_per: int
-    # ✅ Field con límites reales (CHECK de la BD: 0 <= nota <= 20)
+    # Field con límites reales (CHECK de la BD: 0 <= nota <= 20)
     nota: float = Field(..., ge=0, le=20, description="Calificación en escala 0-20")
     tipo_evaluacion: TiposEvaluacion = TiposEvaluacion.Final
     observaciones: Optional[str] = None
@@ -34,19 +34,19 @@ class NotasCreate(BaseNotas):
 
 
 class NotasUpdate(BaseModel):
-    # ✅ TODOS con default None → ahora sí es un PATCH parcial real
+    # TODOS con default None → ahora sí es un PATCH parcial real
     id_est: Optional[int] = None
     id_malla: Optional[int] = None
     id_per: Optional[int] = None
     nota: Optional[float] = Field(None, ge=0, le=20)
     tipo_evaluacion: Optional[TiposEvaluacion] = None
     observaciones: Optional[str] = None
-    estatus: Optional[str] = None  # ✅ Para anular / restaurar
+    estatus: Optional[str] = None  # Para anular / restaurar
 
     @field_validator("nota")
     @classmethod
     def redondear_nota(cls, v: Optional[float]) -> Optional[float]:
-        # ✅ Maneja None sin explotar
+        # Maneja None sin explotar
         return round(v, 2) if v is not None else None
 
 

@@ -3,9 +3,9 @@ from datetime import datetime, date, time
 from sqlmodel import SQLModel, Field, Column, Relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
-# ==========================================
+
 # ESQUEMA: general
-# ==========================================
+# 1era carpeta de la base de datos 
 
 class Municipio(SQLModel, table=True):
     __tablename__ = "municipios"
@@ -158,9 +158,9 @@ class AuditoriaMovimiento(SQLModel, table=True):
     #relaciones
     usuario: Optional[Usuario] = Relationship(back_populates="auditoria_movimientos")
     
-# ==========================================
+
 # ESQUEMA: personas
-# ==========================================
+# 2da carpeta de la base de datos
 
 class Docente(SQLModel, table=True):
     __tablename__ = "docentes"
@@ -231,9 +231,9 @@ class DisponibilidadDocente(SQLModel, table=True):
     docente: Optional[Docente] = Relationship(back_populates="disponibilidad")
     dia: Optional[DiaLaboral] = Relationship(back_populates="disponibilidad")
 
-# ==========================================
+
 # ESQUEMA: academico
-# ==========================================
+# 3era carpeta de la base de datos
 
 class Programa(SQLModel, table=True):
     __tablename__ = "programas"
@@ -390,9 +390,9 @@ class Seccion(SQLModel, table=True):
         )
 
 
-# ==========================================
+
 # ESQUEMA: infraestructura
-# ==========================================
+# 4ta carpeta, esta madre solo ta ahí para decir donde se ubica y las aulas que utilizaran
 
 class EspacioFisico(SQLModel, table=True):
     __tablename__ = "espacios_fis"
@@ -414,9 +414,9 @@ class EspacioFisico(SQLModel, table=True):
     asig_carga_horaria: list["AsigCargaHoraria"] = Relationship(back_populates="espacio_fisico")
     municipio: Municipio = Relationship(back_populates="espacios_fisicos")
 
-# ==========================================
+
 # ESQUEMA: horarios
-# ==========================================
+# 5ta carpeta de la base de datos, esta si es importante
 
 class AsigCargaHoraria(SQLModel, table=True):
     __tablename__ = "asig_carga_horarias"

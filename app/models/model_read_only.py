@@ -1,3 +1,5 @@
+# Modelo donde sacamos las vistas de la base de datos, otra vez
+# sin esto valimos madres weon
 from sqlmodel import SQLModel
 from decimal import Decimal
 from datetime import datetime, date, time

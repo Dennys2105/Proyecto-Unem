@@ -158,7 +158,7 @@ def mis_estudiantes(
         FROM personas.estudiantes e
         JOIN academico.secciones s ON s.id_sec = e.id_sec
         WHERE e.estatus = 'A'
-          AND (:id_sec IS NULL OR e.id_sec = :id_sec)
+          AND (CAST(:id_sec AS INTEGER) IS NULL OR e.id_sec = CAST(:id_sec AS INTEGER))
           AND EXISTS (
               SELECT 1 FROM horarios.asig_carga_horarias a
               WHERE a.id_doc = :id_doc AND a.id_sec = e.id_sec AND a.estatus = 'A'

@@ -49,7 +49,7 @@ export const useAuth = () => {
     return decodeJwt(token);
   }, []);
 
-  // ⚠️ CLAVE: El backend envía 'rol' (no 'id_rol') e 'id' (no 'id_usu')
+  // CLAVE: El backend envía 'rol' (no 'id_rol') e 'id' (no 'id_usu')
   const idRol = payload?.rol ?? payload?.id_rol ?? null;
   const idUsuario = payload?.id ?? payload?.id_usu ?? null;
   const username = payload?.sub || payload?.username || null;

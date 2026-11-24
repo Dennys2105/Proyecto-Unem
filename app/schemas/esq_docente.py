@@ -16,7 +16,7 @@ class DocenteBase(BaseModel):
     nombre: str = Field(..., max_length=150)
     apellido: str = Field(..., max_length=150)
     id_mun: int
-    especialidad: str = Field(..., max_length=150)   # ✅ TEXTO obligatorio (como en la BD)
+    especialidad: str = Field(..., max_length=150)   # TEXTO obligatorio (como en la BD)
     tipo_contrato: TipoContrato
     horas_max_sem: int = Field(..., gt=0, le=40)
     telefono: Optional[str] = Field(None, max_length=20)
@@ -36,7 +36,7 @@ class DocenteBase(BaseModel):
         return v
 
 class DocenteCreate(DocenteBase):
-    pass  # ✅ No incluye horas_asignadas ni horas_disponibles (los pone el trigger)
+    pass  # No incluye horas_asignadas ni horas_disponibles (los pone el trigger)
 
 class DocenteReplace(DocenteBase):
     pass
@@ -52,7 +52,7 @@ class DocenteUpdate(BaseModel):
     horas_asignadas: Optional[int] = None
     horas_disponibles: Optional[int] = None
     telefono: Optional[str] = Field(None, max_length=20)
-    estatus: Optional[str] = None  # ✅ DEBE ESTAR AQUÍ
+    estatus: Optional[str] = None  # DEBE ESTAR AQUÍ
 
     @field_validator("cedula")
     @classmethod

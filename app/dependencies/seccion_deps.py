@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from app.models.unem_db_models import PeriodoAcademico, Seccion
 
-
+# función para validar la sección
 def validar_seccion_para_nueva_operacion(
     session: Session,
     id_sec: int,

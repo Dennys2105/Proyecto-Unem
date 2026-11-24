@@ -18,7 +18,7 @@ def leer_todos(session: Session) -> list[Docente]:
     return list(session.exec(statement).all())
 
 def obtener_dato_por_id(docente_id: int, session: Session):
-    # ✅ El parámetro debe llamarse 'docente_id', NO 'id'
+    # El parámetro debe llamarse 'docente_id', NO 'id'
     db_obj = session.get(Docente, docente_id)
     return db_obj
 

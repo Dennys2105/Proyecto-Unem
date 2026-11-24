@@ -36,11 +36,10 @@ app = FastAPI(
     version="1.4.0"
 )
 
-#Dennys que coño hace esto vvvv
+#Dennys que coño hace esto :vvvv
+#Ahí ta tu respuesta José <:
+# CONFIGURACIÓN DE CORS (son los que indican dominio va utilizar el frontend)
 
-# ==========================================
-# CONFIGURACIÓN DE CORS (CRÍTICO PARA EL FRONTEND)
-# ==========================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -55,7 +54,6 @@ app.add_middleware(
     allow_methods=["*"],               # Permite todos los métodos HTTP (GET, POST, PUT, DELETE, OPTIONS, PATCH)
     allow_headers=["*"],               # Permite todos los headers (incluido 'Authorization' para el JWT)
 )
-# ==========================================
 
 # Portal docente: exclusivo rol 4. Rutas administrativas: niegan rol 4.
 app.include_router(auth_router)
@@ -82,9 +80,8 @@ app.include_router(exportar, dependencies=no_docente)
 app.include_router(reportes_seguridad_router, dependencies=no_docente)
 app.include_router(analitica_router, dependencies=no_docente)
 
-# ============================================================
-# SERVICIO DEL FRONTEND ESTÁTICO (para Opción A: .bat)
-# ============================================================
+
+# SERVICIO DEL FRONTEND ESTÁTICO
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "unem-frontend" / "dist"
 if FRONTEND_DIST.is_dir():
     assets_dir = FRONTEND_DIST / "assets"

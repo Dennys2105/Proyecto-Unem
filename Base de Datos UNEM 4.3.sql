@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict 1uc129QfZzrdlnozNTXWKj2USstDQuLfuQZ2NmrOuNeEsVam0y3IyvcXUao8QYh
+\restrict Yp5mImSpFHfzvXSxfN9zgkiUcC4oe8mGzcie6HR274r640tqyP6c9zBpiHX8qvP
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
 
--- Started on 2026-11-23 00:08:01
+-- Started on 2026-11-23 00:38:15
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -5921,6 +5921,15 @@ COPY general.aud_mov (id_aud, id_usu, tabla_mod, accion, val_antes, val_despues,
 1798	\N	usuarios	UPDATE	{"email": "angel.pulido@unem.edu.ve", "creado": "2026-11-22T23:05:46.80435-04:00", "id_rol": 4, "id_usu": 9, "estatus": "A", "username": "angel.pulido", "actualizar": "2026-11-22T23:05:46.80435-04:00"}	{"email": "angel.pulido@unem.edu.ve", "creado": "2026-11-22T23:05:46.80435-04:00", "id_rol": 4, "id_usu": 9, "estatus": "I", "username": "angel.pulido", "actualizar": "2026-11-23T00:03:17.12406-04:00"}	2026-11-23 00:03:17.12406-04	\N	A
 1801	\N	usuarios	UPDATE	{"email": "maria.gonzalez@unem.edu.ve", "creado": "2026-11-22T23:05:46.80435-04:00", "id_rol": 4, "id_usu": 14, "estatus": "A", "username": "maria.gonzalez", "actualizar": "2026-11-22T23:05:46.80435-04:00"}	{"email": "maria.gonzalez@unem.edu.ve", "creado": "2026-11-22T23:05:46.80435-04:00", "id_rol": 4, "id_usu": 14, "estatus": "I", "username": "maria.gonzalez", "actualizar": "2026-11-23T00:03:17.12406-04:00"}	2026-11-23 00:03:17.12406-04	\N	A
 1802	\N	usuarios	UPDATE	{"email": "ana.buitrago@unem.edu.ve", "creado": "2026-11-22T23:05:46.80435-04:00", "id_rol": 4, "id_usu": 15, "estatus": "A", "username": "ana.buitrago", "actualizar": "2026-11-22T23:05:46.80435-04:00"}	{"email": "ana.buitrago@unem.edu.ve", "creado": "2026-11-22T23:05:46.80435-04:00", "id_rol": 4, "id_usu": 15, "estatus": "I", "username": "ana.buitrago", "actualizar": "2026-11-23T00:03:17.12406-04:00"}	2026-11-23 00:03:17.12406-04	\N	A
+1803	1	estudiantes	INSERT	\N	{"cedula": "V-12345678", "creado": "2026-11-23T04:13:48.601127-04:00", "id_est": 81, "id_mun": 23, "id_pro": null, "id_sec": null, "id_usu": null, "nombre": "DON", "estatus": "A", "apellido": "HOMAR", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-23T04:13:48.601155-04:00"}	2026-11-23 00:13:48.579008-04	127.0.0.1	A
+1804	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T23:52:17.893646-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-23T00:24:46.528104-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-23 00:24:46.515228-04	\N	A
+1805	1	estudiantes	UPDATE	{"cedula": "V-12345678", "creado": "2026-11-23T04:13:48.601127-04:00", "id_est": 81, "id_mun": 23, "id_pro": null, "id_sec": null, "id_usu": null, "nombre": "DON", "estatus": "A", "apellido": "HOMAR", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-23T04:13:48.601155-04:00"}	{"cedula": "V-12345678", "creado": "2026-11-23T04:13:48.601127-04:00", "id_est": 81, "id_mun": 23, "id_pro": null, "id_sec": null, "id_usu": null, "nombre": "DON", "estatus": "I", "apellido": "HOMAR", "foto_url": null, "trayecto": 1, "actualizar": "2026-11-23T00:30:36.222316-04:00"}	2026-11-23 00:30:36.222316-04	127.0.0.1	A
+1806	1	credenciales	UPDATE	{"id_cre": 8, "id_usu": 8, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 8, "id_usu": 8, "password_hash": "$pbkdf2-sha256$29000$TKl1LiXkXMtZKwVgTCmF8A$XOtaIWF0x.F2kJPcD1f1Dvb2lWpgQkIsuQrDo6wM.nI", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-23 00:31:03.666536-04	127.0.0.1	A
+1807	\N	credenciales	UPDATE	{"id_cre": 8, "id_usu": 8, "password_hash": "$pbkdf2-sha256$29000$TKl1LiXkXMtZKwVgTCmF8A$XOtaIWF0x.F2kJPcD1f1Dvb2lWpgQkIsuQrDo6wM.nI", "ultimo_acceso": null, "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 8, "id_usu": 8, "password_hash": "$pbkdf2-sha256$29000$TKl1LiXkXMtZKwVgTCmF8A$XOtaIWF0x.F2kJPcD1f1Dvb2lWpgQkIsuQrDo6wM.nI", "ultimo_acceso": "2026-11-23T00:31:32.02794-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-23 00:31:32.02114-04	\N	A
+1808	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-23T00:24:46.528104-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-23T00:34:23.388792-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-23 00:34:23.380168-04	\N	A
+1809	\N	credenciales	UPDATE	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-22T21:06:28.793312-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 3, "id_usu": 3, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-23T00:34:28.188783-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-23 00:34:28.180491-04	\N	A
+1810	\N	credenciales	UPDATE	{"id_cre": 8, "id_usu": 8, "password_hash": "$pbkdf2-sha256$29000$TKl1LiXkXMtZKwVgTCmF8A$XOtaIWF0x.F2kJPcD1f1Dvb2lWpgQkIsuQrDo6wM.nI", "ultimo_acceso": "2026-11-23T00:31:32.02794-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 8, "id_usu": 8, "password_hash": "$pbkdf2-sha256$29000$TKl1LiXkXMtZKwVgTCmF8A$XOtaIWF0x.F2kJPcD1f1Dvb2lWpgQkIsuQrDo6wM.nI", "ultimo_acceso": "2026-11-23T00:35:18.039427-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-23 00:35:18.00953-04	\N	A
+1811	\N	credenciales	UPDATE	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-23T00:34:23.388792-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	{"id_cre": 1, "id_usu": 1, "password_hash": "$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4", "ultimo_acceso": "2026-11-23T00:37:25.692006-04:00", "bloqueado_hasta": null, "intentos_fallidos": 0}	2026-11-23 00:37:25.68962-04	\N	A
 \.
 
 
@@ -5940,13 +5949,13 @@ COPY general.credenciales (id_cre, id_usu, password_hash, ultimo_acceso, intento
 13	13	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	\N	0	\N
 14	14	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	\N	0	\N
 15	15	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	\N	0	\N
-8	8	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	\N	0	\N
 10	10	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	\N	0	\N
 11	11	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	\N	0	\N
 16	16	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	\N	0	\N
-1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-22 23:52:17.893646-04	0	\N
+3	3	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-23 00:34:28.188783-04	0	\N
+8	8	$pbkdf2-sha256$29000$TKl1LiXkXMtZKwVgTCmF8A$XOtaIWF0x.F2kJPcD1f1Dvb2lWpgQkIsuQrDo6wM.nI	2026-11-23 00:35:18.039427-04	0	\N
+1	1	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-23 00:37:25.692006-04	0	\N
 4	4	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-22 20:38:23.699778-04	0	\N
-3	3	$pbkdf2-sha256$29000$gHCO8T6HcO59rzVmrJWy1g$/a2dYJv0EHxFIjloonscbWfBjmuO/jL59TpBJU/M6c4	2026-11-22 21:06:28.793312-04	0	\N
 \.
 
 
@@ -6498,6 +6507,7 @@ COPY personas.estudiantes (id_est, id_usu, cedula, id_mun, nombre, apellido, id_
 38	\N	V-9128464	23	NELLY	RAMIREZ	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
 39	\N	V-9137449	23	LUIS	GOMEZ	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
 40	\N	V-9143975	23	NICOLASA	CARRILLO	2	10	1	A	2026-11-22 11:01:53.657385-04	2026-11-22 11:01:53.657385-04	\N
+81	\N	V-12345678	23	DON	HOMAR	\N	\N	1	I	2026-11-23 04:13:48.601127-04	2026-11-23 00:30:36.222316-04	\N
 \.
 
 
@@ -6570,7 +6580,7 @@ SELECT pg_catalog.setval('academico.secciones_id_sec_seq', 10, true);
 -- Name: aud_mov_id_aud_seq; Type: SEQUENCE SET; Schema: general; Owner: postgres
 --
 
-SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 1802, true);
+SELECT pg_catalog.setval('general.aud_mov_id_aud_seq', 1811, true);
 
 
 --
@@ -6696,7 +6706,7 @@ SELECT pg_catalog.setval('personas.docentes_id_doc_seq', 19, true);
 -- Name: estudiantes_id_est_seq; Type: SEQUENCE SET; Schema: personas; Owner: postgres
 --
 
-SELECT pg_catalog.setval('personas.estudiantes_id_est_seq', 80, true);
+SELECT pg_catalog.setval('personas.estudiantes_id_est_seq', 81, true);
 
 
 --
@@ -8943,11 +8953,11 @@ ALTER TABLE ONLY personas.docentes
 COMMENT ON CONSTRAINT fk_id_mun ON personas.docentes IS 'Llave foranea del identificador del municipio';
 
 
--- Completed on 2026-11-23 00:08:02
+-- Completed on 2026-11-23 00:38:15
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1uc129QfZzrdlnozNTXWKj2USstDQuLfuQZ2NmrOuNeEsVam0y3IyvcXUao8QYh
+\unrestrict Yp5mImSpFHfzvXSxfN9zgkiUcC4oe8mGzcie6HR274r640tqyP6c9zBpiHX8qvP
 

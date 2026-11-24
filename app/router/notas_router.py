@@ -144,7 +144,7 @@ def crear_nota(
     return service.crear(session, nota_in)
 
 
-# --- ✅ GUARDADO MASIVO DEL ACTA ---
+# --- GUARDADO MASIVO DEL ACTA ---
 @router.post("/acta", response_model=ResumenActa)
 def guardar_acta(
     acta_in: ActaCreate,
@@ -160,7 +160,7 @@ def guardar_acta(
     return service.guardar_acta(session, acta_in, reapertura_admin=usuario_actual.get('rol') == 1)
 
 
-# --- ✅ UPDATE PARCIAL (path y parámetro ahora coinciden) ---
+# --- UPDATE PARCIAL (path y parámetro ahora coinciden) ---
 @router.patch("/{nota_id}", response_model=NotasResponcive)
 def actualizar_parcial_nota(
     nota_id: int,
@@ -175,7 +175,7 @@ def actualizar_parcial_nota(
                              parcial=True, reapertura_admin=usuario_actual.get('rol') == 1)
 
 
-# --- ✅ DELETE LÓGICO (path y parámetro ahora coinciden) ---
+# --- DELETE LÓGICO (path y parámetro ahora coinciden) ---
 @router.delete("/{nota_id}", status_code=status.HTTP_200_OK)
 def eliminar_nota(
     nota_id: int,

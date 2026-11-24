@@ -24,7 +24,7 @@ interface KpiDef {
   color: string;
 }
 
-// ✅ Componente aislado: solo este subárbol se re-renderiza cada segundo
+// Componente aislado: solo este subárbol se re-renderiza cada segundo
 const UltimaActualizacion = ({ timestamp }: { timestamp: number }): ReactNode => {
   const [, setTick] = useState(0);
 
@@ -54,7 +54,7 @@ export const Dashboard = () => {
     isError, refetchAll
   } = useAnalytics();
 
-  // ✅ Estado exclusivo del botón manual (para que el auto-refresh no lo active)
+  // Estado exclusivo del botón manual (para que el auto-refresh no lo active)
   const [isManualRefresh, setIsManualRefresh] = useState(false);
 
   const handleRefresh = async () => {
@@ -137,7 +137,7 @@ export const Dashboard = () => {
   const maxHorasEspacio = Math.max(...ocupacion.map((e: OcupacionEspacio) => e.horas_ocupadas), 1);
   const totalEstudiantesProgramas = porPrograma.reduce((acc, p) => acc + p.total_estudiantes, 0);
 
-  // ✅ Atenúa el contenido mientras se refresca (feedback visual global)
+  // Atenúa el contenido mientras se refresca (feedback visual global)
   const claseAtenuada = isFetching ? 'opacity-60 transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300';
 
   return (
@@ -181,7 +181,7 @@ export const Dashboard = () => {
         </div>
       </section>
 
-      {/* ✅ Barra de progreso indeterminada mientras refresca */}
+      {/* Barra de progreso indeterminada mientras refresca */}
       {isFetching && (
         <div className="w-full h-1 bg-indigo-100 rounded-full overflow-hidden">
           <div className="h-full w-1/3 bg-indigo-600 rounded-full animate-pulse"></div>

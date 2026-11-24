@@ -1,7 +1,6 @@
+# Este archivo no iba a existir, pero lo creamos para no confundirnos con analytics xd
 """
-UNEM · Router de Analítica Académica (Opción 2)
-Independiente de analytics.py para no tocar el archivo del dashboard.
-Prefijo: /analitica
+UNEM · Router de Analítica Académica 
 """
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, text
@@ -263,11 +262,9 @@ def histograma(
     return [{"bin": int(r["bin"]), "cantidad": int(r["cantidad"])} for r in rows]
 
 
-# ============================================================
-# PREDICCIONES (Lote 5) — proyección y riesgo académico
-# Regresión lineal por mínimos cuadrados calculada en PostgreSQL
-# (regr_slope / regr_intercept / regr_r2) sobre la serie histórica.
-# ============================================================
+
+# PREDICCIONES  proyección y riesgo académico
+# Pues lo dice claramente, proyecta. . . AAAAAAAAA ME PROYECTO AAAAAAAA QUIERO APROBAR
 
 def _nivel_riesgo(pct: float, promedio: float) -> str:
     """Clasificación de riesgo académico a partir de % de aprobación y promedio."""

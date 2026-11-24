@@ -28,7 +28,7 @@ interface ColumnDef {
 const SOLO_LETRAS = /^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+$/;
 const SOLO_ESPEC = /^[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]+$/;
 
-// ✅ Validaciones alineadas a los CHECK de la BD
+// Validaciones alineadas a los CHECK de la BD
 const docenteSchema = z.object({
   tipo_cedula: z.enum(['V', 'E'], { message: 'Selecciona V o E' }),
   numero_cedula: z.string()
@@ -133,7 +133,7 @@ export const DocentesPage = () => {
   const closeModal = () => { setIsModalOpen(false); setEditingDocente(null); reset(); };
 
   const onSubmit = async (data: DocenteFormData) => {
-    // ✅ Teléfono SIN guion (la BD exige ^04[0-9]{9}$)
+    // Teléfono SIN guion (la BD exige ^04[0-9]{9}$)
     const telefono = data.numero_telefono
       ? `${data.codigo_telefono ?? '0414'}${data.numero_telefono}`
       : undefined;
@@ -174,7 +174,7 @@ export const DocentesPage = () => {
         id: doc.id_doc,
         data: { estatus: nuevoEstatus } as DocenteUpdate,
       });
-      // ✅ Fuerza a React Query a traer los datos frescos
+      // Fuerza a React Query a traer los datos frescos
       await refetch();
       toast.success(`${doc.nombre} ${doc.apellido} ${accion} correctamente`, {
         icon: nuevoEstatus === 'A' ? '✅' : '📋',
@@ -507,7 +507,7 @@ export const DocentesPage = () => {
                 {errors.especialidad && <p className="flex items-center gap-1 text-sm text-red-600 mt-1"><AlertCircle size={14} /> {errors.especialidad.message}</p>}
               </div>
 
-              {/* ✅ Horas máximas con slider + cálculo en vivo */}
+              {/* Horas máximas con slider + cálculo en vivo */}
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
                   Horas Máx. Semanales: <span className="font-bold text-indigo-600">{horasMaxWatch || 0}h</span>

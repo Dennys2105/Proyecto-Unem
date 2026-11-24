@@ -40,7 +40,7 @@ def leer_malla(
     session: Session = Depends(get_session),
     usuario_actual: dict = Depends(verificar_permiso("malla", "LEC", "SP"))
 ):
-    # ✅ Consulta corregida: ahora incluye pre.unidades_creditos
+    # Consulta corregida: ahora incluye pre.unidades_creditos
     query = """
         SELECT 
             mc.id_malla, mc.id_pro, mc.id_mat, mc.trayecto, mc.periodo, 
@@ -105,7 +105,7 @@ def leer_malla(
                 "id_mat": r["pre_id"],
                 "codigo": r["pre_codigo"],
                 "nombre": r["pre_nombre"],
-                "unidades_creditos": r["pre_uc"]  # ✅ AQUÍ ESTABA EL CAMPO FALTANTE
+                "unidades_creditos": r["pre_uc"]  # AQUÍ ESTABA EL CAMPO FALTANTE
             } if r["pre_id"] else None
         })
         

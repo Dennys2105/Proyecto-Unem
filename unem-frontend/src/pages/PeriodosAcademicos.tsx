@@ -48,12 +48,12 @@ type SortKey = 'id_per' | 'anio' | 'fecha_inicio';
 type SortDir = 'asc' | 'desc';
 
 export const Periodos = () => {
-  const { idRol, puede } = useAuth();
-  const puedeActualizarPeriodo = idRol !== null && puede('periodos', 'ACT', 'LIM');
-  const puedeCambiarVigencia = (idRol === 1 || idRol === 2) && puedeActualizarPeriodo;
+  const { esAdmin, esVicerrector } = useAuth();
+  const puedeAdministrarPeriodo = esAdmin;
+  const puedeCerrarOCambiarVigencia = esAdmin || esVicerrector;
   const {
     periodos, isLoading, createPeriodo, updatePeriodo,
-    activarPeriodo, isCreating, isUpdating, isActivating, refetch
+    activarPeriodo, cerrarPeriodo, isCreating, isUpdating, isActivating, isClosing, refetch
   } = usePeriodos();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -158,7 +158,7 @@ export const Periodos = () => {
     if (!confirmado) return;
 
     try {
-      await updatePeriodo({ id: per.id_per, data: { activo: false } });
+      await cerrarPeriodo(per.id_per);
       await refetch();
       toast.success(`"${per.nombre}" fue cerrado y ya no está vigente`);
     } catch (error: unknown) {
@@ -266,24 +266,28 @@ export const Periodos = () => {
         const esActivo = (row.estatus ?? 'A') === 'A';
         return (
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-              <Edit size={14} /> Editar
-            </button>
-            {esVigente && puedeActualizarPeriodo ? (
-              <button onClick={() => cerrarVigencia(row)} disabled={isUpdating} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 bg-white text-amber-700 hover:bg-amber-50 border border-amber-300" title="Cerrar el período; sus calificaciones dejarán de ser editables">
+            {puedeAdministrarPeriodo && (
+              <button onClick={() => openEditModal(row)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                <Edit size={14} /> Editar
+              </button>
+            )}
+            {esVigente && puedeCerrarOCambiarVigencia ? (
+              <button onClick={() => cerrarVigencia(row)} disabled={isClosing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 bg-white text-amber-700 hover:bg-amber-50 border border-amber-300" title="Cerrar el período; sus calificaciones dejarán de ser editables">
                 <Star size={14} /> Cerrar período
               </button>
-            ) : esActivo && puedeCambiarVigencia && (
+            ) : esActivo && puedeCerrarOCambiarVigencia && (
               <button onClick={() => activarVigente(row)} disabled={isActivating} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200" title="Marcar como período vigente">
                 <Sparkles size={14} /> Activar / reabrir
               </button>
             )}
-            <button onClick={() => toggleRetiro(row)} disabled={isUpdating || (esActivo && esVigente)} title={esActivo && esVigente ? 'Cierra primero el período vigente' : undefined} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
-              esActivo ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-            }`}>
-              {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
-              {esActivo ? 'Retirar' : 'Reincorporar'}
-            </button>
+            {puedeAdministrarPeriodo && (
+              <button onClick={() => toggleRetiro(row)} disabled={isUpdating || (esActivo && esVigente)} title={esActivo && esVigente ? 'Cierra primero el período vigente' : undefined} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-50 ${
+                esActivo ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+              }`}>
+                {esActivo ? <UserX size={14} /> : <UserCheck size={14} />}
+                {esActivo ? 'Retirar' : 'Reincorporar'}
+              </button>
+            )}
           </div>
         );
       },
@@ -323,9 +327,11 @@ export const Periodos = () => {
             <option value="I">Solo retirados</option>
             <option value="">Todos los estados</option>
           </select>
-          <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
-            <Plus size={15} /> Nuevo Período
-          </button>
+          {puedeAdministrarPeriodo && (
+            <button className="unem-btn unem-btn-primary" onClick={openCreateModal}>
+              <Plus size={15} /> Nuevo Período
+            </button>
+          )}
         </div>
       </section>
 

@@ -31,7 +31,7 @@ export const notaService = {
     await api.delete(`/notas/${id}`);
   },
 
-  // ✅ Acta: estudiantes de la sección con su nota actual
+  // Acta: estudiantes de la sección con su nota actual
   getActa: async (params: {
     id_sec: number; id_malla: number; id_per: number; tipo_evaluacion: string;
   }): Promise<FilaActa[]> => {
@@ -39,13 +39,13 @@ export const notaService = {
     return response.data;
   },
 
-  // ✅ Guardado masivo
+  // Guardado masivo
   guardarActa: async (data: ActaCreate): Promise<ResumenActa> => {
     const response = await api.post('/notas/acta', data);
     return response.data;
   },
 
-  // ✅ Análisis estadístico
+  // Análisis estadístico
   getAnalisis: async (params?: { cod_programa?: string; id_per?: number }): Promise<AnalisisNota[]> => {
     const response = await api.get('/notas/analisis', { params });
     return response.data;
